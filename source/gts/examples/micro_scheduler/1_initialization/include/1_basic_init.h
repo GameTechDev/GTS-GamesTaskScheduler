@@ -31,7 +31,7 @@ void basicInit()
     // Create a worker pool for the MicroScheduler to run on.
     WorkerPool workerPool;
     // Empty means #workers == #HW threads.
-    bool result = workerPool.initialize(/* you can also explicity specifiy the number of workers. */);
+    bool result = workerPool.initialize(/* you can also explicitly specify the number of workers. */);
     GTS_ASSERT(result);
 
     // Create a micro scheduler and assign the worker pool to it.

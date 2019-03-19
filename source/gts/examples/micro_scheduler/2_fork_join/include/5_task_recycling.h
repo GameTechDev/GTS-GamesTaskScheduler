@@ -34,7 +34,7 @@ namespace gts_examples {
 // Builds on 4_scheduler_bypassing
 
 //------------------------------------------------------------------------------
-// A task that explicity represent a join.
+// A task that explicitly represent a join.
 struct ParallelFibContinuationTask4
 {
     ParallelFibContinuationTask4(

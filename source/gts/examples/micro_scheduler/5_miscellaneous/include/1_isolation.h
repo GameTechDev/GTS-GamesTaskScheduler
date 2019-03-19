@@ -70,7 +70,7 @@ void noTaskIsolation()
             // Check if an outer loop iteration was executed.
             if (threadLocalValues[ctx.workerIndex] != range.begin())
             {
-                std::cout << "Unisolated: Executed an outer loop iteration will waiting on inner loop.\n";
+                std::cout << "Non-isolated: Executed an outer loop iteration will waiting on inner loop.\n";
             }
         },
         StaticPartitioner(),

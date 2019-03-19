@@ -34,7 +34,7 @@ namespace gts_examples {
 // Builds on 3_continuation_join
 
 //------------------------------------------------------------------------------
-// A task that explicity represent a join.
+// A task that explicitly represent a join.
 struct ParallelFibContinuationTask3
 {
     ParallelFibContinuationTask3(
@@ -103,7 +103,7 @@ struct ParallelFibTask3
             // Don't queue the right child! return it.
 
             // We return right child. The makes the task execute immediately,
-            // bypassing the more expesive scheduler operations.
+            // bypassing the more expensive scheduler operations.
             return pRightChild;
         }
     }

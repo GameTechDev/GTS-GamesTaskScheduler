@@ -57,7 +57,7 @@ void simpleIndexedParallelFor()
     // other worker threads need more work.
     auto partitionerType = AdaptivePartitioner();
 
-    // Since the partitioner is adaptive, a block size of 1 gives the paritioner
+    // Since the partitioner is adaptive, a block size of 1 gives the partitioner
     // full control over division.
     size_t const blockSize = 1;
 
@@ -108,7 +108,7 @@ void simpleIteratorParallelFor()
 
     ParallelFor parallelFor(taskScheduler);
 
-    // The StaticPartitioner type recusively divides the only divides
+    // The StaticPartitioner type recursively divides the only divides
     // BlockedRange1d until the blockSize is reached.
     auto paritionerType = StaticPartitioner();
     size_t const blockSize = 128;

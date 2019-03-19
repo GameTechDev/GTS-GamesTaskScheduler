@@ -27,7 +27,7 @@ parallel containers, threading constructs, and debugging utilities.
 3. Move back to the root "gts" directory and there should be an "_build..." folder with the solution in it.
 4. Example projects are numbered and should be read through in-order. Please issue anything that needs more explaination.
 
-(*Doxygen and more example comming soon!)
+(*Doxygen and more examples comming soon!)
 
 ## Features
 

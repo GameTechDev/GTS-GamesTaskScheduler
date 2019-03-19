@@ -31,9 +31,9 @@ namespace gts_examples {
 // To enable the instrumentation, define GTS_ENABLE_INSTRUMENTER.
 
 // The GTS instrumenter is a wrapper around a concrete instrumentation framework
-// that give GTS the ability to output debugging and perfromance markers.
+// that give GTS the ability to output debugging and performance markers.
 // By default, GTS uses a concurrent logger to store the markers, however
-// it can be overriden to output to any frame work. To override call
+// it can be overridden to output to any frame work. To override call
 // the following functions:
 //
 // void setInstrumenterNameThreadFunc(InstrumenterNameThreadFunc hook);
@@ -91,7 +91,7 @@ void instrumentationConcurrentLoggerUsage()
         sprintf_s(filename, "frame_%d.txt", frameId);
         GTS_CONCRT_LOGGER_DUMP(filename);
 
-        // Clear the log for thenext frame
+        // Clear the log for the next frame
         GTS_CONCRT_LOGGER_RESET();
 
         ++frameId;

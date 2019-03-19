@@ -32,8 +32,8 @@ using namespace gts;
 namespace gts_examples {
 
 //------------------------------------------------------------------------------
-// A parallel fibonacci number calcuator. NOTE: this is a terrible way to calucate
-// a fibonacci number, however it is a simple way to demonstrate the fork-join
+// A parallel Fibonacci number calculator. NOTE: this is a terrible way to calculate
+// a Fibonacci number, however it is a simple way to demonstrate the fork-join
 // model of the micro-scheduler.
 struct ParallelFibTask1
 {
@@ -56,7 +56,7 @@ struct ParallelFibTask1
         
 
         // Recursively fork tasks until the base case is reached, then join
-        // the task sums to produce the fibonacci number.
+        // the task sums to produce the Fibonacci number.
 
         if (data.fibN <= 2)
         {
@@ -70,7 +70,7 @@ struct ParallelFibTask1
             // the new children dangling.
             pThisTask->addRef(2, gts::memory_order::relaxed);
             // Doing this in bulk up front also let's us avoid the expensive 
-            // cache sychonization of gts::memory_order::seq_cst.
+            // cache synchronization of gts::memory_order::seq_cst.
             
             // Fork f(n-1):
 
@@ -101,7 +101,7 @@ struct ParallelFibTask1
             // finishes helping with other tasks.
             pThisTask->waitForChildren(ctx);
 
-            // Caculate the fib number for this task.
+            // Calculate the fib number for this task.
             *sum = sumLeft + sumRight;
         }
 

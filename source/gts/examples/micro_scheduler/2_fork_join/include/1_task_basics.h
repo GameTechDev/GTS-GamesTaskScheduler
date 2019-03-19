@@ -76,7 +76,7 @@ void taskBasics()
     // Now this task can only every be run on worker thread #0.
 
     // Queue the task for execution and wait for it to complete. The act of
-    // queueing a task implicitly reduces its refCount by 1.
+    // queuing a task implicitly reduces its refCount by 1.
     taskScheduler.spawnTaskAndWait(pTask /*, optional priority*/);
 
     // NOTE: wait ^^^^ does NOT mean that this thread is blocked. This thread will
@@ -119,7 +119,7 @@ void manualTask()
 // A non POD task.
 struct NonPODTask
 {
-    // Dyanmic task data.
+    // Dynamic task data.
     int* taskData;
 
     NonPODTask(int val) : taskData(new int(val)) {}

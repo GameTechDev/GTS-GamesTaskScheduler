@@ -34,7 +34,7 @@ namespace gts_examples {
 // Builds on 2_implicit_join
 
 //------------------------------------------------------------------------------
-// A task that explicity represent a join.
+// A task that explicitly represent a join.
 struct ParallelFibContinuationTask
 {
     ParallelFibContinuationTask(
@@ -115,7 +115,7 @@ struct ParallelFibTask2
             ctx.pMicroScheduler->spawnTask(pRightChild);
 
             // We don't have to explicitly wait for the left and right children
-            // to join as before. Now the last child to complete will automaticaly
+            // to join as before. Now the last child to complete will automatically
             // join by executing the continuation task. 
         }
 

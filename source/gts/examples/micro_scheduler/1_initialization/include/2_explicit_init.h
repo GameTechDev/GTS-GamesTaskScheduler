@@ -39,7 +39,7 @@ void explicitInit()
     CpuTopology cpuTopo;
     Thread::getCpuTopology(cpuTopo);
 
-    // Loop through each phyical core.
+    // Loop through each physical core.
     for (size_t iCore = 0; iCore < cpuTopo.coreInfo.size(); ++iCore)
     {
         CpuCoreInfo const& coreInfo = cpuTopo.coreInfo[iCore];

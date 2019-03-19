@@ -30,11 +30,11 @@ namespace gts_examples {
 
 void partitionInit()
 {
-    // Imagine a scenarion where you have long running tasks that need to run
+    // Imagine a scenario where you have long running tasks that need to run
     // along side your normal update loop. You wouldn't want to mix these with
     // your update loop tasks because they would starve them and tanks your
     // framerate. To handle this quality-of-service issue, the micro scheduler
-    // allows you to parition the worker pool and scheduler
+    // allows you to partition the worker pool and scheduler
 
     // Create a simple "master" worker pool with 4 threads.
     WorkerPool workerPool;
@@ -42,9 +42,9 @@ void partitionInit()
     GTS_ASSERT(result);
 
     // Let's say 2 of the threads will be used for the update loop and 2 will be
-    // used for the long running threads. To handle this we parition the pool.
+    // used for the long running threads. To handle this we partition the pool.
 
-    // To make the parition we give it the indices of the workers that will be
+    // To make the partition we give it the indices of the workers that will be
     // the partition. The can be any work but #0, which is the special
     // master(main) thread. Let's give it the last two workers.
     Vector<uint32_t> indicies;
