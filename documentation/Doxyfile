@@ -1,0 +1,5 @@
+PROJECT_NAME        = "Psyllium"
+PROJECT_NUMBER      = "."
+OUTPUT_DIRECTORY    = C:/Source/psyllium/documentation
+INPUT               = C:/Source/psyllium/source/psyllium/include/psyllium
+RECURSIVE           = YES
