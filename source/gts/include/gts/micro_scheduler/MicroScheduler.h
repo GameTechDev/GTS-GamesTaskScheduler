@@ -153,7 +153,10 @@ public: // MUTATORS:
      * Spawns the specified 'pTask' to be executed by the scheduler. Spawned
      * tasks are executed in LIFO order, and stolen in FIFO order.
      * @param pTask
-     *  The Task to execute.
+     *  The Task to execute. It will be destroyed after execution refCount == 1.
+     *  In the rare situation you want to keep the task alive, and an extra
+     *  reference. Doing this will require you to call Task::destroy when you are
+     *  doen to avoid memory leaks.
      * @param priority
      *  The priority of the Task.
      */
@@ -171,7 +174,10 @@ public: // MUTATORS:
      *     until all the tasks in the scheduler are complete.
      *
      * @param pTask
-     *  The Task to execute.
+     *  The Task to execute. It will be destroyed after execution refCount == 1.
+     *  In the rare situation you want to keep the task alive, and an extra
+     *  reference. Doing this will require you to call Task::destroy when you are
+     *  doen to avoid memory leaks.
      * @param priority
      *  The priority of the Task.
      */
@@ -183,7 +189,10 @@ public: // MUTATORS:
      * that explore a solution space in bread-first order. It's generally faster
      * to spawn a task than it is to queue it.
      * @param pTask
-     *  The Task to queue.
+     *  The Task to queue. It will be destroyed after execution refCount == 1.
+     *  In the rare situation you want to keep the task alive, and an extra
+     *  reference. Doing this will require you to call Task::destroy when you are
+     *  doen to avoid memory leaks.
      */
     void queueTask(Task* pTask);
 

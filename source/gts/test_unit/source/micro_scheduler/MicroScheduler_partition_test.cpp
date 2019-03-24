@@ -123,7 +123,7 @@ struct ExecutionIndexTracker
         {
             Task* pTask = ctx.pMicroScheduler->allocateTask(ExecutionIndexTracker::taskFunc);
             pTask->setData(data);
-            pThisTask->addChildTask(pTask);
+            pThisTask->addChildTaskWithoutRef(pTask);
 
             ctx.pMicroScheduler->spawnTask(pTask);
         }

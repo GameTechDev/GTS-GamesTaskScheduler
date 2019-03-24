@@ -68,7 +68,7 @@ public:
         while (range.isDivisible())
         {
             Task* pContinuation = pPattern->offerRange(pThisTask, ctx, range.split());
-            pContinuation->addChildTask(pThisTask);
+            pContinuation->addChildTaskWithoutRef(pThisTask);
         }
 
         // executed the remaining range.
@@ -115,7 +115,7 @@ public:
         while (range.isDivisible() && m_initialOfferingDepth > 0)
         {
             Task* pContinuation = pPattern->offerRange(pThisTask, ctx, range.split(), 0);
-            pContinuation->addChildTask(pThisTask);
+            pContinuation->addChildTaskWithoutRef(pThisTask);
         }
 
         if (range.isDivisible())
@@ -131,7 +131,7 @@ public:
                     range.split(),
                     0);
 
-                pContinuation->addChildTask(pThisTask);
+                pContinuation->addChildTaskWithoutRef(pThisTask);
             }
         }
 

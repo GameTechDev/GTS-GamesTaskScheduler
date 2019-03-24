@@ -109,15 +109,29 @@ private: // CREATORS:
 public: // MUTATORS:
 
     /**
-     * Adds pChild as a child of this task. pChild cannot already have a parent.
+     * Adds pChild as a child of this task. It DOES NOT increment this task's
+     * ref count so the caller must have manually increment the reference count
+     * before calling this function. Failing to do so is undefined behavior.
+     * pChild cannot already have a parent.
      */
-    GTS_INLINE void addChildTask(Task* pChild)
+    GTS_INLINE void addChildTaskWithoutRef(Task* pChild)
     {
         GTS_ASSERT(pChild->m_pParent == nullptr);
+        GTS_ASSERT(m_refCount.load(gts::memory_order::acquire) > 1 && "Ref count is 1, did you forget to addRef?");
 
         GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "ADD CHILD", this, pChild);
 
         pChild->m_pParent = this;
+    }
+
+    /**
+     * Adds pChild as a child of this task AND increment this task's ref count.
+     * pChild cannot already have a parent.
+     */
+    GTS_INLINE void addChildTaskWithRef(Task* pChild, gts::memory_order order = gts::memory_order::seq_cst)
+    {
+        addRef(1, order);
+        addChildTaskWithoutRef(pChild);
     }
 
     /**

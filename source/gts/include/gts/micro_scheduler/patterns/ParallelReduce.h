@@ -189,7 +189,7 @@ private:
                 m_partitioner.split(depth),
                 m_priority);
 
-            pContinuation->addChildTask(pRightChild);
+            pContinuation->addChildTaskWithoutRef(pRightChild);
 
             ctx.pMicroScheduler->spawnTask(pRightChild);
 

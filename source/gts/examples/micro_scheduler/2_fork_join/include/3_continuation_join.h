@@ -104,14 +104,14 @@ struct ParallelFibTask2
             Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask2::taskFunc);
             pLeftChild->emplaceData<ParallelFibTask2>(fibN - 1, &pContinuationData->l);
             // Add the task to the continuation.
-            pContinuationTask->addChildTask(pLeftChild);
+            pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork f(n-2)
             Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask2::taskFunc);
             pRightChild->emplaceData<ParallelFibTask2>(fibN - 2, &pContinuationData->r);
             // Add the task to the continuation.
-            pContinuationTask->addChildTask(pRightChild);
+            pContinuationTask->addChildTaskWithoutRef(pRightChild);
             ctx.pMicroScheduler->spawnTask(pRightChild);
 
             // We don't have to explicitly wait for the left and right children

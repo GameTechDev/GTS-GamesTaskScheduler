@@ -64,7 +64,7 @@ struct PriorityGrabber
             PriorityGrabber taskData{ data->vec, 0, (uint32_t)ii };
             pChildTask->setData(taskData);
 
-            pThisTask->addChildTask(pChildTask);
+            pThisTask->addChildTaskWithoutRef(pChildTask);
 
             ctx.pMicroScheduler->spawnTask(pChildTask, ii);
         }
@@ -171,7 +171,7 @@ struct PriorityStarvationGrabber
                 PriorityStarvationGrabber taskData{ data->vec, 0, 0, nextPriority, 0 };
                 pChildTask->setData(taskData);
 
-                pThisTask->addChildTask(pChildTask);
+                pThisTask->addChildTaskWithoutRef(pChildTask);
 
                 ctx.pMicroScheduler->spawnTask(pChildTask, nextPriority);
 
@@ -182,7 +182,7 @@ struct PriorityStarvationGrabber
                 PriorityStarvationGrabber taskData{ data->vec, 0, 0, 0, 0 };
                 pChildTask->setData(taskData);
 
-                pThisTask->addChildTask(pChildTask);
+                pThisTask->addChildTaskWithoutRef(pChildTask);
 
                 ctx.pMicroScheduler->spawnTask(pChildTask, 0);
             }

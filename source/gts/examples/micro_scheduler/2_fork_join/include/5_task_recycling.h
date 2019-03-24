@@ -93,7 +93,7 @@ struct ParallelFibTask4
             // Fork f(n-1)
             Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask4::taskFunc);
             pLeftChild->emplaceData<ParallelFibTask4>(fibN - 1, &pContinuationData->l);
-            pContinuationTask->addChildTask(pLeftChild);
+            pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork f(n-2)

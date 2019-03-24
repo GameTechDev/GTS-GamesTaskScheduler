@@ -63,7 +63,7 @@ struct BasicForkJoinTask
         {
             Task* pChild = ctx.pMicroScheduler->allocateTask(BasicForkJoinTask::taskPrintFunc);
             pChild->emplaceData<BasicForkJoinTask>(ii);
-            pThisTask->addChildTask(pChild);
+            pThisTask->addChildTaskWithoutRef(pChild);
             ctx.pMicroScheduler->spawnTask(pChild);
         }
 

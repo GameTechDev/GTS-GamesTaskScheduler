@@ -50,7 +50,7 @@ TEST(MicroScheduler, addChild)
     pTask->addRef(1);
 
     Task* pChild0 = taskScheduler.allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-    pTask->addChildTask(pChild0);
+    pTask->addChildTaskWithoutRef(pChild0);
     taskScheduler.spawnTask(pChild0);
 
     TaskContext ctx{ nullptr, 0 };
@@ -74,7 +74,7 @@ TEST(MicroScheduler, setContinuation)
         pThisTask->setContinuationTask(pContinuation);
 
         Task* pChild = ctx.pMicroScheduler->allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-        pContinuation->addChildTask(pChild);
+        pContinuation->addChildTaskWithoutRef(pChild);
 
         return pChild;
 
@@ -153,7 +153,7 @@ struct SpawnedTaskCounter
         {
             Task* pTask = ctx.pMicroScheduler->allocateTask(SpawnedTaskCounter::taskFunc);
             pTask->setData(data);
-            pThisTask->addChildTask(pTask);
+            pThisTask->addChildTaskWithoutRef(pTask);
 
             ctx.pMicroScheduler->spawnTask(pTask);
         }

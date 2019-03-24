@@ -55,7 +55,7 @@ struct TaskGraphGenerator
             {
                 Task* pChildTask = ctx.pMicroScheduler->allocateTask(TaskGraphGenerator::taskFunc);
                 pChildTask->setData(data);
-                pThisTask->addChildTask(pChildTask);
+                pThisTask->addChildTaskWithoutRef(pChildTask);
                 ctx.pMicroScheduler->spawnTask(pChildTask);
             }
 

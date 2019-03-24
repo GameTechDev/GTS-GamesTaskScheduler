@@ -93,13 +93,13 @@ struct ParallelFibTask3
             // Fork f(n-1)
             Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask3::taskFunc);
             pLeftChild->emplaceData<ParallelFibTask3>(fibN - 1, &pContinuationData->l);
-            pContinuationTask->addChildTask(pLeftChild);
+            pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork f(n-2)
             Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask3::taskFunc);
             pRightChild->emplaceData<ParallelFibTask3>(fibN - 2, &pContinuationData->r);
-            pContinuationTask->addChildTask(pRightChild);
+            pContinuationTask->addChildTaskWithoutRef(pRightChild);
             // Don't queue the right child! return it.
 
             // We return right child. The makes the task execute immediately,

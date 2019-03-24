@@ -75,8 +75,10 @@ void taskBasics()
     pTask->setAffinity(0);
     // Now this task can only every be run on worker thread #0.
 
-    // Queue the task for execution and wait for it to complete. The act of
-    // queuing a task implicitly reduces its refCount by 1.
+    // Spawn the task for execution and wait for it to complete. The act of
+    // spawning a task implicitly reduces its refCount by 1 after execution.
+    // If the refCount it zero after extecution, the task will be destroyed,
+    // which is the desired behavior (in general).
     taskScheduler.spawnTaskAndWait(pTask /*, optional priority*/);
 
     // NOTE: wait ^^^^ does NOT mean that this thread is blocked. This thread will

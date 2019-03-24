@@ -60,7 +60,7 @@ Task* RootAffinityTestTask(Task* thisTask, TaskContext const& ctx)
         Task* pChildTask = ctx.pMicroScheduler->allocateTask(AffinityTestTask);
         pChildTask->setAffinity(ii);
 
-        thisTask->addChildTask(pChildTask);
+        thisTask->addChildTaskWithoutRef(pChildTask);
 
         ctx.pMicroScheduler->spawnTask(pChildTask);
     }

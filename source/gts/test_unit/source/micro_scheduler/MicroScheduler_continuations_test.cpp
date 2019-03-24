@@ -80,7 +80,7 @@ struct ContinuationPassingTask
             {
                 Task* pChildTask = ctx.pMicroScheduler->allocateTask(ContinuationPassingTask::taskFunc);
                 pChildTask->setData(*data);
-                pContinuationTask->addChildTask(pChildTask);
+                pContinuationTask->addChildTaskWithoutRef(pChildTask);
                 ctx.pMicroScheduler->spawnTask(pChildTask);
             }
         }

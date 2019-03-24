@@ -54,7 +54,7 @@ struct TaskListGenerator
 
             Task* pChildTask = ctx.pMicroScheduler->allocateTask(TaskListGenerator::taskFunc);
             pChildTask->setData(*data);
-            pThisTask->addChildTask(pChildTask);
+            pThisTask->addChildTaskWithoutRef(pChildTask);
             ctx.pMicroScheduler->spawnTask(pChildTask);
 
             pThisTask->waitForChildren(ctx);

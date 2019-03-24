@@ -70,7 +70,12 @@ struct ParallelFibTask1
             // the new children dangling.
             pThisTask->addRef(2, gts::memory_order::relaxed);
             // Doing this in bulk up front also let's us avoid the expensive 
-            // cache synchronization of gts::memory_order::seq_cst.
+            // cache synchronization of gts::memory_order::seq_cst per added child.
+
+            // NOTE: There is a Task::addChildTaskWithRef function that will
+            // add a ref per child, but it is not recommended due to the atomic
+            // increment cost. Further it might cause subtle race conditions
+            // with continuation passing (next lesson).
             
             // Fork f(n-1):
 
@@ -79,7 +84,7 @@ struct ParallelFibTask1
             Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask1::taskFunc);
             pLeftChild->emplaceData<ParallelFibTask1>(fibN - 1, &sumLeft);
             // Add the task as a child of this task.
-            pThisTask->addChildTask(pLeftChild);
+            pThisTask->addChildTaskWithoutRef(pLeftChild);
             // Queue it for execution.
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
@@ -90,7 +95,7 @@ struct ParallelFibTask1
             Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask1::taskFunc);
             pRightChild->emplaceData<ParallelFibTask1>(fibN - 2, &sumRight);
             // Add the task as a child of this task.
-            pThisTask->addChildTask(pRightChild);
+            pThisTask->addChildTaskWithoutRef(pRightChild);
             // Queue it for execution.
             ctx.pMicroScheduler->spawnTask(pRightChild);
 

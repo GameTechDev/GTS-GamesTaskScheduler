@@ -116,7 +116,7 @@ Task* PureWorkStealingTask::execute(Task* pThisTask, TaskContext const& ctx)
             Task* pTask = CpuPureWorkStealing_Workload::buildTask(pChild, ctx.pMicroScheduler);
 
             // Add and queue the task.
-            pThisTask->addChildTask(pTask);
+            pThisTask->addChildTaskWithoutRef(pTask);
             ctx.pMicroScheduler->spawnTask(pTask);
         }
     }
