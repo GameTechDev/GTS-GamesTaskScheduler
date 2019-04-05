@@ -184,6 +184,7 @@ public: // MUTATORS:
     template<typename T, typename... TArgs>
     GTS_INLINE T* emplaceData(TArgs&&... args)
     {
+        static_assert(std::is_trivially_destructible<T>::value);
         m_state |= TASK_HAS_DATA_SUFFIX;
         return new (_dataSuffix()) T(std::forward<TArgs>(args)...);
     }
@@ -194,6 +195,7 @@ public: // MUTATORS:
     template<typename T>
     GTS_INLINE T* setData(T const& data)
     {
+        static_assert(std::is_trivially_destructible<T>::value);
         m_state |= TASK_HAS_DATA_SUFFIX;
         return new (_dataSuffix()) T(data);
     }

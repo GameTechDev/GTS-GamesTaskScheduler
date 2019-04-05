@@ -149,6 +149,35 @@ public: // MUTATORS:
         return pTask;
     }
 
+    template<typename T, Task* (*TaskFunc)(Task*, TaskContext const &ctx) = T::taskFunc, typename... TArgs>
+    GTS_INLINE Task* allocateTaskWithData(TArgs&&... args)
+    {
+        auto wrapperFunc = [](Task* pThisTask, TaskContext const& taskContext) -> Task* {
+            // direct function call, no pointer is used
+            Task* ret = (TaskFunc)(pThisTask, taskContext);
+            if constexpr (std::is_trivially_destructible<T>::value) return ret;
+
+            if (pThisTask->refCount() > 1)
+            {
+                pThisTask->waitForChildren(taskContext);
+            }
+            if ((pThisTask->m_state & (Task::TASK_IS_QUEUED | Task::RECYLE)) == 0)
+            {
+                ((T*)pThisTask->getData())->~T();
+            }
+            return ret;
+        };
+
+        Task* pTask = _allocateEmptyTask(wrapperFunc, sizeof(Task) + sizeof(T));
+
+        if (pTask != nullptr)
+        {
+            pTask->m_state |= Task::TASK_HAS_DATA_SUFFIX;
+            new (pTask->_dataSuffix()) T(std::forward<TArgs>(args)...);
+        }
+        return pTask;
+    }
+
     /**
      * Spawns the specified 'pTask' to be executed by the scheduler. Spawned
      * tasks are executed in LIFO order, and stolen in FIFO order.

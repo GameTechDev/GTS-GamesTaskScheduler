@@ -162,6 +162,7 @@ void Schedule::wait(Task* pWaitingTask, Task* pStartTask, Backoff& backoff)
 
                 // Execute!
                 pTask->m_state |= Task::TASK_IS_EXECUTING;
+                pTask->m_state &= ~Task::TASK_IS_QUEUED;
                 pNextTask = pTask->execute(pTask, TaskContext{ m_pMyScheduler, workerIdx });
 
                 GTS_ASSERT((!pNextTask || (pNextTask && !(pNextTask->m_state & Task::TASK_IS_CONTINUATION))) &&
