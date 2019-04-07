@@ -234,6 +234,7 @@ void MicroScheduler::_freeTask(uint32_t workerIdx, Task* pTask)
 {
     GTS_ASSERT(pTask != nullptr);
 
+    GTS_ASSERT((pTask->m_state & Task::TASK_NEED_DATA_DESTRUCTOR) == 0);
     GTS_ANALYSIS_COUNT(workerIdx, gts::analysis::AnalysisType::NUM_FREES);
     GTS_ANALYSIS_TIME_SCOPED(workerIdx, gts::analysis::AnalysisType::NUM_FREES);
     GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "FREE TASK", pTask, 0);

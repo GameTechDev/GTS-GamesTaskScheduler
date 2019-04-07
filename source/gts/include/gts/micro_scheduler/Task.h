@@ -184,6 +184,11 @@ public: // MUTATORS:
     template<typename T, typename... TArgs>
     GTS_INLINE T* emplaceData(TArgs&&... args)
     {
+#if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
+        GTS_ASSERT((m_state & TASK_NEED_DATA_DESTRUCTOR) == 0);
+        m_state |= !std::is_trivially_destructible<T>::value ? TASK_NEED_DATA_DESTRUCTOR : 0;
+#endif
+
         m_state |= TASK_HAS_DATA_SUFFIX;
         return new (_dataSuffix()) T(std::forward<TArgs>(args)...);
     }
@@ -194,6 +199,11 @@ public: // MUTATORS:
     template<typename T>
     GTS_INLINE T* setData(T const& data)
     {
+#if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
+        GTS_ASSERT((m_state & TASK_NEED_DATA_DESTRUCTOR) == 0);
+        m_state |= !std::is_trivially_destructible<T>::value ? TASK_NEED_DATA_DESTRUCTOR : 0;
+#endif
+
         m_state |= TASK_HAS_DATA_SUFFIX;
         return new (_dataSuffix()) T(data);
     }
@@ -204,10 +214,23 @@ public: // MUTATORS:
     template<typename T>
     GTS_INLINE T* setData(T* data)
     {
+        GTS_ASSERT((m_state & TASK_NEED_DATA_DESTRUCTOR) == 0);
         m_state &= ~TASK_HAS_DATA_SUFFIX;
 
         ::memcpy(_dataSuffix(), &data, sizeof(T*)); // stores address number!
         return (T*)((uintptr_t*)_dataSuffix())[0];
+    }
+
+    /**
+     * Call destructor for the data in the Task.
+     */
+    template<typename T>
+    GTS_INLINE void destroyData()
+    {
+#if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
+        m_state &= ~TASK_NEED_DATA_DESTRUCTOR;
+#endif
+        ((T*)_dataSuffix())->~T();
     }
 
     /**
@@ -354,7 +377,10 @@ private: // DATA:
         TASK_IS_CONTINUATION = 0x08,
         TASK_IS_STOLEN       = 0x10,
         TASK_IS_QUEUED       = 0x20,
-        RECYLE               = 0x40
+        RECYLE               = 0x40,
+#if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
+        TASK_NEED_DATA_DESTRUCTOR = 0x80,
+#endif
     };
 
     TaskRoutine m_fcnTaskRoutine;
