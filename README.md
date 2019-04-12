@@ -119,7 +119,7 @@ gts::Vector<char> vec(elementCount, 0);
 ParallelFor parallelFor(taskScheduler);
 
 // Similar to std::for_each.
-parallelFor(vec.begin(), vec.end(), [&vec](auto iter) { (*iter)++; });
+parallelFor(vec.begin(), vec.end(), [](auto iter) { (*iter)++; });
 ```
 
 Complex version for times when full control is needed:
