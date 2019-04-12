@@ -114,26 +114,7 @@ public: // MUTATORS
             m_minSize);
     }
 
-    //--------------------------------------------------------------------------
-    /**
-     * For TIter with a destructor like STL debug iterators.
-     */
-    GTS_INLINE void destroy()
-    {
-        _destroy(m_end);
-        _destroy(m_begin);
-    }
-
 private:
-
-    //--------------------------------------------------------------------------
-    template<typename T>
-    static void _destroy(T& iter, typename std::enable_if<std::is_destructible<T>::value, T>::type* = nullptr)
-    {
-        iter.~T();
-        iter.~T();
-        GTS_UNREFERENCED_PARAM(iter); // VS emits warning without this.
-    }
 
     //--------------------------------------------------------------------------
     template<typename T>

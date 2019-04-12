@@ -23,19 +23,23 @@
 
 #include <cstdint>
 #include "gts/macro_scheduler/ComputeResourceType.h"
+#include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 
 namespace gts {
 
 class Node;
 class ComputeResource;
+class Workload;
+
+using Workload_ComputeRoutine = void(*)(Workload* pThisWorkload, WorkloadContext const& ctx);
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A Workload is a base class for descibing a task that can be executed by a
- *  specifice ComputeResource. Each ComputeResource requires Workload to execute
+ *  A Workload is a base class for describing a task that can be executed by a
+ *  specific ComputeResource. Each ComputeResource requires Workload to execute
  *  a Node.
  */
 class Workload
@@ -56,12 +60,7 @@ public: // ACCESSORS:
 
     ComputeResourceType type() const;
 
-public: // MUTATORS:
-
-    void setExecutionCost(const uint64_t& cost);
-    void setTransferCost(const uint64_t& cost);
-
-private:
+protected:
 
     uint64_t m_executionCost;
     uint64_t m_transferCost;

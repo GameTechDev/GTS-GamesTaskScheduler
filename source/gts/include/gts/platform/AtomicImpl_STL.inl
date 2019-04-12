@@ -26,6 +26,12 @@ void atomic_thread_fence(gts::memory_order order)
     std::atomic_thread_fence((std::memory_order)order);
 }
 
+//------------------------------------------------------------------------------
+void atomic_signal_fence(gts::memory_order order)
+{
+    std::atomic_signal_fence((std::memory_order)order);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // AtomicCommon:

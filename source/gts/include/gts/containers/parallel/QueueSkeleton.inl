@@ -43,8 +43,8 @@ QueueSkeleton<T, TStorage, TAllocator>::~QueueSkeleton()
 //------------------------------------------------------------------------------
 template<typename T, template <typename, typename> class TStorage, typename TAllocator>
 QueueSkeleton<T, TStorage, TAllocator>::QueueSkeleton(QueueSkeleton const& other)
-    : m_back(other.m_back.load())
-    , m_front(other.m_front.load())
+    : m_front(other.m_front.load())
+    , m_back(other.m_back.load())
     , m_pRingBuffer(nullptr)
     , m_pQuienscentRingBuffer(nullptr)
     , m_allocator(other.m_allocator)
@@ -63,8 +63,8 @@ QueueSkeleton<T, TStorage, TAllocator>::QueueSkeleton(QueueSkeleton const& other
 //------------------------------------------------------------------------------
 template<typename T, template <typename, typename> class TStorage, typename TAllocator>
 QueueSkeleton<T, TStorage, TAllocator>::QueueSkeleton(QueueSkeleton&& other)
-    : m_back(other.m_back.load())
-    , m_front(other.m_front.load())
+    : m_front(other.m_front.load())
+    , m_back(other.m_back.load())
     , m_pRingBuffer(other.m_pRingBuffer.load())
     , m_pQuienscentRingBuffer(other.m_pQuienscentRingBuffer)
     , m_allocator(other.m_allocator)

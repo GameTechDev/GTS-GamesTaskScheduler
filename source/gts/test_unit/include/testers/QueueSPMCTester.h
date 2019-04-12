@@ -111,7 +111,7 @@ struct QueueSPMCTester
     //--------------------------------------------------------------------------
     void popRace()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency();
@@ -133,7 +133,7 @@ struct QueueSPMCTester
 
             for (uint32_t tt = 0; tt < threadCount; ++tt)
             {
-                threads[tt] = new std::thread([itemCount, &queue, &stolenValues, &startConsumption, tt]()
+                threads[tt] = new std::thread([&queue, &stolenValues, &startConsumption, tt]()
                 {
                     while (!startConsumption.load())
                     {
@@ -179,14 +179,14 @@ struct QueueSPMCTester
     //--------------------------------------------------------------------------
     void pushPopRace_2Threads()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             std::unordered_set<ValueType> values(itemCount);
 
             TQueue queue;
 
-            int totalItemValue = 0;
+            uint32_t totalItemValue = 0;
 
             std::thread theif([itemCount, &queue, &values]()
             {
@@ -222,7 +222,7 @@ struct QueueSPMCTester
     //--------------------------------------------------------------------------
     void pushPopRace_ManyThreads()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency() - 1;
@@ -237,7 +237,7 @@ struct QueueSPMCTester
 
             for (uint32_t tt = 0; tt < threadCount; ++tt)
             {
-                threads[tt] = new std::thread([itemCount, &queue, &stolenValues, &startConsumption, &done, tt]()
+                threads[tt] = new std::thread([&queue, &stolenValues, &startConsumption, &done, tt]()
                 {
                     while (!startConsumption.load())
                     {

@@ -112,7 +112,7 @@ struct QueueMPMCTester
     //--------------------------------------------------------------------------
     void pushRace()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t producerThreadCount = gts::Thread::getHardwareThreadCount() <= 2
                 ? 2
@@ -138,7 +138,7 @@ struct QueueMPMCTester
                 const uint32_t itemStart = tt * producedItemsPerThread;
                 const uint32_t itemEnd = itemStart + producedItemsPerThread;
 
-                producers[tt] = new std::thread([itemCount, itemStart, itemEnd, &queue, &startProduction]()
+                producers[tt] = new std::thread([itemStart, itemEnd, &queue, &startProduction]()
                 {
                     while (!startProduction.load())
                     {
@@ -176,7 +176,7 @@ struct QueueMPMCTester
             }
 
             // Verify that all values were received
-            for (int ii = 0; ii < ITEM_COUNT; ++ii)
+            for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)
             {
                 ASSERT_TRUE(values.find(ValueType(ii)) != values.end());
             }
@@ -186,7 +186,7 @@ struct QueueMPMCTester
     //--------------------------------------------------------------------------
     void popRace()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency();
@@ -242,7 +242,7 @@ struct QueueMPMCTester
             }
 
             // Verify that all values were received
-            for (int ii = 0; ii < ITEM_COUNT; ++ii)
+            for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)
             {
                 ASSERT_TRUE(values.find(ValueType(ii)) != values.end());
             }
@@ -257,7 +257,7 @@ struct QueueMPMCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             _pushPopRace(queue, 0, itemCount, 1, 1);
         }
@@ -271,7 +271,7 @@ struct QueueMPMCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             _pushPopRace(queue, 0, itemCount, threadCount, threadCount);
         }
@@ -285,7 +285,7 @@ struct QueueMPMCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             for (uint32_t ii = 0; ii < itemCount; ++ii)
             {
@@ -337,7 +337,7 @@ private:
         std::vector<std::vector<ValueType>> poppedValues(consumerThreadCount);
         for (uint32_t tt = 0; tt < consumerThreadCount; ++tt)
         {
-            consumers[tt] = new std::thread([startItem, consumedItemsPerThread, &queue, &startTest, &poppedValues, tt]()
+            consumers[tt] = new std::thread([consumedItemsPerThread, &queue, &startTest, &poppedValues, tt]()
             {
                 while (!startTest.load())
                 {

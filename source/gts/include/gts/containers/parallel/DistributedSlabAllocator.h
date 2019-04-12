@@ -81,7 +81,7 @@ public:
         friend class DistributedSlabAllocator;
 
         LocalAllocator(LocalAllocator const&) {}
-        LocalAllocator& operator=(LocalAllocator const&) {}
+        LocalAllocator& operator=(LocalAllocator const&) { return *this; }
 
         FreeList m_deferredFreeList;
         FreeList m_freeList;

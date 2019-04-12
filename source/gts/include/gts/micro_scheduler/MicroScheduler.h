@@ -112,8 +112,9 @@ public: // LIFETIME:
 public: // MUTATORS:
 
     /**
-     * Allocates a new Task object of the specified size.
-     * @param taskRoutine
+     * Allocates a new Task object of the specified size. Useful if you are
+     * not ready to set the task data on allocation.
+     * @param taskFunc
      *  The function the Task will execute.
      * @param dataSize
      *  The size of the Task data. Always rounds up to the next multiple of
@@ -121,30 +122,58 @@ public: // MUTATORS:
      * @return
      *  The allocated Task or nullptr if the allocation failed.
      */
-    GTS_INLINE Task* allocateTask(TaskRoutine taskRoutine, uint32_t dataSize = GTS_NO_SHARING_CACHE_LINE_SIZE)
+    GTS_INLINE Task* allocateTaskRaw(
+        TaskRoutine taskFunc,
+        uint32_t dataSize = GTS_NO_SHARING_CACHE_LINE_SIZE)
     {
-        Task* pTask = _allocateEmptyTask(taskRoutine, sizeof(Task) + dataSize);
+        Task* pTask = _allocateEmptyTask(taskFunc, sizeof(Task) + dataSize);
         return pTask;
     }
 
     /**
-     * Allocates a new Task object and emplaces the TTask data.
-     * @tparam TTask
-     *   The Task type. It must have a static member function:
-     *   Task* taskFunc(Task* pThisTask, TaskContext const& taskContext);
+     * Allocates a new Task object and emplaces the TData data. TData must have
+     * a static function taskFunc.
      * @param args
-     *  The constructor arguments for TTask.
+     *  The constructor arguments for TData.
      * @return
      *  The allocated Task or nullptr if the allocation failed.
      */
-    template<typename TTask, typename... TArgs>
+    template<
+        typename TData,
+        Task* (*TaskFunc)(Task*, TaskContext const &) = TData::taskFunc,
+        typename... TArgs>
     GTS_INLINE Task* allocateTask(TArgs&&... args)
     {
-        Task* pTask = _allocateEmptyTask(TTask::taskFunc, sizeof(Task) + sizeof(TTask));
+        Task* pTask = _allocateEmptyTask(TData::taskFunc, sizeof(Task) + sizeof(TData));
         
         if (pTask != nullptr)
         {
-            pTask->emplaceData<TTask>(std::forward<TArgs>(args)...);
+            pTask->emplaceData<TData>(std::forward<TArgs>(args)...);
+        }
+        return pTask;
+    }
+
+    /**
+     * Allocates a new Task object and emplaces the function/lambda data.
+     * @param func
+     *   A function that takes args as arguments.
+     * @param args
+     *  The arguments for func.
+     * @return
+     *  The allocated Task or nullptr if the allocation failed.
+     */
+    template<typename TFunc, typename... TArgs>
+    GTS_INLINE Task* allocateTask(TFunc&& func, TArgs&&... args)
+    {
+        Task* pTask = _allocateEmptyTask(
+            LambdaTaskWrapper<TFunc, TArgs...>::taskFunc, sizeof(Task) +
+            sizeof(LambdaTaskWrapper<TFunc, TArgs...>));
+
+        if (pTask != nullptr)
+        {
+            pTask->emplaceData<LambdaTaskWrapper<TFunc, TArgs...>>(
+                std::forward<TFunc>(func),
+                std::forward<TArgs>(args)...);
         }
         return pTask;
     }
@@ -153,10 +182,10 @@ public: // MUTATORS:
      * Spawns the specified 'pTask' to be executed by the scheduler. Spawned
      * tasks are executed in LIFO order, and stolen in FIFO order.
      * @param pTask
-     *  The Task to execute. It will be destroyed after execution refCount == 1.
+     *  The Task to spawn. It will be destroyed after execution refCount == 1.
      *  In the rare situation you want to keep the task alive, and an extra
      *  reference. Doing this will require you to call Task::destroy when you are
-     *  doen to avoid memory leaks.
+     *  done to avoid memory leaks.
      * @param priority
      *  The priority of the Task.
      */
@@ -174,10 +203,10 @@ public: // MUTATORS:
      *     until all the tasks in the scheduler are complete.
      *
      * @param pTask
-     *  The Task to execute. It will be destroyed after execution refCount == 1.
+     *  The Task to spawn. It will be destroyed after execution refCount == 1.
      *  In the rare situation you want to keep the task alive, and an extra
      *  reference. Doing this will require you to call Task::destroy when you are
-     *  doen to avoid memory leaks.
+     *  done to avoid memory leaks.
      * @param priority
      *  The priority of the Task.
      */
@@ -192,17 +221,17 @@ public: // MUTATORS:
      *  The Task to queue. It will be destroyed after execution refCount == 1.
      *  In the rare situation you want to keep the task alive, and an extra
      *  reference. Doing this will require you to call Task::destroy when you are
-     *  doen to avoid memory leaks.
+     *  done to avoid memory leaks.
      */
     void queueTask(Task* pTask);
 
     /**
-     * Runs any DAGs created by 'fcn' in isolation of other Tasks. That is,
+     * Runs any DAGs created by 'func' in isolation of other Tasks. That is,
      * if a thread begins executing an isolated Task, it can only execute
      * other Tasks from the same isolation group until complete.
      */
     template<typename TFunction>
-    void isolate(TFunction fcn)
+    void isolate(TFunction func)
     {
         uint32_t* pIsolationTag = new uint32_t; // make unique address.
 
@@ -213,7 +242,7 @@ public: // MUTATORS:
         }
 
         uintptr_t oldTag = _isolateSchedule((uintptr_t)pIsolationTag);
-        fcn();
+        func();
         _isolateSchedule(oldTag); // restore old tag.
 
         delete pIsolationTag;
@@ -248,11 +277,17 @@ public: // ACCESSORS:
 
 private: // SCHEDULING:
 
-    Task* _allocateEmptyTask(TaskRoutine taskRoutine, uint32_t size);
+    Task* _allocateEmptyTask(TaskRoutine taskFunc, uint32_t size);
     void _freeTask(uint32_t workerIdx, Task* pTask);
     void _wait(Task* pTask, Task* pStartTask, uint32_t workerIndex);
     uintptr_t _isolateSchedule(uintptr_t isolationTag);
-    static void _setupVictimPools(Schedule*& pDstSched, bool* pDstOwnership, Schedule* const pSrcSched, bool* pSrcOwnership, uint32_t scheduleCount);
+
+    static void _setupVictimPools(
+        Schedule*& pDstSched,
+        bool* pDstOwnership,
+        Schedule* const pSrcSched,
+        bool* pSrcOwnership,
+        uint32_t scheduleCount);
 
 private: // DATA:
 

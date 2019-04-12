@@ -137,13 +137,13 @@ TEST(DistributedSlabAllocatorTest, multiSlabAllocation)
     std::vector<size_t*> allocs(numAllocs);
 
     // Allocate several objects.
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         allocs[ii] = (size_t*)slabAlloc.allocate(threadIdx);
     }
     ASSERT_EQ(numAllocs, slabAlloc.slabCount(threadIdx));
 
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         // Free the objects.
         slabAlloc.free(threadIdx, allocs[ii]);
@@ -166,13 +166,13 @@ TEST(DistributedSlabAllocatorTest, multiSlabAllocationAndDeferredFree)
     std::vector<size_t*> allocs(numAllocs);
 
     // Allocate several objects on thread 0
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         allocs[ii] = (size_t*)slabAlloc.allocate(threadIdx0);
     }
     ASSERT_EQ(numAllocs, slabAlloc.slabCount(threadIdx0));
 
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         // Free the object on thread 1.
         slabAlloc.free(threadIdx1, allocs[ii]);
@@ -195,13 +195,13 @@ TEST(DistributedSlabAllocatorTest, unknownThreadSlabAllocation)
     std::vector<size_t*> allocs(numAllocs);
 
     // Allocate several objects.
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         allocs[ii] = (size_t*)slabAlloc.allocate(threadIdx);
     }
     ASSERT_EQ(numAllocs, slabAlloc.slabCount(threadIdx));
 
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         // Free the object.
         slabAlloc.free(threadIdx, allocs[ii]);
@@ -225,13 +225,13 @@ TEST(DistributedSlabAllocatorTest, unknownThreadSlabAllocationDeferredFree)
     std::vector<size_t*> allocs(numAllocs);
 
     // Allocate several objects on an unknown thread.
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         allocs[ii] = (size_t*)slabAlloc.allocate(threadIdx3);
     }
     ASSERT_EQ(numAllocs, slabAlloc.slabCount(threadIdx3));
 
-    for (int ii = 0; ii < numAllocs; ++ii)
+    for (uint32_t ii = 0; ii < numAllocs; ++ii)
     {
         // Free the objects on a known thread.
         slabAlloc.free(threadIdx0, allocs[ii]);

@@ -23,6 +23,9 @@
 
 #include "gts/analysis/Instrumenter.h"
 #include "gts/analysis/ConcurrentLogger.h"
+#include "gts/micro_scheduler/WorkerPool.h"
+#include "gts/micro_scheduler/MicroScheduler.h"
+#include "gts/micro_scheduler/patterns/ParallelFor.h"
 
 using namespace gts;
 
@@ -67,25 +70,37 @@ void instrumentationBasics()
         // Uses RAII delimit the region in scope.
         GTS_INSTRUMENTER_SCOPED(gts::analysis::Tag::ANY, "Mark Scope", 0, 0);
     }
+
+    GTS_CONCRT_LOGGER_RESET();
 }
 
 //------------------------------------------------------------------------------
 void instrumentationConcurrentLoggerUsage()
 {
-    // To enable the macros, define GTS_ENABLE_CONCRT_LOGGER.
+    // To enable the macros, define GTS_ENABLE_CONCRT_LOGGER. In this example
+    // you can set the configuration to DebugWithInstrument or RelWithInstrument
+    // to create a log.
 
-
-    // If using the default ConcurrentLogger, you can dump the log to a file like so:
-    GTS_CONCRT_LOGGER_DUMP("LoggerDump.txt");
+    // Init boilerplate
+    WorkerPool workerPool;
+    bool result = workerPool.initialize();
+    GTS_ASSERT(result);
+    MicroScheduler taskScheduler;
+    result = taskScheduler.initialize(&workerPool);
+    GTS_ASSERT(result);
+    ParallelFor parallelFor(taskScheduler);
 
 
     // In a game, you can dump per frame like so:
 
     char filename[32];
     int frameId = 0;
-    while (true)
+    while (true) // update loop.
     {
-        // ... update simulation ...
+        // Pretend workload so we can see some tasks.
+        uint32_t const elementCount = 1 << 16;
+        gts::Vector<char> vec(elementCount, 0);
+        parallelFor(vec.begin(), vec.end(), [](auto iter) { (*iter)++; });
 
         // Dump the frame data.
         sprintf_s(filename, "frame_%d.txt", frameId);
@@ -101,6 +116,10 @@ void instrumentationConcurrentLoggerUsage()
 
 
     // See: ConcurrentLogger.h for finer control over the logger.
+
+
+    taskScheduler.shutdown();
+    workerPool.shutdown();
 }
 
 //------------------------------------------------------------------------------

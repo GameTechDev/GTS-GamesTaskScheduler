@@ -75,8 +75,8 @@ public:
     T& back();
     T const& back() const;
 
-    T& front(size_t pos);
-    T const& front(size_t pos) const;
+    T& front();
+    T const& front() const;
     
     void push_back(T const& val);
     void push_back(T&& val);

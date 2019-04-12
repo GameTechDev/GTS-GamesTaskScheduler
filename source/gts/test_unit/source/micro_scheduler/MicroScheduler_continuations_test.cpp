@@ -70,7 +70,7 @@ struct ContinuationPassingTask
             ContinuationTask contData;
             contData.continuationCount = data->continuationCount;
 
-            Task* pContinuationTask = ctx.pMicroScheduler->allocateTask(ContinuationTask::taskFunc);
+            Task* pContinuationTask = ctx.pMicroScheduler->allocateTask<ContinuationTask>();
             pContinuationTask->setData(contData);
             pThisTask->setContinuationTask(pContinuationTask);
 
@@ -78,7 +78,7 @@ struct ContinuationPassingTask
 
             for (uint32_t ii = 0; ii < data->breadth; ++ii)
             {
-                Task* pChildTask = ctx.pMicroScheduler->allocateTask(ContinuationPassingTask::taskFunc);
+                Task* pChildTask = ctx.pMicroScheduler->allocateTask<ContinuationPassingTask>();
                 pChildTask->setData(*data);
                 pContinuationTask->addChildTaskWithoutRef(pChildTask);
                 ctx.pMicroScheduler->spawnTask(pChildTask);
@@ -125,7 +125,7 @@ void TestContinuationPassing(uint32_t depth, uint32_t breadth, uint32_t threadCo
         counter.store(0);
     }
 
-    gts::Atomic<uint32_t> continuationCount = 0;
+    gts::Atomic<uint32_t> continuationCount(0);
 
     ContinuationPassingTask taskData;
     taskData.taskScheduler        = &taskScheduler;
@@ -136,7 +136,7 @@ void TestContinuationPassing(uint32_t depth, uint32_t breadth, uint32_t threadCo
     taskData.maxDepth             = depth;
     taskData.threadCount          = threadCount;
 
-    Task* pRootTask = taskScheduler.allocateTask(ContinuationPassingTask::taskFunc);
+    Task* pRootTask = taskScheduler.allocateTask<ContinuationPassingTask>();
     pRootTask->setData(taskData);
     taskScheduler.spawnTaskAndWait(pRootTask);
 

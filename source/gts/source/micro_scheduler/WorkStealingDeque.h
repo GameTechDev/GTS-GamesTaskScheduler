@@ -76,8 +76,8 @@ public: // STRUCTORS
     //--------------------------------------------------------------------------
     GTS_INLINE WorkStealingDeque(allocator_type const& allocator = allocator_type())
         // Start at 1 to avoid the integer wrap-around on initial tryTake.
-        : m_back(1)
-        , m_front(1)
+        : m_front(1)
+        , m_back(1)
         , m_pRingBuffer(nullptr)
         , m_pQuienscentRingBuffer(nullptr)
         , m_allocator(allocator)
@@ -97,8 +97,8 @@ public: // STRUCTORS
      * Non-thread-safe copy.
      */
     GTS_INLINE WorkStealingDeque(WorkStealingDeque const& other)
-        : m_back(other.m_back.load())
-        , m_front(other.m_front.load())
+        : m_front(other.m_front.load())
+        , m_back(other.m_back.load())
         , m_pRingBuffer(other.m_pRingBuffer.load())
         , m_pQuienscentRingBuffer(nullptr)
         , m_allocator(other.m_allocator)

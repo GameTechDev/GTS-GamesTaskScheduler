@@ -65,7 +65,7 @@ void taskBasics()
     GTS_ASSERT(result);
 
     // Create a new task.
-    int val = 2;
+    int val = 1;
     Task* pTask = taskScheduler.allocateTask<BasicTask>(val);
 
     // Tasks start with a refCount of 1.
@@ -100,12 +100,9 @@ void manualTask()
     GTS_ASSERT(result);
 
     // Create a new task manually.
-    Task* pTask = taskScheduler.allocateTask(BasicTask::taskFunc, sizeof(BasicTask));
+    Task* pTask = taskScheduler.allocateTaskRaw(BasicTask::taskFunc, sizeof(BasicTask));
 
     // Add the data to the task that BasicTask::taskFunc() expects.
-    // ***NOTE: data added to tasks does NOT have its destructor
-    // called when the task is freed. If your data requires this,
-    // you must call the destructor manually during execution.
     pTask->emplaceData<BasicTask>(1);
 
     //NOTE: You could also copy in existing data and pointers this way.
@@ -126,7 +123,7 @@ struct NonPODTask
 
     NonPODTask(int val) : taskData(new int(val)) {}
 
-    ~NonPODTask() { delete taskData; }
+    ~NonPODTask() { delete taskData; std::cout << "Destructor Called!" << std::endl; }
 
     // A task function. It MUST have this signature. It can also be a free function.
     static Task* taskFunc(Task* pThisTask, TaskContext const& ctx)
@@ -134,10 +131,7 @@ struct NonPODTask
         // Unpack the data.
         NonPODTask* pNonPODTask = (NonPODTask*)pThisTask->getData();
 
-        std::cout << "Hello! My value is: " << pNonPODTask->taskData << std::endl;
-
-        // Manually clean up the data.
-        pNonPODTask->~NonPODTask();
+        std::cout << "Hello! My value is: " << *pNonPODTask->taskData << std::endl;
 
         // This will be explained later.
         return nullptr;
@@ -156,10 +150,68 @@ void nonPODTask()
     GTS_ASSERT(result);
 
     // Create a new task. Tasks start with a refCount of 1.
-    Task* pTask = taskScheduler.allocateTask(NonPODTask::taskFunc);
+    Task* pTask = taskScheduler.allocateTask<NonPODTask>(2);
 
-    // NonPODTask requires its destructor to be called to not leak.
-    pTask->emplaceData<NonPODTask>(1);
+    taskScheduler.spawnTaskAndWait(pTask);
+
+    taskScheduler.shutdown();
+    workerPool.shutdown();
+}
+
+//------------------------------------------------------------------------------
+void lambdaClosureTask()
+{
+    // Init boilerplate
+    WorkerPool workerPool;
+    bool result = workerPool.initialize();
+    GTS_ASSERT(result);
+    MicroScheduler taskScheduler;
+    result = taskScheduler.initialize(&workerPool);
+    GTS_ASSERT(result);
+
+    uint32_t taskValue = 3;
+
+    // Create a task packaged with a lambda and closure
+    Task* pTask = taskScheduler.allocateTask([taskValue](Task*, TaskContext const&)->Task*
+    //                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    // NOTE:                                     Must have these last two args and return type.
+    {
+        std::cout << "Hello! My value is: " << taskValue << std::endl;
+        return nullptr;
+    });
+
+
+    // NOTE: pTask->getData() is now obfuscated into a tuple.
+
+    taskScheduler.spawnTaskAndWait(pTask);
+
+    taskScheduler.shutdown();
+    workerPool.shutdown();
+}
+
+//------------------------------------------------------------------------------
+void lambdaArgsTask()
+{
+    // Init boilerplate
+    WorkerPool workerPool;
+    bool result = workerPool.initialize();
+    GTS_ASSERT(result);
+    MicroScheduler taskScheduler;
+    result = taskScheduler.initialize(&workerPool);
+    GTS_ASSERT(result);
+
+    uint32_t taskValue = 4;
+
+    // Create a task packaged with a lambda and args, similar to std::thread.
+    Task* pTask = taskScheduler.allocateTask([](uint32_t val, Task*, TaskContext const&)->Task*
+    //                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    // NOTE:                                                            Must have these last two args and return type.
+    {
+        std::cout << "Hello! My value is: " << val << std::endl;
+        return nullptr;
+    }, taskValue);
+
+    // NOTE: again, pTask->getData() is now obfuscated into a tuple.
 
     taskScheduler.spawnTaskAndWait(pTask);
 

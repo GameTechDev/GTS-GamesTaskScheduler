@@ -57,18 +57,4 @@ ComputeResourceType Workload::type() const
     return m_type;
 }
 
-// MUTATORS:
-
-//------------------------------------------------------------------------------
-void Workload::setExecutionCost(const uint64_t& cost)
-{
-    m_executionCost = cost;
-}
-
-//------------------------------------------------------------------------------
-void Workload::setTransferCost(const uint64_t& cost)
-{
-    m_transferCost = cost;
-}
-
 } // namespace gts

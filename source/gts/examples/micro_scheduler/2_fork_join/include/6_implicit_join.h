@@ -48,9 +48,6 @@ struct BasicForkJoinTask
 
     static Task* taskSpawnFunc(Task* pThisTask, TaskContext const& ctx)
     {
-        // Unpack the data.
-        BasicForkJoinTask* pData = (BasicForkJoinTask*)pThisTask->getData();
-
         std::cout << "Hello! I'm the root task" << std::endl;
 
         int const childCount = 5;
@@ -61,7 +58,7 @@ struct BasicForkJoinTask
 
         for (int ii = 0; ii < childCount; ++ii)
         {
-            Task* pChild = ctx.pMicroScheduler->allocateTask(BasicForkJoinTask::taskPrintFunc);
+            Task* pChild = ctx.pMicroScheduler->allocateTaskRaw(BasicForkJoinTask::taskPrintFunc);
             pChild->emplaceData<BasicForkJoinTask>(ii);
             pThisTask->addChildTaskWithoutRef(pChild);
             ctx.pMicroScheduler->spawnTask(pChild);
@@ -88,7 +85,7 @@ void implicitJoin()
     GTS_ASSERT(result);
 
     // Create a new task.
-    Task* pTask = taskScheduler.allocateTask(BasicForkJoinTask::taskSpawnFunc);
+    Task* pTask = taskScheduler.allocateTaskRaw(BasicForkJoinTask::taskSpawnFunc);
 
     taskScheduler.spawnTaskAndWait(pTask);
 

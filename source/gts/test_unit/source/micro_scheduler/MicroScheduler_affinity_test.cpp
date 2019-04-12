@@ -57,7 +57,7 @@ Task* RootAffinityTestTask(Task* thisTask, TaskContext const& ctx)
 
     for (uint32_t ii = 0; ii < ctx.pMicroScheduler->workerCount(); ++ii)
     {
-        Task* pChildTask = ctx.pMicroScheduler->allocateTask(AffinityTestTask);
+        Task* pChildTask = ctx.pMicroScheduler->allocateTaskRaw(AffinityTestTask);
         pChildTask->setAffinity(ii);
 
         thisTask->addChildTaskWithoutRef(pChildTask);
@@ -79,7 +79,7 @@ void AffinityTest(uint32_t threadCount)
     MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
 
-    Task* pRoot = taskScheduler.allocateTask(RootAffinityTestTask);
+    Task* pRoot = taskScheduler.allocateTaskRaw(RootAffinityTestTask);
     taskScheduler.spawnTaskAndWait(pRoot);
 
     taskScheduler.shutdown();

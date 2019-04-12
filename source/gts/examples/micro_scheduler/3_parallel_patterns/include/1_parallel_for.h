@@ -33,6 +33,32 @@ using namespace gts;
 namespace gts_examples {
 
 //------------------------------------------------------------------------------
+void convenience1dParallelFor()
+{
+    // Init boilerplate
+    WorkerPool workerPool;
+    bool result = workerPool.initialize();
+    GTS_ASSERT(result);
+    MicroScheduler taskScheduler;
+    result = taskScheduler.initialize(&workerPool);
+    GTS_ASSERT(result);
+
+    // Create an array of 0s.
+    uint32_t const elementCount = 1 << 16;
+    gts::Vector<char> vec(elementCount, 0);
+
+    // Make a parallel-for object for this scheduler. We do this because
+    // there can be multiple scheduler objects.
+    ParallelFor parallelFor(taskScheduler);
+
+    // Similar to std::for_each.
+    parallelFor(vec.begin(), vec.end(), [](auto iter) { (*iter)++; });
+
+    taskScheduler.shutdown();
+    workerPool.shutdown();
+}
+
+//------------------------------------------------------------------------------
 void simpleIndexedParallelFor()
 {
     // Init boilerplate
@@ -58,7 +84,8 @@ void simpleIndexedParallelFor()
     auto partitionerType = AdaptivePartitioner();
 
     // Since the partitioner is adaptive, a block size of 1 gives the partitioner
-    // full control over division.
+    // full control over division. 1 is not always the best value, so experiment
+    // as needed.
     size_t const blockSize = 1;
 
     parallelFor(
@@ -119,7 +146,7 @@ void simpleIteratorParallelFor()
         BlockedRange1d<gts::Vector<char>::iterator>(vec.begin(), vec.end(), blockSize),
 
         // The function parallel-for will execute on each block of the range.
-        [](BlockedRange1d<gts::Vector<char>::iterator>& range, void* pData, TaskContext const&)
+        [](BlockedRange1d<gts::Vector<char>::iterator>& range, void*, TaskContext const&)
         {
             // Increment each element in the block.
             for (auto iter = range.begin(); iter != range.end(); ++iter)
@@ -129,7 +156,10 @@ void simpleIteratorParallelFor()
         },
 
         // The partitioner object.
-        paritionerType
+        paritionerType,
+
+        // No user data.
+        nullptr
     );
 
     taskScheduler.shutdown();

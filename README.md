@@ -1,3 +1,8 @@
+[![maintained](https://img.shields.io/maintenance/yes/2019.svg)]()
+[![license](https://img.shields.io/badge/License-MIT-blue.svg)]()
+[![language count](https://img.shields.io/github/languages/count/GameTechDev/GTS-GamesTaskScheduler.svg)]()
+[![top language](https://img.shields.io/github/languages/top/GameTechDev/GTS-GamesTaskScheduler.svg)]()
+
 # Intel Game Task Scheduler (GTS)
 
 ## What it is?
@@ -27,7 +32,7 @@ parallel containers, threading constructs, and debugging utilities.
 3. Move back to the root "gts" directory and there should be an "_build..." folder with the solution in it.
 4. Example projects are numbered and should be read through in-order. Please issue anything that needs more explaination.
 
-(*Doxygen and more examples comming soon!)
+(*Doxygen and more examples coming soon!)
 
 ## Features
 
@@ -101,9 +106,24 @@ NOTE: * indicates you can replace the implementation with your own.
 
 ## Example
 
-A simple parallel-for that increments each element in an array.
+A parallel-for that increments each element in an array.
 
+Convenient version for simple cases:
+```cpp
+// Create an array of 0s.
+uint32_t const elementCount = 1 << 16;
+gts::Vector<char> vec(elementCount, 0);
+
+// Make a parallel-for object for this scheduler. We do this because
+// there can be multiple scheduler objects.
+ParallelFor parallelFor(taskScheduler);
+
+// Similar to std::for_each.
+parallelFor(vec.begin(), vec.end(), [&vec](auto iter) { (*iter)++; });
 ```
+
+Complex version for times when full control is needed:
+```cpp
 size_t const elementCount = 1 << 16;
 
 // Create an array of 0s.
@@ -127,7 +147,7 @@ parallelFor(
     BlockedRange1d<gts::Vector<char>::iterator>(vec.begin(), vec.end(), blockSize),
 
     // The lambda that parallel-for will map to each block of the range.
-    [](BlockedRange1d<gts::Vector<char>::iterator>& range, void* pData, TaskContext const&)
+    [](BlockedRange1d<gts::Vector<char>::iterator>& range, void* pUserData, TaskContext const&)
     {
         // For each item in the block, increment the value.
         for (auto iter = range.begin(); iter != range.end(); ++iter)
@@ -137,7 +157,10 @@ parallelFor(
     },
 
     // The partitioner object.
-    partitionerType
+    partitionerType,
+    
+    // No user data.
+    nullptr
 );
 ```
 
@@ -169,5 +192,5 @@ file with their copyright along with the MIT licensing stub.
 
 ### Formatting
 
-Please format like the existing code. Clang format will likely be added at some point.
+Please format like the existing code.
 

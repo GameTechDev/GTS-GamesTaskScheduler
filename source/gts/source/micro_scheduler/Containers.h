@@ -44,6 +44,7 @@ public:
     {
         bool result = init(accessorThreadCount, GTS_NO_SHARING_CACHE_LINE_SIZE);
         GTS_ASSERT(result);
+        GTS_UNREFERENCED_PARAM(result);
     }
 };
 

@@ -34,6 +34,8 @@
 namespace gts {
 namespace analysis {
 
+static void emptNameThreadHook(const char*, ...) {}
+
 #if defined (GTS_USE_ITT)
 
 static InstrumenterNameThreadFunc g_instrumenterNameThreadHook   = IttNotify::nameThreadHook;
@@ -50,7 +52,7 @@ static InstrumenterDebugMarkerFunc g_instrumenterDebugMarkerHook = RadTelemetry:
 
 #else
 
-static InstrumenterNameThreadFunc g_instrumenterNameThreadHook   = [](const char*, ...) {};
+static InstrumenterNameThreadFunc g_instrumenterNameThreadHook   = emptNameThreadHook;
 static InstrumenterBeginFunc g_instrumenterBeginHook             = ConcurrentLogger::logHook;
 static InstrumenterEndFunc g_instrumenterEndHook                 = [](Tag::Type) {};
 static InstrumenterDebugMarkerFunc g_instrumenterDebugMarkerHook = ConcurrentLogger::logHook;

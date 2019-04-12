@@ -26,6 +26,7 @@ using namespace gts_examples;
 
 int main()
 {
+    convenience1dParallelFor();
     simpleIndexedParallelFor();
     simpleIteratorParallelFor();
 

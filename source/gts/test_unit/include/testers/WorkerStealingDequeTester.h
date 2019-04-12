@@ -103,7 +103,7 @@ struct WorkerStealingDequeTester
     //--------------------------------------------------------------------------
     void stealRace(TQueue& queue)
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency();
@@ -125,7 +125,7 @@ struct WorkerStealingDequeTester
 
             for (uint32_t tt = 0; tt < threadCount; ++tt)
             {
-                threads[tt] = new std::thread([itemCount, &queue, &stolenValues, &startConsumption, tt]()
+                threads[tt] = new std::thread([&queue, &stolenValues, &startConsumption, tt]()
                 {
                     while (!startConsumption.load())
                     {
@@ -171,14 +171,14 @@ struct WorkerStealingDequeTester
     //--------------------------------------------------------------------------
     void pushStealRace_2Threads(TQueue& queue)
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             std::unordered_set<Task*> values(itemCount);
 
             std::vector<Task> tasks(itemCount);
 
-            int totalItemValue = 0;
+            uint32_t totalItemValue = 0;
 
             std::thread theif([itemCount, &queue, &values]()
             {
@@ -214,7 +214,7 @@ struct WorkerStealingDequeTester
     //--------------------------------------------------------------------------
     void pushStealRace_ManyThreads(TQueue& queue)
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency() - 1;
@@ -229,7 +229,7 @@ struct WorkerStealingDequeTester
 
             for (uint32_t tt = 0; tt < threadCount; ++tt)
             {
-                threads[tt] = new std::thread([itemCount, &queue, &stolenValues, &startConsumption, &done, tt]()
+                threads[tt] = new std::thread([&queue, &stolenValues, &startConsumption, &done, tt]()
                 {
                     while (!startConsumption.load())
                     {
@@ -291,7 +291,7 @@ struct WorkerStealingDequeTester
     //--------------------------------------------------------------------------
     void pushStealPopRace_ManyThreads(TQueue& queue)
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t itemCount = ITEM_COUNT;
             const uint32_t threadCount = std::thread::hardware_concurrency() - 1;
@@ -307,7 +307,7 @@ struct WorkerStealingDequeTester
 
             for (uint32_t tt = 0; tt < threadCount; ++tt)
             {
-                consumers[tt] = new std::thread([itemCount, &queue, &stolenValues, &startTest, &done, tt]()
+                consumers[tt] = new std::thread([&queue, &stolenValues, &startTest, &done, tt]()
                 {
                     while (!startTest.load())
                     {

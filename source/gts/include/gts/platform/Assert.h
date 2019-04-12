@@ -37,7 +37,11 @@ assertHook getAssertHook();
 
 namespace internal {
 
-GTS_INLINE void _assert(bool expression, const char *exp, const char* file, int line)
+GTS_INLINE void _assert(
+    bool expression,
+    const char* exp,
+    const char* file,
+    int line)
 {
     if (!expression)
     {
@@ -62,7 +66,8 @@ GTS_INLINE void _assert(bool expression, const char *exp, const char* file, int 
 
 #if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
 
-#define GTS_ASSERT(expr) gts::internal::_assert((expr), #expr, __FILE__, __LINE__)
+#define GTS_ASSERT(expr)                                                       \
+    gts::internal::_assert((expr), #expr, __FILE__, __LINE__)
 
 #else
 

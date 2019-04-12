@@ -33,7 +33,10 @@ static const uint32_t TEST_DEPTH = 3;
 static const uint32_t ITERATIONS_STRESS = 100;
 static const uint32_t STRESS_DEPTH = 18;
 
-inline void randomDuration()
+inline void randomSleep()
 {
-    gts::ThisThread::sleepFor(rand() % 3);
+    if(rand() % 2 == 0)
+    {
+        gts::ThisThread::sleepFor(1);
+    }
 }

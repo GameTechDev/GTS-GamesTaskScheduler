@@ -32,6 +32,9 @@ int main()
 {
     taskBasics();
     nonPODTask();
+    lambdaClosureTask();
+    lambdaArgsTask();
+
     explicitForkJoin(20);
     continuationForkJoin(20);
     bypassForkJoin(20);

@@ -25,9 +25,15 @@
 
 namespace gts {
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  An enumeration of all supported ComputeResources.
+ */
 enum class ComputeResourceType : uint32_t
 {
-    CPU_WorkStealing,
+    CPU_MicroScheduler,
     GPU_OpenCL,
 
     // vvvvv----- Declare user type below. -----vvvvv

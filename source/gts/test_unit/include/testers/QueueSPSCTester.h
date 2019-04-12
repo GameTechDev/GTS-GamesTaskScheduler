@@ -242,7 +242,7 @@ struct QueueSPSCTester
     {
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             _PushPopRace(queue, 0, ITEM_COUNT);
         }
@@ -253,7 +253,7 @@ struct QueueSPSCTester
     {
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
 
             for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)

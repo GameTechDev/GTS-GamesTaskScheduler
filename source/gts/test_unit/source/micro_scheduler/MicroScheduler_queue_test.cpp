@@ -60,7 +60,7 @@ struct QueuedTaskCounter
 
         for (uint32_t ii = 0; ii < data.numTasks; ++ii)
         {
-            Task* pTask = ctx.pMicroScheduler->allocateTask(QueuedTaskCounter::taskFunc);
+            Task* pTask = ctx.pMicroScheduler->allocateTask<QueuedTaskCounter>();
             pTask->setData(data);
             pThisTask->addChildTaskWithoutRef(pTask);
 
@@ -100,7 +100,7 @@ void TestQueueTask(const uint32_t numTasks, const uint32_t threadCount)
     taskData.numTasks = numTasks;
     taskData.taskCountByThreadIdx = taskCountByThreadIdx.data();
 
-    Task* pRootTask = taskScheduler.allocateTask(QueuedTaskCounter::generatorFunc);
+    Task* pRootTask = taskScheduler.allocateTaskRaw(QueuedTaskCounter::generatorFunc, sizeof(QueuedTaskCounter));
     pRootTask->setData(taskData);
 
     taskScheduler.spawnTaskAndWait(pRootTask);

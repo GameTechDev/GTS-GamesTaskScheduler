@@ -32,8 +32,9 @@ namespace gts {
 // STRUCTORS:
 
 //------------------------------------------------------------------------------
-Node::Node()
-    : m_priority(0)
+Node::Node(MacroScheduler* pMyScheduler)
+    : m_pMyScheduler(pMyScheduler)
+    , m_priority(0)
     , m_currPredecessorCount(0)
     , m_initPredecessorCount(0)
 {
@@ -48,7 +49,7 @@ Node::~Node()
 {
     for (size_t ii = 0; ii < (size_t)ComputeResourceType::COUNT; ++ii)
     {
-        delete m_workloadsByType[ii];
+        m_pMyScheduler->_freeWorkload(m_workloadsByType[ii]);
     }
 }
 
@@ -69,19 +70,22 @@ uint32_t Node::priority() const
 //------------------------------------------------------------------------------
 Atomic<uint32_t> const& Node::currPredecessorCount() const
 {
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     return m_currPredecessorCount;
 }
 
 //------------------------------------------------------------------------------
 uint32_t const& Node::initPredecessorCount() const
 {
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     return m_initPredecessorCount;
 }
 
 //------------------------------------------------------------------------------
-Vector<Node*> const& Node::children() const
+Vector<Node*> const Node::children() const
 {
-    return m_children;
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
+    return m_children; // return a copy.
 }
 
 // MUTATORS:
@@ -89,17 +93,26 @@ Vector<Node*> const& Node::children() const
 //------------------------------------------------------------------------------
 void Node::addChild(Node* pNode)
 {
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     m_children.push_back(pNode);
     ++pNode->m_initPredecessorCount;
-    pNode->m_currPredecessorCount.fetch_add(1);
+    pNode->m_currPredecessorCount.fetch_add(1, gts::memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------
 void Node::removeChild(Node* pNode)
 {
-    m_children.push_back(pNode);
-    --pNode->m_initPredecessorCount;
-    pNode->m_currPredecessorCount.fetch_sub(1);
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
+    for (size_t ii = 0, len = m_children.size(); ii < len; ++ii)
+    {
+        if (pNode == m_children[ii])
+        {
+            std::swap(m_children[ii], m_children.back());
+            m_children.pop_back();
+            --pNode->m_initPredecessorCount;
+            pNode->m_currPredecessorCount.fetch_sub(1, gts::memory_order::relaxed);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -109,23 +122,25 @@ void Node::setPriority(uint32_t priority)
 }
 
 //------------------------------------------------------------------------------
-Atomic<uint32_t>& Node::currPredecessorCount()
+void Node::reset()
 {
-    return m_currPredecessorCount;
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
+    m_currPredecessorCount.store(m_initPredecessorCount, gts::memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------
 bool Node::finishPredecessor()
 {
+    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     return(
         // No Race Case: T0 observes refcount > 1 and completes removeRef(1) before T1
         // observes refcount. In this case T1 cannot race and it will see
         // refcount == 1, short circuiting the atomic.
-        currPredecessorCount().load(gts::memory_order::acquire) == 1 ||
+        m_currPredecessorCount.load(gts::memory_order::acquire) == 1 ||
         // Race Case: T0 and T1 can both observe refcount > 1, so they must use
         // removeRef(1) to not race. Since both threads took this path, the thread
         // that sees refcount == 0 is the winner.
-        currPredecessorCount().fetch_sub(1) == 0);
+        m_currPredecessorCount.fetch_sub(1) == 0);
 }
 
 } // namespace gts

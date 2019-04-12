@@ -63,7 +63,7 @@ void NonWorkerThreadFunc(PerThreadCounter* data)
 {
     for (uint32_t ii = 0; ii < data->maxCount; ++ii)
     {
-        Task* pTask = data->pMicroScheduler->allocateTask(PerThreadCounter::taskFunc);
+        Task* pTask = data->pMicroScheduler->allocateTask<PerThreadCounter>();
         pTask->setData(data);
         data->pMicroScheduler->spawnTaskAndWait(pTask);
     }

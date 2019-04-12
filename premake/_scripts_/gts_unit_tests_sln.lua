@@ -7,7 +7,12 @@ workspace "gts_unit_tests"
     startproject "gts_unit_tests"
     
     warnings "Extra"
-    flags "FatalWarnings"
+    
+    if(_ARGS[1] == "clang") then
+        toolset "msc-llvm-vs2014"
+    else
+        flags "FatalWarnings"
+    end
 
     filter { "platforms:x86"}
         architecture "x86"
@@ -18,6 +23,12 @@ workspace "gts_unit_tests"
     filter { "action:vs*" }        
         defines { "_HAS_EXCEPTIONS=0" , "_SILENCE_TR1_NAMESPACE_DEPRECATION_WARNING", "_ITERATOR_DEBUG_LEVEL=0" }
         buildoptions "/EHsc"
+        
+    filter { "action:gmake" }
+        buildoptions "-pedantic -fno-exceptions"
+        
+    filter { "action:xcode4" }
+        buildoptions "-pedantic -fno-exceptions"
        
     filter {"configurations:Debug"}
         defines { "_DEBUG"}

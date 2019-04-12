@@ -99,7 +99,7 @@ void MicroScheduler::spawnTask(Task* pTask, uint32_t priority)
                 GTS_ASSERT(result && "Task queue overflow");
 
                 // Wake any worker.
-                m_pWorkerPool->_wakeWorkers(m_pWorkerPool->workerCount());
+                m_pWorkerPool->_wakeWorkers(1); // TODO: maybe m_pWorkerPool->workerCount() is better in real workload.
             }
             // Otherwise, ship it to the requested worker.
             else
@@ -135,6 +135,8 @@ void MicroScheduler::spawnTask(Task* pTask, uint32_t priority)
             }
         }
     }
+    // Otherwise, this thread is unknown so there is no deque for it. All we can
+    // do is add it to the shared queue.
     else
     {
         GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "QUEUE NON-WORKER TASK", pTask, 0);
@@ -170,6 +172,7 @@ void MicroScheduler::queueTask(Task* pTask)
 
     bool result = m_pTaskQueue->tryPush(pTask);
     GTS_ASSERT(result && "Task queue overflow");
+    GTS_UNREFERENCED_PARAM(result);
 
     // Wake any worker.
     m_pWorkerPool->_wakeWorkers(1);
@@ -238,6 +241,7 @@ void MicroScheduler::_freeTask(uint32_t workerIdx, Task* pTask)
     GTS_ANALYSIS_TIME_SCOPED(workerIdx, gts::analysis::AnalysisType::NUM_FREES);
     GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "FREE TASK", pTask, 0);
 
+    pTask->m_fcnDataDestructor(pTask->_dataSuffix());
     m_pTaskAllocator->free(workerIdx, pTask);
 }
 

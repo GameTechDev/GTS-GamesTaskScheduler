@@ -28,6 +28,7 @@
 #include "gts/platform/Machine.h"
 #include "gts/containers/Vector.h"
 #include "gts/platform/Assert.h"
+#include "gts/platform/Atomic.h"
 
 #ifdef GTS_ANALYZE
 
@@ -164,7 +165,7 @@ public:
 
         GTS_SERIALIZE_CPU();
         m_currentTimingsByThreadIndex[threadIndex][(size_t)type] = GTS_RDTSC();
-        GTS_COMPILE_BARRIER();
+        gts::atomic_signal_fence();
         GTS_SERIALIZE_CPU();
     }
 
@@ -178,7 +179,7 @@ public:
     GTS_INLINE void endTimedAnalysis(uint32_t threadIndex, AnalysisType type)
     {
         GTS_SERIALIZE_CPU();
-        GTS_COMPILE_BARRIER();
+        gts::atomic_signal_fence();
         const uint64_t endCount = GTS_RDTSC();
         GTS_SERIALIZE_CPU();
 

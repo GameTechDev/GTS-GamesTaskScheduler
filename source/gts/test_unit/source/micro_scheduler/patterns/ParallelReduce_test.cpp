@@ -53,7 +53,7 @@ TEST(ParallelReduce, parallelReduce)
     std::vector<uint32_t> onesArray;
     onesArray.resize(ELEMENT_COUNT, 1);
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -96,7 +96,7 @@ TEST(ParallelReduce, parallelMapReduce)
     std::vector<uint32_t> onesArray;
     onesArray.resize(ELEMENT_COUNT, 0);
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -216,12 +216,12 @@ TEST(ParallelReduce, parallelReduce_AABB)
     float stepY = (regionExtents.max[1] - regionExtents.min[1]) / subdivisions;
     float stepZ = (regionExtents.max[2] - regionExtents.min[2]) / subdivisions;
 
-    int iRegion = 0;
-    for (int ix = 0; ix < subdivisions - 1; ++ix)
+    uint32_t iRegion = 0;
+    for (uint32_t ix = 0; ix < subdivisions - 1; ++ix)
     {
-        for (int iy = 0; iy < subdivisions - 1; ++iy)
+        for (uint32_t iy = 0; iy < subdivisions - 1; ++iy)
         {
-            for (int iz = 0; iz < subdivisions - 1; ++iz)
+            for (uint32_t iz = 0; iz < subdivisions - 1; ++iz)
             {
                 AABB& region = regions[iRegion++];
                 region.min[0] = regionExtents.min[0] + stepX * ix;
@@ -234,7 +234,7 @@ TEST(ParallelReduce, parallelReduce_AABB)
         }
     }
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 

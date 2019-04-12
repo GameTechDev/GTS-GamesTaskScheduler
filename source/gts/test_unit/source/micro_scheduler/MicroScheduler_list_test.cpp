@@ -52,7 +52,7 @@ struct TaskListGenerator
         {
             pThisTask->addRef(1);
 
-            Task* pChildTask = ctx.pMicroScheduler->allocateTask(TaskListGenerator::taskFunc);
+            Task* pChildTask = ctx.pMicroScheduler->allocateTask<TaskListGenerator>();
             pChildTask->setData(*data);
             pThisTask->addChildTaskWithoutRef(pChildTask);
             ctx.pMicroScheduler->spawnTask(pChildTask);
@@ -101,7 +101,7 @@ void TestTaskList(uint32_t depth, uint32_t threadCount)
     taskData.threadCount = threadCount;
 
     // Generate the task list.
-    Task* pRootTask = taskScheduler.allocateTask(TaskListGenerator::taskFunc);
+    Task* pRootTask = taskScheduler.allocateTask<TaskListGenerator>();
     pRootTask->setData(taskData);
     taskScheduler.spawnTaskAndWait(pRootTask);
 

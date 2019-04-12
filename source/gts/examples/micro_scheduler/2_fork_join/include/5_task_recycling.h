@@ -85,14 +85,13 @@ struct ParallelFibTask4
         else
         {
             // Create the continuation task with the join function.
-            Task* pContinuationTask = ctx.pMicroScheduler->allocateTask(ParallelFibContinuationTask4::taskFunc);
+            Task* pContinuationTask = ctx.pMicroScheduler->allocateTaskRaw(ParallelFibContinuationTask4::taskFunc, sizeof(ParallelFibContinuationTask4));
             ParallelFibContinuationTask4* pContinuationData = pContinuationTask->emplaceData<ParallelFibContinuationTask4>(0, 0, sum);
             pThisTask->setContinuationTask(pContinuationTask);
-            pContinuationTask->addRef(2);
+            pContinuationTask->addRef(2, gts::memory_order::relaxed);
             
             // Fork f(n-1)
-            Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask4::taskFunc);
-            pLeftChild->emplaceData<ParallelFibTask4>(fibN - 1, &pContinuationData->l);
+            Task* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask4>(fibN - 1, &pContinuationData->l);
             pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
@@ -125,8 +124,7 @@ void recylingForkJoin(uint32_t fibN)
     uint64_t fibVal = 0;
 
     // Create the fib task.
-    Task* pTask = taskScheduler.allocateTask(ParallelFibTask4::taskFunc);
-    pTask->emplaceData<ParallelFibTask4>(fibN, &fibVal);
+    Task* pTask = taskScheduler.allocateTask<ParallelFibTask4>(fibN, &fibVal);
 
     // Queue and wait for the task to complete.
     taskScheduler.spawnTaskAndWait(pTask);

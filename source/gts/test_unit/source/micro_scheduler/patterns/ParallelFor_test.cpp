@@ -55,7 +55,7 @@ void ParallelFor1D(size_t elementCount, size_t tileSize)
     std::vector<char> vec;
     vec.resize(ELEMENT_COUNT, 0);
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -75,7 +75,7 @@ void ParallelFor1D(size_t elementCount, size_t tileSize)
         // Validate that all values have been incremented only once.
         for (size_t jj = 0; jj < vec.size(); ++jj)
         {
-            ASSERT_EQ(vec[jj], ii + 1);
+            ASSERT_EQ((size_t)vec[jj], ii + 1);
         }
     }
 
@@ -110,7 +110,7 @@ void ParallelForLambdaClosure1D(size_t elementCount, size_t tileSize)
     std::vector<char> vec;
     vec.resize(ELEMENT_COUNT, 0);
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -123,12 +123,13 @@ void ParallelForLambdaClosure1D(size_t elementCount, size_t tileSize)
                     vec[jj]++;
                 }
             },
-            TPartitioner());
+            TPartitioner(),
+            nullptr);
 
         // Validate that all values have been incremented only once.
         for (size_t jj = 0; jj < vec.size(); ++jj)
         {
-            ASSERT_EQ(vec[jj], ii + 1);
+            ASSERT_EQ((size_t)vec[jj], ii + 1);
         }
     }
 
@@ -139,6 +140,43 @@ void ParallelForLambdaClosure1D(size_t elementCount, size_t tileSize)
 TEST(ParallelFor, ParallelForLambdaClosure)
 {
     ParallelForLambdaClosure1D<StaticPartitioner>(ELEMENT_COUNT, TILE_SIZE);
+}
+
+//------------------------------------------------------------------------------
+void ParallelForSimple1D(size_t elementCount)
+{
+    WorkerPool workerPool;
+    workerPool.initialize();
+
+    MicroScheduler taskScheduler;
+    taskScheduler.initialize(&workerPool);
+
+    ParallelFor parallelFor(taskScheduler);
+
+    // Create a 2D array of 0s.
+    std::vector<char> vec;
+    vec.resize(ELEMENT_COUNT, 0);
+
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    {
+        GTS_CONCRT_LOGGER_RESET();
+
+        parallelFor(size_t(0), elementCount, [&vec](size_t it) { vec[it]++; });
+
+        // Validate that all values have been incremented only once.
+        for (size_t jj = 0; jj < vec.size(); ++jj)
+        {
+            ASSERT_EQ((size_t)vec[jj], ii + 1);
+        }
+    }
+
+    taskScheduler.shutdown();
+}
+
+//------------------------------------------------------------------------------
+TEST(ParallelFor, ParallelForSimple)
+{
+    ParallelForSimple1D(ELEMENT_COUNT);
 }
 
 //------------------------------------------------------------------------------
@@ -161,7 +199,7 @@ void ParallelFor2D(size_t elementCount, size_t tileSize)
         matrix[ii].resize(elementCount, 0);
     }
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -189,7 +227,7 @@ void ParallelFor2D(size_t elementCount, size_t tileSize)
         {
             for (size_t kk = 0; kk < matrix[jj].size(); ++kk)
             {
-                ASSERT_EQ(matrix[jj][kk], ii + 1);
+                ASSERT_EQ((size_t)matrix[jj][kk], ii + 1);
             }
         }
     }
@@ -223,7 +261,7 @@ void ParallelForRandomized1D(size_t elementCount, size_t tileSize)
 
     ParallelFor parallelFor(taskScheduler);
 
-    for (int ii = 0; ii < ITERATIONS_CONCUR; ++ii)
+    for (uint32_t ii = 0; ii < ITERATIONS_CONCUR; ++ii)
     {
         GTS_CONCRT_LOGGER_RESET();
 
@@ -236,7 +274,7 @@ void ParallelForRandomized1D(size_t elementCount, size_t tileSize)
                 std::vector<uint32_t>& countPerThread = *(std::vector<uint32_t>*)data;
                 for (auto ii = r.begin(); ii != r.end(); ++ii)
                 {
-                    randomDuration();
+                    randomSleep();
                     countPerThread[ctx.workerIndex]++;
                 }
             },

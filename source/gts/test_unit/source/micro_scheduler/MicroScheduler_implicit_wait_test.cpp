@@ -53,7 +53,7 @@ struct TaskGraphGenerator
 
             for (uint32_t ii = 0; ii < data.breadth; ++ii)
             {
-                Task* pChildTask = ctx.pMicroScheduler->allocateTask(TaskGraphGenerator::taskFunc);
+                Task* pChildTask = ctx.pMicroScheduler->allocateTask<TaskGraphGenerator>();
                 pChildTask->setData(data);
                 pThisTask->addChildTaskWithoutRef(pChildTask);
                 ctx.pMicroScheduler->spawnTask(pChildTask);
@@ -107,7 +107,7 @@ void TestImplicitWait(uint32_t depth, uint32_t breadth, uint32_t threadCount)
     taskData.maxDepth = depth;
     taskData.threadCount = threadCount;
 
-    Task* pRootTask = taskScheduler.allocateTask(TaskGraphGenerator::taskFunc);
+    Task* pRootTask = taskScheduler.allocateTask<TaskGraphGenerator>();
     pRootTask->setData(taskData);
     taskScheduler.spawnTaskAndWait(pRootTask);
 

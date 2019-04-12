@@ -64,7 +64,8 @@ void noTaskIsolation()
                 BlockedRange1d<uint32_t>(0, elementCount, 1),
                 [](BlockedRange1d<uint32_t>&, void*, TaskContext const&)
                 {},
-                StaticPartitioner()
+                StaticPartitioner(),
+                nullptr
             );
 
             // Check if an outer loop iteration was executed.
@@ -110,7 +111,8 @@ void taskIsolation()
                     BlockedRange1d<uint32_t>(0, elementCount, 1),
                     [](BlockedRange1d<uint32_t>&, void*, TaskContext const&)
                     {},
-                    StaticPartitioner()
+                    StaticPartitioner(),
+                    nullptr
                 );
             });
 

@@ -85,20 +85,18 @@ struct ParallelFibTask3
         else
         {
             // Create the continuation task with the join function.
-            Task* pContinuationTask = ctx.pMicroScheduler->allocateTask(ParallelFibContinuationTask3::taskFunc);
+            Task* pContinuationTask = ctx.pMicroScheduler->allocateTaskRaw(ParallelFibContinuationTask3::taskFunc, sizeof(ParallelFibContinuationTask3));
             ParallelFibContinuationTask3* pContinuationData = pContinuationTask->emplaceData<ParallelFibContinuationTask3>(0, 0, sum);
             pThisTask->setContinuationTask(pContinuationTask);
-            pContinuationTask->addRef(2);
+            pContinuationTask->addRef(2, gts::memory_order::relaxed);
             
             // Fork f(n-1)
-            Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask3::taskFunc);
-            pLeftChild->emplaceData<ParallelFibTask3>(fibN - 1, &pContinuationData->l);
+            Task* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask3>(fibN - 1, &pContinuationData->l);
             pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork f(n-2)
-            Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask3::taskFunc);
-            pRightChild->emplaceData<ParallelFibTask3>(fibN - 2, &pContinuationData->r);
+            Task* pRightChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask3>(fibN - 2, &pContinuationData->r);
             pContinuationTask->addChildTaskWithoutRef(pRightChild);
             // Don't queue the right child! return it.
 
@@ -123,8 +121,7 @@ void bypassForkJoin(uint32_t fibN)
     uint64_t fibVal = 0;
 
     // Create the fib task.
-    Task* pTask = taskScheduler.allocateTask(ParallelFibTask3::taskFunc);
-    pTask->emplaceData<ParallelFibTask3>(fibN, &fibVal);
+    Task* pTask = taskScheduler.allocateTask<ParallelFibTask3>(fibN, &fibVal);
 
     // Queue and wait for the task to complete.
     taskScheduler.spawnTaskAndWait(pTask);

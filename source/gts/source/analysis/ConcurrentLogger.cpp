@@ -70,9 +70,12 @@ void printLogToTextFile(
     {
         ConcurrentLoggerEvent const& e = pEvents[ii];
 
-        if ((tagsToInclude != 0 && (e.tag & tagsToInclude)) == 0)
+        if (tagsToInclude != Tag::ANY)
         {
-            break; // filter out
+            if ((e.tag & tagsToInclude) == 0)
+            {
+                break; // filter out
+            }
         }
 
         size_t index = indexByThreadId[e.tid];
@@ -126,9 +129,12 @@ void printLogToCsvFile(
     {
         ConcurrentLoggerEvent const& e = pEvents[ii];
 
-        if ((tagsToInclude != 0 && (e.tag & tagsToInclude)) == 0)
+        if (tagsToInclude != Tag::ANY)
         {
-            break; // filter out
+            if ((e.tag & tagsToInclude) == 0)
+            {
+                break; // filter out
+            }
         }
 
         size_t index = indexByThreadId[e.tid];

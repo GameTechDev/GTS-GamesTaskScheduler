@@ -72,7 +72,8 @@ void TestTaskIsolation(const uint32_t elementCount, const uint32_t threadCount)
                     BlockedRange1d<uint32_t>(0, ISOLATION_ELEMENT_COUNT, 1),
                     [](BlockedRange1d<uint32_t>&, void*, TaskContext const&)
                     {},
-                    StaticPartitioner()
+                    StaticPartitioner(),
+                    nullptr
                 );
             });
 

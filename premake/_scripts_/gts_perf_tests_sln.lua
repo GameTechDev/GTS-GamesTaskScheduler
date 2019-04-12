@@ -7,7 +7,13 @@ workspace "gts_perf_tests"
     startproject "gts_perf_tests"
     
     warnings "Extra"
-    flags "FatalWarnings"
+    
+    if(_ARGS[1] == "clang") then
+        toolset "msc-llvm-vs2014"
+        buildoptions { "-mavx2 -mfma" }
+    else
+        flags "FatalWarnings"
+    end
 
     filter { "platforms:x86"}
         architecture "x86"
@@ -18,9 +24,6 @@ workspace "gts_perf_tests"
     filter { "action:vs*" }        
         defines { "_HAS_EXCEPTIONS=0" }
         buildoptions "/EHsc"
-        
-    filter { "action:vs2017" }        
-        buildoptions "/permissive-"
         
     filter { "action:gmake" }
         buildoptions "-pedantic -fno-exceptions"

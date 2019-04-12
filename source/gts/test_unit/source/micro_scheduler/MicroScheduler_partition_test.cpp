@@ -121,7 +121,7 @@ struct ExecutionIndexTracker
 
         for (uint32_t ii = 0; ii < data.numTasks; ++ii)
         {
-            Task* pTask = ctx.pMicroScheduler->allocateTask(ExecutionIndexTracker::taskFunc);
+            Task* pTask = ctx.pMicroScheduler->allocateTask<ExecutionIndexTracker>();
             pTask->setData(data);
             pThisTask->addChildTaskWithoutRef(pTask);
 
@@ -194,7 +194,7 @@ void paritionOnlyTests(uint32_t taskCount, bool paritionCanSteal, bool mainOnly)
     taskData.numThreads = threadCount;
     taskData.waitForParitionToSteal = paritionCanSteal;
 
-    Task* pRootTask = pMicroSchedulerPartition->allocateTask(ExecutionIndexTracker::generatorTaskFunc);
+    Task* pRootTask = pMicroSchedulerPartition->allocateTaskRaw(ExecutionIndexTracker::generatorTaskFunc, sizeof(ExecutionIndexTracker));
     pRootTask->setData(taskData);
 
     if (paritionCanSteal)

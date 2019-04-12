@@ -24,24 +24,15 @@
 #include <cstdint>
 #include "gts/containers/Vector.h"
 #include "gts/macro_scheduler/ComputeResourceType.h"
-#include "gts/macro_scheduler/Node.h"
-#include "gts/macro_scheduler/ISchedule.h"
+#include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 namespace gts {
 
 class ComputeResource;
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/**
- * @brief
- *  The description of a MacroSchedulerDesc to create.
- */
-struct MacroSchedulerDesc
-{
-    //! The ComputeResource per type that a MacroScheduler will schedule to.
-    gts::Vector<ComputeResource*> computeResourcesByType[(uint32_t)ComputeResourceType::COUNT];
-};
+class ISchedule;
+class Node;
+class DistributedSlabAllocatorBucketed;
+class MacroScheduler;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,27 +45,30 @@ class MacroScheduler
 {
 public: // STRUCTORS:
 
+    MacroScheduler();
+
     /**
      * For polymorphic destruction.
      */
-    virtual ~MacroScheduler() {}
+    virtual ~MacroScheduler();
 
 public: // MUTATORS:
 
     /**
-     * Initializes the IMacroScheduler object base on 'desc'.
+     * Initializes the IMacroScheduler object based on 'desc'.
      */
     virtual bool init(MacroSchedulerDesc const& desc) = 0;
 
     /**
-     * Allocate a Node that can be scheduled.
+     * Allocate a Node that can be inserted into a DAG.
+     * @remark Adding a Node to multiple DAGs is undefined.
      */
-    Node* allocateNode() { return new Node; }
+    Node* allocateNode();
 
     /**
-     * Free an existing Node from memory.
+     * Free pNode from memory.
      */
-    void freeNode(Node* pNode) { delete pNode; }
+    void destroyNode(Node* pNode);
 
     /**
      * Builds a schedule from the specified DAG that begins at 'pStart' and ends
@@ -87,12 +81,29 @@ public: // MUTATORS:
     /**
      * Free an existing ISchedule from memory.
      */
-    void freeSchedule(ISchedule* pSchedule) { delete pSchedule; pSchedule = nullptr; }
+    void freeSchedule(ISchedule* pSchedule);
 
     /**
      * Executes the specified 'pSchedule'.
      */
     virtual void executeSchedule(ISchedule* pSchedule) = 0;
+
+protected:
+
+    friend class Node;
+
+    template<typename T> 
+    void _deleteWorkload(T* ptr)
+    {
+        if(ptr != nullptr)
+        {
+            ptr->~T();
+        }
+        _freeWorkload(ptr);
+    }
+
+    void* _allocateWorkload(size_t size, size_t alignment);
+    void _freeWorkload(void* ptr);
 };
 
 } // namespace gts

@@ -7,7 +7,12 @@ workspace "gts"
     startproject "gts"
     
     warnings "Extra"
-    flags "FatalWarnings"
+    
+    if(_ARGS[1] == "clang") then
+        toolset "msc-llvm-vs2014"
+    else
+        flags "FatalWarnings"
+    end
     
     filter { "platforms:x86"}
         architecture "x86"
@@ -18,9 +23,6 @@ workspace "gts"
     filter { "action:vs*" }        
         defines { "_HAS_EXCEPTIONS=0" }
         buildoptions "/EHsc"
-        
-    filter { "action:vs2017" }        
-        buildoptions "/permissive-"
         
     filter { "action:gmake" }
         buildoptions "-pedantic -fno-exceptions"

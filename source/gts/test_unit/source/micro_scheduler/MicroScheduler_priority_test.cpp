@@ -59,7 +59,7 @@ struct PriorityGrabber
         // Add tasks in reverse priority order
         for (int32_t ii = (int32_t)data->numTasks - 1; ii >= 0; --ii)
         {
-            Task* pChildTask = ctx.pMicroScheduler->allocateTask(PriorityGrabber::taskFunc);
+            Task* pChildTask = ctx.pMicroScheduler->allocateTask<PriorityGrabber>();
 
             PriorityGrabber taskData{ data->vec, 0, (uint32_t)ii };
             pChildTask->setData(taskData);
@@ -102,8 +102,8 @@ void PriorityOrderTest(uint32_t priorityCount, uint32_t threadCount)
 
     std::vector<int> vec;
 
-    Task* pRoot = taskScheduler.allocateTask(PriorityGrabber::generatorFunc);
-    PriorityGrabber taskData{ &vec, (uint32_t)priorityCount };
+    Task* pRoot = taskScheduler.allocateTaskRaw(PriorityGrabber::generatorFunc, sizeof(PriorityGrabber));
+    PriorityGrabber taskData{ &vec, (uint32_t)priorityCount, 0 };
     pRoot->setData(taskData);
     taskScheduler.spawnTaskAndWait(pRoot);
 
@@ -164,7 +164,7 @@ struct PriorityStarvationGrabber
 
         for (uint32_t ii = 0; ii < data->numTasks; ++ii)
         {
-            Task* pChildTask = ctx.pMicroScheduler->allocateTask(PriorityStarvationGrabber::taskFunc);
+            Task* pChildTask = ctx.pMicroScheduler->allocateTask<PriorityStarvationGrabber>();
 
             if (ii % data->boostAge == 0)
             {
@@ -217,7 +217,7 @@ void PriorityOrderTest()
 
     uint32_t numTasks = desc.priorityCount * desc.priorityBoostAge;
 
-    Task* pRoot = taskScheduler.allocateTask(PriorityStarvationGrabber::generatorFunc);
+    Task* pRoot = taskScheduler.allocateTaskRaw(PriorityStarvationGrabber::generatorFunc, sizeof(PriorityStarvationGrabber));
     PriorityStarvationGrabber taskData{ &vec, numTasks, (uint32_t)desc.priorityBoostAge, 0, desc.priorityCount };
     pRoot->setData(taskData);
     taskScheduler.spawnTaskAndWait(pRoot);

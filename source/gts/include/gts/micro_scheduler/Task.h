@@ -22,13 +22,15 @@
 #pragma once
 
 #include <type_traits>
+#include <tuple>
 
 #include "gts/analysis/Instrumenter.h"
 #include "gts/platform/Assert.h"
 #include "gts/platform/Utils.h"
 #include "gts/platform/Atomic.h"
 
-namespace gts {
+namespace gts
+{
 
 struct TaskContext;
 class Task;
@@ -47,8 +49,8 @@ class Schedule;
 using TaskRoutine = gts::Task* (*)(Task* pThisTask, TaskContext const& taskContext);
 
 #ifdef GTS_MSVC
-#pragma warning( push )
-#pragma warning( disable : 4324) // alignment padding warning
+#pragma warning(push)
+#pragma warning(disable : 4324) // alignment padding warning
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,47 +66,22 @@ public: // CREATORS:
     /**
      * Construct an empty Task. Needed for some container classes.
      */
-    GTS_INLINE Task()
-        : m_fcnTaskRoutine(nullptr)
-        , m_pParent(nullptr)
-        , m_pMyScheduler(nullptr)
-        , m_isolationTag(0)
-        , m_affinity(UINT32_MAX)
-        , m_refCount(1)
-        , m_state(0)
-    {}
-
-private: // CREATORS:
+    GTS_INLINE Task();
 
     /**
      * Construct an Task from a TaskRoutine
      */
-    GTS_INLINE explicit Task(TaskRoutine taskRountine)
-        : m_fcnTaskRoutine(taskRountine)
-        , m_pParent(nullptr)
-        , m_pMyScheduler(nullptr)
-        , m_isolationTag(0)
-        , m_affinity(UINT32_MAX)
-        , m_refCount(1)
-        , m_state(0)
-    {}
+    GTS_INLINE explicit Task(TaskRoutine taskRountine);
 
     /**
      * Copy constructor needed for STL containers. Do not use!
      */
-    GTS_INLINE Task(Task const&)
-    {
-        // must impl for STL :(
-        GTS_ASSERT(0 && "Cannot copy a task");
-    }
+    GTS_INLINE Task(Task const&);
 
     /**
      * Execute the task routine.
      */
-    GTS_INLINE Task* execute(Task* thisTask, TaskContext const& taskContext)
-    {
-        return m_fcnTaskRoutine(thisTask, taskContext);
-    }
+    GTS_INLINE Task* execute(Task* thisTask, TaskContext const& taskContext);
 
 public: // MUTATORS:
 
@@ -114,58 +91,24 @@ public: // MUTATORS:
      * before calling this function. Failing to do so is undefined behavior.
      * pChild cannot already have a parent.
      */
-    GTS_INLINE void addChildTaskWithoutRef(Task* pChild)
-    {
-        GTS_ASSERT(pChild->m_pParent == nullptr);
-        GTS_ASSERT(m_refCount.load(gts::memory_order::acquire) > 1 && "Ref count is 1, did you forget to addRef?");
-
-        GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "ADD CHILD", this, pChild);
-
-        pChild->m_pParent = this;
-    }
+    GTS_INLINE void addChildTaskWithoutRef(Task* pChild);
 
     /**
-     * Adds pChild as a child of this task AND increment this task's ref count.
+     * Adds pChild as a child of this task AND increments this task's ref count.
      * pChild cannot already have a parent.
      */
-    GTS_INLINE void addChildTaskWithRef(Task* pChild, gts::memory_order order = gts::memory_order::seq_cst)
-    {
-        addRef(1, order);
-        addChildTaskWithoutRef(pChild);
-    }
+    GTS_INLINE void addChildTaskWithRef(Task* pChild, gts::memory_order order = gts::memory_order::seq_cst);
 
     /**
      * Sets pContinuation as a continuation of this task. pContinuation cannot
      * already have a parent.
      */
-    GTS_INLINE void setContinuationTask(Task* pContinuation)
-    {
-        GTS_ASSERT(pContinuation->m_pParent == nullptr);
-
-        GTS_ASSERT(
-            (m_state & TASK_IS_EXECUTING) &&
-            "This task is not executing. Setting a continuation will orphan this task from the DAG.");
-
-        GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "SET CONT", this, pContinuation);
-
-        pContinuation->m_state |= TASK_IS_CONTINUATION;
-
-        // Unlink this task from the DAG
-        Task* parent = m_pParent;
-        m_pParent    = nullptr;
-
-        // Link the continuation to this task's parent to reconnect the DAG.
-        pContinuation->m_pParent = parent;
-    }
+    GTS_INLINE void setContinuationTask(Task* pContinuation);
 
     /**
      * Marks this task to be recycled as a child of pParent.
      */
-    GTS_INLINE void recyleAsChildOf(Task* pParent)
-    {
-        m_state |= RECYLE;
-        m_pParent = pParent;
-    }
+    GTS_INLINE void recyleAsChildOf(Task* pParent);
 
     /**
      * Waits for all this Task's children to complete before continuing. While
@@ -182,169 +125,98 @@ public: // MUTATORS:
      * Emplaces the data into the task.
      */
     template<typename T, typename... TArgs>
-    GTS_INLINE T* emplaceData(TArgs&&... args)
-    {
-        m_state |= TASK_HAS_DATA_SUFFIX;
-        return new (_dataSuffix()) T(std::forward<TArgs>(args)...);
-    }
+    GTS_INLINE T* emplaceData(TArgs&&... args);
 
     /**
      * Copies the data into the task.
      */
     template<typename T>
-    GTS_INLINE T* setData(T const& data)
-    {
-        m_state |= TASK_HAS_DATA_SUFFIX;
-        return new (_dataSuffix()) T(data);
-    }
+    GTS_INLINE T* setData(T const& data);
 
     /**
      * Copies a data pointer into the task.
      */
     template<typename T>
-    GTS_INLINE T* setData(T* data)
-    {
-        m_state &= ~TASK_HAS_DATA_SUFFIX;
-
-        ::memcpy(_dataSuffix(), &data, sizeof(T*)); // stores address number!
-        return (T*)((uintptr_t*)_dataSuffix())[0];
-    }
+    GTS_INLINE T* setData(T* data);
 
     /**
      * Force the task to run on a specific Worker thread.
      */
-    GTS_INLINE void setAffinity(uint32_t workerIdx)
-    {
-        m_affinity = workerIdx;
-    }
+    GTS_INLINE void setAffinity(uint32_t workerIdx);
 
     /**
      * Adds a reference to the task.
      */
-    GTS_INLINE int32_t addRef(int32_t count = 1, gts::memory_order order = gts::memory_order::seq_cst)
-    {
-        GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) > 0);
-
-        int32_t refCount;
-
-        switch (order)
-        {
-        case gts::memory_order::relaxed:
-            refCount = m_refCount.load(gts::memory_order::relaxed) + count;
-            m_refCount.store(refCount, gts::memory_order::relaxed);
-            return refCount;
-
-        default:
-            return m_refCount.fetch_add(count, order) + count;
-        }
-    }
+    GTS_INLINE int32_t addRef(int32_t count = 1, gts::memory_order order = gts::memory_order::seq_cst);
 
     /**
      * Removes a reference from the task.
      */
-    GTS_INLINE int32_t removeRef(int32_t count = 1, gts::memory_order order = gts::memory_order::seq_cst)
-    {
-        GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) - count >= 0);
-        return addRef(-count, order);
-    }
+    GTS_INLINE int32_t removeRef(int32_t count = 1, gts::memory_order order = gts::memory_order::seq_cst);
 
     /**
      * Sets a reference count.
      */
-    GTS_INLINE void setRef(int32_t count, gts::memory_order order = gts::memory_order::seq_cst)
-    {
-        GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) > 0);
-        m_refCount.store(count, order);
-    }
+    GTS_INLINE void setRef(int32_t count, gts::memory_order order = gts::memory_order::seq_cst);
 
 public: // ACCCESSORS:
 
     /**
      * @return the current reference count.
      */
-    GTS_INLINE int32_t refCount(gts::memory_order order = gts::memory_order::acquire) const
-    {
-        return m_refCount.load(order);
-    }
+    GTS_INLINE int32_t refCount(gts::memory_order order = gts::memory_order::acquire) const;
 
     /**
      * @return the current Worker affinity.
      */
-    GTS_INLINE uint32_t getAffinity() const
-    {
-        return m_affinity;
-    }
+    GTS_INLINE uint32_t getAffinity() const;
 
     /**
      * @return the const user data from the task.
      */
-    GTS_INLINE void const* getData() const
-    {
-        if (m_state & TASK_HAS_DATA_SUFFIX)
-        {
-            return _dataSuffix();
-        }
-        else
-        {
-            return (void*)((uintptr_t*)_dataSuffix())[0];
-        }
-    }
+    GTS_INLINE void const* getData() const;
 
     /**
      * @return the user data from the task.
      */
-    GTS_INLINE void* getData()
-    {
-        if (m_state & TASK_HAS_DATA_SUFFIX)
-        {
-            return _dataSuffix();
-        }
-        else
-        {
-            return (void*)((uintptr_t*)_dataSuffix())[0];
-        }
-    }
+    GTS_INLINE void* getData();
 
     /**
      * @return True if stolen.
      */
-    GTS_INLINE bool isStolen() const
-    {
-        return (m_state & TASK_IS_STOLEN) != 0;
-    }
+    GTS_INLINE bool isStolen() const;
 
     /**
      * @return This task's parent. nullptr is no parent is set.
      */
-    GTS_INLINE Task* parent()
-    {
-        return m_pParent;
-    }
+    GTS_INLINE Task* parent();
 
     /**
      * @return This task's isolation tag.
      */
-    GTS_INLINE uintptr_t isolationTag() const
-    {
-        return m_isolationTag;
-    }
+    GTS_INLINE uintptr_t isolationTag() const;
 
 private: // HELPERS:
 
-    GTS_INLINE void* _dataSuffix()
-    {
-        return this + 1;
-    }
-
-    GTS_INLINE void const* _dataSuffix() const
-    {
-        return this + 1;
-    }
+    GTS_INLINE void*       _dataSuffix();
+    GTS_INLINE void const* _dataSuffix() const;
 
 private: // DATA:
 
     friend class MicroScheduler;
     friend class Schedule;
+
+    using DataDestructor = void(*)(void* pData);
+
+    static void emptyDataDestructor(void*)
+    {}
+
+    template<typename T>
+    static void dataDestructor(void* pData)
+    {
+        GTS_UNREFERENCED_PARAM(pData);
+        reinterpret_cast<T*>(pData)->~T();
+    }
 
     enum States
     {
@@ -357,19 +229,49 @@ private: // DATA:
         RECYLE               = 0x40
     };
 
-    TaskRoutine m_fcnTaskRoutine;
-    Task* m_pParent;
-    MicroScheduler* m_pMyScheduler;
-    uintptr_t m_isolationTag;
-    uint32_t m_affinity;
+    TaskRoutine          m_fcnTaskRoutine;
+    DataDestructor       m_fcnDataDestructor;
+    Task*                m_pParent;
+    MicroScheduler*      m_pMyScheduler;
+    uintptr_t            m_isolationTag;
+    uint32_t             m_affinity;
     gts::Atomic<int32_t> m_refCount;
-    uint32_t m_state;
+    uint32_t             m_state;
 
     // vvvvvvvvv TASK DATA IS STORED AS A SUFFIX vvvvvvvvvvvvvvvvvv
 };
 
 #ifdef GTS_MSVC
-#pragma warning( pop )
+#pragma warning(pop)
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+* @brief
+*  A Task payload that embeds TFunc and TArgs into the Task's data. It makes
+*  it easy to construct a Task from a lambda or a function plus arguments
+*  similar to std::thread.
+*/
+template<typename TFunc, typename...TArgs>
+class LambdaTaskWrapper
+{
+    using FucnArgsTupleType = typename std::tuple<std::decay_t<TFunc>, std::decay_t<TArgs>... >;
+
+    template<size_t... Idxs>
+    GTS_INLINE Task* _invoke(std::integer_sequence<size_t, Idxs...>, Task* pThisTask, TaskContext const& ctx);
+
+public:
+
+    GTS_INLINE LambdaTaskWrapper(TFunc&& func, TArgs&&...args);
+
+    GTS_INLINE static gts::Task* taskFunc(gts::Task* pThisTask, gts::TaskContext const& ctx);
+
+private:
+
+    FucnArgsTupleType m_tuple;
+};
+
+#include "gts/micro_scheduler/Task.inl"
 
 } // namespace gts

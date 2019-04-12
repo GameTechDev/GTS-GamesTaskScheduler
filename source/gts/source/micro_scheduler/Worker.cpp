@@ -57,10 +57,10 @@ namespace gts {
 //------------------------------------------------------------------------------
 Worker::Worker()
     : m_pMyPool(nullptr)
-    , m_currentSchedulerIdx(0)
     , m_pGetThreadLocalIdxFcn(nullptr)
-    , m_pSetThreadLocalIdxFcn(nullptr)
+    , m_currentSchedulerIdx(0)
     , m_resumeCount(0)
+    , m_pSetThreadLocalIdxFcn(nullptr)
     , m_isSuspendedWeak(true)
     , m_ishaltedWeak(false)
 {}

@@ -112,7 +112,7 @@ struct QueueMPSCTester
     //--------------------------------------------------------------------------
     void pushRace()
     {
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             const uint32_t producerThreadCount = gts::Thread::getHardwareThreadCount() <= 2
                 ? 2
@@ -138,7 +138,7 @@ struct QueueMPSCTester
                 const uint32_t itemStart = tt * producedItemsPerThread;
                 const uint32_t itemEnd = itemStart + producedItemsPerThread;
 
-                producers[tt] = new std::thread([itemCount, itemStart, itemEnd, &queue, &startProduction]()
+                producers[tt] = new std::thread([itemStart, itemEnd, &queue, &startProduction]()
                 {
                     while (!startProduction.load())
                     {
@@ -176,7 +176,7 @@ struct QueueMPSCTester
             }
 
             // Verify that all values were received
-            for (int ii = 0; ii < ITEM_COUNT; ++ii)
+            for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)
             {
                 ASSERT_TRUE(values.find(ValueType(ii)) != values.end());
             }
@@ -191,7 +191,7 @@ struct QueueMPSCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             _pushPopRace(queue, 0, itemCount, producerThreadCount);
         }
@@ -208,7 +208,7 @@ struct QueueMPSCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             _pushPopRace(queue, 0, itemCount, producerThreadCount);
         }
@@ -225,7 +225,7 @@ struct QueueMPSCTester
 
         TQueue queue;
 
-        for (int testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
+        for (uint32_t testIter = 0; testIter < PARALLEL_ITERATIONS; ++testIter)
         {
             for (uint32_t ii = 0; ii < itemCount; ++ii)
             {
@@ -259,7 +259,7 @@ private:
             const uint32_t itemStart = startItem + tt * producedItemsPerThread;
             const uint32_t itemEnd = itemStart + producedItemsPerThread;
 
-            producers[tt] = new std::thread([itemCount, itemStart, itemEnd, &queue, &startTest]()
+            producers[tt] = new std::thread([itemStart, itemEnd, &queue, &startTest]()
             {
                 while (!startTest.load())
                 {
@@ -308,7 +308,7 @@ private:
         }
 
         // Verify that all values were received
-        for (int ii = 0; ii < ITEM_COUNT; ++ii)
+        for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)
         {
             ASSERT_TRUE(values.find(ValueType(ii)) != values.end());
         }

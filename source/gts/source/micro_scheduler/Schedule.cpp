@@ -42,8 +42,8 @@ namespace gts {
 
 //------------------------------------------------------------------------------
 Schedule::Schedule()
-    : m_pTaskQueue(nullptr)
-    , m_pAffinityTaskQueue(nullptr)
+    : m_pAffinityTaskQueue(nullptr)
+    , m_pTaskQueue(nullptr)
     , m_pTaskAllocator(nullptr)
     , m_pMyScheduler(nullptr)
     , m_isolationTag(0)

@@ -5,6 +5,14 @@ workspace "gts_examples"
     platforms { "x86", "x64" }
     location ("../../_build/gts_examples/" .. _ACTION .. (_ARGS[1] and ("/" .. _ARGS[1]) or ("")))
     startproject "fib_example"
+    
+    --warnings "Extra"
+    
+    if(_ARGS[1] == "clang") then
+        toolset "msc-llvm-vs2014"
+    else
+        flags "FatalWarnings"
+    end
 
     filter { "platforms:x86"}
         architecture "x86"
@@ -15,10 +23,7 @@ workspace "gts_examples"
     filter { "action:vs*" }        
         defines { "_HAS_EXCEPTIONS=0" }
         buildoptions "/EHsc"
-        
-    filter { "action:vs2017" }        
-        buildoptions "/permissive-"
-        
+               
     filter { "action:gmake" }
         buildoptions "-pedantic -fno-exceptions"
         
@@ -109,3 +114,15 @@ project "5_miscellaneous"
         "../../source/gts/examples/micro_scheduler/5_miscellaneous/**.*"
     } 
     
+project "6_antipatterns"
+    kind "ConsoleApp"
+    language "C++"
+    targetdir "%{prj.location}/%{cfg.buildcfg}_%{cfg.architecture}"
+    links { "gts" }
+    includedirs {
+        "../../source/gts/include",
+        "../../source/gts/examples/micro_scheduler/6_antipatterns/include"
+    }
+    files {
+        "../../source/gts/examples/micro_scheduler/6_antipatterns/**.*"
+    } 

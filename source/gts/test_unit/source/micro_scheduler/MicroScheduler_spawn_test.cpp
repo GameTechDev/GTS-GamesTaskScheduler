@@ -37,98 +37,6 @@ using namespace gts;
 
 namespace testing {
 
-//------------------------------------------------------------------------------
-TEST(MicroScheduler, addChild)
-{
-    WorkerPool workerPool;
-    workerPool.initialize(1);
-
-    MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
-
-    Task* pTask = taskScheduler.allocateTask([](Task*, TaskContext const&)->Task*{ return nullptr; });
-    pTask->addRef(1);
-
-    Task* pChild0 = taskScheduler.allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-    pTask->addChildTaskWithoutRef(pChild0);
-    taskScheduler.spawnTask(pChild0);
-
-    TaskContext ctx{ nullptr, 0 };
-    pTask->waitForChildren(ctx);
-    pTask->destroy(ctx);
-}
-
-//------------------------------------------------------------------------------
-TEST(MicroScheduler, setContinuation)
-{
-    WorkerPool workerPool;
-    workerPool.initialize(1);
-
-    MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
-
-    Task* pTask = taskScheduler.allocateTask([](Task* pThisTask, TaskContext const& ctx)->Task*
-    {
-        Task* pContinuation = ctx.pMicroScheduler->allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-        pContinuation->addRef(1);
-        pThisTask->setContinuationTask(pContinuation);
-
-        Task* pChild = ctx.pMicroScheduler->allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-        pContinuation->addChildTaskWithoutRef(pChild);
-
-        return pChild;
-
-    });
-
-    taskScheduler.spawnTaskAndWait(pTask);
-}
-
-//------------------------------------------------------------------------------
-TEST(MicroScheduler, queueContinuationBad)
-{
-    WorkerPool workerPool;
-    workerPool.initialize(1);
-
-    MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
-
-    EXPECT_DEATH({
-
-        Task* pTask = taskScheduler.allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-        Task* pContinuation = taskScheduler.allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-        pTask->setContinuationTask(pContinuation);
-
-        taskScheduler.spawnTask(pContinuation);
-
-    }, "");
-}
-
-//------------------------------------------------------------------------------
-TEST(MicroScheduler, returnContinuationBad)
-{
-    WorkerPool workerPool;
-    workerPool.initialize(1);
-
-    MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
-
-    EXPECT_DEATH({
-
-        Task* pTask = taskScheduler.allocateTask([](Task* pThisTask, TaskContext const& ctx)->Task*
-        {
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask([](Task*, TaskContext const&)->Task* { return nullptr; });
-            pThisTask->setContinuationTask(pContinuation);
-
-            return pContinuation;
-
-        });
-
-        taskScheduler.spawnTaskAndWait(pTask);
-
-    }, "");
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 struct SpawnedTaskCounter
 {
@@ -151,7 +59,7 @@ struct SpawnedTaskCounter
 
         for (uint32_t ii = 0; ii < data.numTasks; ++ii)
         {
-            Task* pTask = ctx.pMicroScheduler->allocateTask(SpawnedTaskCounter::taskFunc);
+            Task* pTask = ctx.pMicroScheduler->allocateTask<SpawnedTaskCounter>();
             pTask->setData(data);
             pThisTask->addChildTaskWithoutRef(pTask);
 
@@ -191,7 +99,7 @@ void TestSpawnTask(const uint32_t numTasks, const uint32_t threadCount)
     taskData.numTasks = numTasks;
     taskData.taskCountByThreadIdx = taskCountByThreadIdx.data();
 
-    Task* pRootTask = taskScheduler.allocateTask(SpawnedTaskCounter::generatorFunc);
+    Task* pRootTask = taskScheduler.allocateTaskRaw(SpawnedTaskCounter::generatorFunc, sizeof(SpawnedTaskCounter));
     pRootTask->setData(taskData);
 
     taskScheduler.spawnTaskAndWait(pRootTask);

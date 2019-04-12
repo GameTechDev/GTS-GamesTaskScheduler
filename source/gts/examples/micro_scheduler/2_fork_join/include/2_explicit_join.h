@@ -81,8 +81,7 @@ struct ParallelFibTask1
 
             // Create and init the task
             uint64_t sumLeft;
-            Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask1::taskFunc);
-            pLeftChild->emplaceData<ParallelFibTask1>(fibN - 1, &sumLeft);
+            Task* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask1>(fibN - 1, &sumLeft);
             // Add the task as a child of this task.
             pThisTask->addChildTaskWithoutRef(pLeftChild);
             // Queue it for execution.
@@ -92,8 +91,7 @@ struct ParallelFibTask1
 
             // Create and init the task
             uint64_t sumRight;
-            Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask1::taskFunc);
-            pRightChild->emplaceData<ParallelFibTask1>(fibN - 2, &sumRight);
+            Task* pRightChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask1>(fibN - 2, &sumRight);
             // Add the task as a child of this task.
             pThisTask->addChildTaskWithoutRef(pRightChild);
             // Queue it for execution.
@@ -128,8 +126,7 @@ void explicitForkJoin(uint32_t fibN)
     uint64_t fibVal = 0;
 
     // Create the fib task.
-    Task* pTask = taskScheduler.allocateTask(ParallelFibTask1::taskFunc);
-    pTask->emplaceData<ParallelFibTask1>(fibN, &fibVal);
+    Task* pTask = taskScheduler.allocateTask<ParallelFibTask1>(fibN, &fibVal);
 
     // Queue and wait for the task to complete.
     taskScheduler.spawnTaskAndWait(pTask);

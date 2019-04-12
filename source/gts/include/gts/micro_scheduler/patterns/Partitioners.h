@@ -31,30 +31,6 @@ namespace gts {
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A continuation task that marks if a child has been stolen.
- */
-class TheftObserverTask
-{
-public:
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE TheftObserverTask()
-        : childTaskStolen(false)
-    {}
-
-    //--------------------------------------------------------------------------
-    static GTS_INLINE Task* taskFunc(Task*, TaskContext const&)
-    {
-        return nullptr;
-    }
-
-    gts::Atomic<bool> childTaskStolen;
-};
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/**
- * @brief
  *  Recursively divides a range in half until it grain size is reached.
  */
 class StaticPartitioner
@@ -62,13 +38,12 @@ class StaticPartitioner
 public:
 
     //--------------------------------------------------------------------------
-    template<typename TPattern, typename TRange>
+    template<typename TObserverTask, typename TPattern, typename TRange>
     GTS_INLINE Task* execute(Task* pThisTask, TaskContext const& ctx, TPattern* pPattern, TRange& range)
     {
         while (range.isDivisible())
         {
-            Task* pContinuation = pPattern->offerRange(pThisTask, ctx, range.split());
-            pContinuation->addChildTaskWithoutRef(pThisTask);
+            pPattern->offerRange(pThisTask, ctx, range.split());
         }
 
         // executed the remaining range.
@@ -77,6 +52,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    template<typename TObserverTask>
     GTS_INLINE bool adjustIfStolen(Task*) { return false; }
 
     //--------------------------------------------------------------------------
@@ -107,31 +83,24 @@ public:
     {}
 
     //--------------------------------------------------------------------------
-    template<typename TPattern, typename TRange>
+    template<typename TObserverTask, typename TPattern, typename TRange>
     GTS_INLINE Task* execute(Task* pThisTask, TaskContext const& ctx, TPattern* pPattern, TRange& range)
     {
         // Divide up the range until its tile size has not been reached. Queue
         // each division as a new continuation and sibling tasks.
         while (range.isDivisible() && m_initialOfferingDepth > 0)
         {
-            Task* pContinuation = pPattern->offerRange(pThisTask, ctx, range.split(), 0);
-            pContinuation->addChildTaskWithoutRef(pThisTask);
+            pPattern->offerRange(pThisTask, ctx, range.split(), 0);
         }
 
         if (range.isDivisible())
         {
             // If the sibling to this task was stolen, then there is demand for
             // more work.
-            TheftObserverTask* pObserver = (TheftObserverTask*)pThisTask->parent()->getData();
-            if (pObserver->childTaskStolen.load(gts::memory_order::acquire))
+            TObserverTask* pObserver = (TObserverTask*)pThisTask->parent()->getData();
+            if (pObserver->m_childTaskStolen.load(gts::memory_order::acquire))
             {
-                Task* pContinuation = pPattern->offerRange(
-                    pThisTask,
-                    ctx,
-                    range.split(),
-                    0);
-
-                pContinuation->addChildTaskWithoutRef(pThisTask);
+                pPattern->offerRange(pThisTask, ctx, range.split(), 0);
             }
         }
 
@@ -142,14 +111,15 @@ public:
     }
 
     //--------------------------------------------------------------------------
+    template<typename TObserverTask>
     GTS_INLINE bool adjustIfStolen(Task* pThisTask)
     {
         if (m_initialOfferingDepth == 0)
         {
-            TheftObserverTask* pObserver = (TheftObserverTask*)pThisTask->parent()->getData();
-            if (pObserver->childTaskStolen.load(gts::memory_order::acquire))
+            TObserverTask* pObserver = (TObserverTask*)pThisTask->parent()->getData();
+            if (pObserver->m_childTaskStolen.load(gts::memory_order::acquire))
             {
-                pObserver->childTaskStolen.store(true, gts::memory_order::release);
+                pObserver->m_childTaskStolen.store(true, gts::memory_order::release);
 
                 return true;
             }
@@ -168,7 +138,10 @@ public:
     //--------------------------------------------------------------------------
     GTS_INLINE void setWorkerCount(uint8_t workerCount)
     {
-        m_initialOfferingDepth = workerCount / 2;
+        // Experimental evidence suggests an initial offering of half the worker
+        // count rounded to the next even number with a minimum of 4. 
+        // TODO: is there a more precise model?
+        m_initialOfferingDepth = (uint8_t)std::max(4, (workerCount / 4) * 2 + 2);
     }
 
 private:

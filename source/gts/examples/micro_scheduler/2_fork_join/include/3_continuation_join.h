@@ -84,7 +84,7 @@ struct ParallelFibTask2
         else
         {
             // Create the continuation task with the join function.
-            Task* pContinuationTask = ctx.pMicroScheduler->allocateTask(ParallelFibContinuationTask::taskFunc);
+            Task* pContinuationTask = ctx.pMicroScheduler->allocateTaskRaw(ParallelFibContinuationTask::taskFunc, sizeof(ParallelFibContinuationTask));
             ParallelFibContinuationTask* pContinuationData = pContinuationTask->emplaceData<ParallelFibContinuationTask>(0, 0, sum);
 
             // We now replace pThisTask in the task graph with the continuation task.
@@ -98,18 +98,16 @@ struct ParallelFibTask2
             pThisTask->setContinuationTask(pContinuationTask);
 
             // This time add the ref count to the continuation.
-            pContinuationTask->addRef(2);
+            pContinuationTask->addRef(2, gts::memory_order::relaxed);
             
             // Fork f(n-1)
-            Task* pLeftChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask2::taskFunc);
-            pLeftChild->emplaceData<ParallelFibTask2>(fibN - 1, &pContinuationData->l);
+            Task* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask2>(fibN - 1, &pContinuationData->l);
             // Add the task to the continuation.
             pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork f(n-2)
-            Task* pRightChild = ctx.pMicroScheduler->allocateTask(ParallelFibTask2::taskFunc);
-            pRightChild->emplaceData<ParallelFibTask2>(fibN - 2, &pContinuationData->r);
+            Task* pRightChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask2>(fibN - 2, &pContinuationData->r);
             // Add the task to the continuation.
             pContinuationTask->addChildTaskWithoutRef(pRightChild);
             ctx.pMicroScheduler->spawnTask(pRightChild);
@@ -137,8 +135,7 @@ void continuationForkJoin(uint32_t fibN)
     uint64_t fibVal = 0;
 
     // Create the fib task.
-    Task* pTask = taskScheduler.allocateTask(ParallelFibTask2::taskFunc);
-    pTask->emplaceData<ParallelFibTask2>(fibN, &fibVal);
+    Task* pTask = taskScheduler.allocateTask<ParallelFibTask2>(fibN, &fibVal);
 
     // Queue and wait for the task to complete.
     taskScheduler.spawnTaskAndWait(pTask);

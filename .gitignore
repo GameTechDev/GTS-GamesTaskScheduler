@@ -2,4 +2,3 @@
 CMakeLists.txt.user
 *~
 external_dependencies/googletest
-premake5.exe

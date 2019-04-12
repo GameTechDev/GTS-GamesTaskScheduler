@@ -149,7 +149,6 @@
 #define GTS_FORCE_INLINE __forceinline
 #define GTS_NO_INLINE __declspec(noinline)
 #define GTS_DEBUG_BREAK() __debugbreak()
-#define GTS_COMPILE_BARRIER() _ReadWriteBarrier()
 
 #elif GTS_GCC
 
@@ -159,7 +158,6 @@
 #define GTS_FORCE_INLINE __attribute__((always_inline))
 #define GTS_NO_INLINE __attribute__ ((noinline))
 #define GTS_DEBUG_BREAK() __builtin_trap()
-#define GTS_COMPILE_BARRIER() asm volatile("": : :"memory")
 
 #elif GTS_CLANG
 
@@ -169,7 +167,6 @@
 #define GTS_FORCE_INLINE __attribute__((always_inline))
 #define GTS_NO_INLINE __attribute__ ((noinline))
 #define GTS_DEBUG_BREAK() __builtin_trap()
-#define GTS_COMPILE_BARRIER() asm volatile("": : :"memory")
 
 #else
 
@@ -177,7 +174,6 @@
 #define GTS_FORECE_INLINE
 #define GTS_NO_INLINE
 #define GTS_DEBUG_BREAK() #error "not implemented"
-#define GTS_COMPILE_BARRIER() #error "not implemented"
 
 #endif
 

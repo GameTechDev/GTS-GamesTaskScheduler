@@ -51,7 +51,15 @@ enum class memory_order
  * GTS_USE_CUSTOM_ATOMICS to add your own backend, or replace everything
  * completely as long as this interface exists.
  */
-GTS_INLINE void atomic_thread_fence(gts::memory_order order);
+GTS_INLINE void atomic_thread_fence(gts::memory_order order = gts::memory_order::seq_cst);
+
+//------------------------------------------------------------------------------
+/**
+ * A wrapper for signal fences. Uses the STL by default. Define
+ * GTS_USE_CUSTOM_ATOMICS to add your own backend, or replace everything
+ * completely as long as this interface exists.
+ */
+GTS_INLINE void atomic_signal_fence(gts::memory_order order = gts::memory_order::seq_cst);
 
 
 #pragma warning( push )
@@ -68,6 +76,7 @@ GTS_INLINE void atomic_thread_fence(gts::memory_order order);
 template<typename T>
 struct AtomicCommon
 {
+    ~AtomicCommon() = default;
     AtomicCommon() = default;
     AtomicCommon(const AtomicCommon&) = delete;
     AtomicCommon& operator=(const AtomicCommon&) = delete;
@@ -112,6 +121,7 @@ protected:
 template<typename T>
 struct AtomicArithmetic : public AtomicCommon<T>
 {
+    ~AtomicArithmetic() = default;
     AtomicArithmetic() = default;
     AtomicArithmetic(const AtomicArithmetic&) = delete;
     AtomicArithmetic& operator=(const AtomicArithmetic&) = delete;
@@ -136,6 +146,7 @@ struct AtomicArithmetic : public AtomicCommon<T>
 template<typename T>
 struct AtomicPointer : public AtomicCommon<T>
 {
+    ~AtomicPointer() = default;
     AtomicPointer() = default;
     AtomicPointer(const AtomicPointer&) = delete;
     AtomicPointer& operator=(const AtomicPointer&) = delete;
@@ -152,7 +163,7 @@ struct AtomicPointer : public AtomicCommon<T>
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
- * @breif
+ * @brief
  *  Arithmetic atomic specialization.
  */
 template<typename T>
@@ -160,6 +171,7 @@ class Atomic : public AtomicArithmetic<T>
 {
 public:
 
+    ~Atomic() = default;
     Atomic() = default;
     Atomic(const Atomic&) = delete;
     Atomic& operator=(const Atomic&) = delete;
@@ -171,7 +183,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
- * @breif
+ * @brief
  *  Atomic pointer specialization.
  */
 template<typename T>
@@ -179,6 +191,7 @@ class Atomic<T*> : public AtomicPointer<T*>
 {
 public:
 
+    ~Atomic() = default;
     Atomic() = default;
     Atomic(const Atomic&) = delete;
     Atomic& operator=(const Atomic&) = delete;
@@ -190,7 +203,7 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
- * @breif
+ * @brief
  *  Atomic bool specialization.
  */
 template<>
@@ -198,6 +211,7 @@ class Atomic<bool> : public AtomicCommon<bool>
 {
 public:
 
+    ~Atomic() = default;
     Atomic() = default;
     Atomic(const Atomic&) = delete;
     Atomic& operator=(const Atomic&) = delete;
