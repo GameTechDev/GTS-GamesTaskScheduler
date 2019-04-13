@@ -420,12 +420,41 @@ Stats aoBenchPerfSerial(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t i
 }
 
 //------------------------------------------------------------------------------
-Stats aoBenchPerfParallel(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations, uint32_t threadCount)
+Stats aoBenchPerfParallel(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations, uint32_t threadCount, bool affinitize)
 {
     Stats stats(iterations);
 
     gts::WorkerPool workerPool;
-    workerPool.initialize(threadCount);
+    if (affinitize)
+    {
+        gts::WorkerPoolDesc desc;
+
+        gts::CpuTopology topology;
+        gts::Thread::getCpuTopology(topology);
+
+        gts::Vector<uintptr_t> affinityMasks;
+
+        for (size_t iThread = 0, threadsPerCore = topology.coreInfo[0].logicalAffinityMasks.size(); iThread < threadsPerCore; ++iThread)
+        {
+            for (auto& core : topology.coreInfo)
+            {
+                affinityMasks.push_back(core.logicalAffinityMasks[iThread]);
+            }
+        }
+
+        for (uint32_t ii = 0; ii < threadCount; ++ii)
+        {
+            gts::WorkerThreadDesc d;
+            d.affinityMask = affinityMasks[ii];
+            desc.workerDescs.push_back(d);
+        }
+
+        workerPool.initialize(desc);
+    }
+    else
+    {
+        workerPool.initialize(threadCount);
+    }
 
     gts::MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);

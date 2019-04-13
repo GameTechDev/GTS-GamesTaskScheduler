@@ -23,11 +23,15 @@
 
 #include "gts_perf/Stats.h"
 
+Stats schedulerOverheadParForPerf(uint32_t size, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats schedulerOverheadFibPerf(uint32_t fibN, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t threadCount, bool affinitize);
+
 Stats mandelbrotPerfSerial(uint32_t dimensions, uint32_t iterations);
-Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t threadCount);
-Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t threadCount);
-Stats schedulerOverheadPerf(uint32_t fibN, uint32_t iterations, uint32_t threadCount);
+Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t threadCount, bool affinitize);
+
 Stats aoBenchPerfSerial(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations);
-Stats aoBenchPerfParallel(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations, uint32_t threadCount);
+Stats aoBenchPerfParallel(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations, uint32_t threadCount, bool affinitize);
+
 Stats matMulPefSerial(const uint32_t M, const uint32_t N, const uint32_t K, uint32_t iterations);
-Stats matMulPefParallel(const uint32_t M, const uint32_t N, const uint32_t K, uint32_t iterations, uint32_t threadCount);
+Stats matMulPefParallel(const uint32_t M, const uint32_t N, const uint32_t K, uint32_t iterations, uint32_t threadCount, bool affinitize);

@@ -87,7 +87,7 @@ public:
     {
         GTS_ASSERT(m_taskScheduler.isRunning());
 
-        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount());
+        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount(), gts::Thread::getHardwareThreadCount());
 
         TResultValue result = identityValue;
 

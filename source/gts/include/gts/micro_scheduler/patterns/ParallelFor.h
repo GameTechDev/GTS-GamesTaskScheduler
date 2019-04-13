@@ -68,7 +68,7 @@ public:
     {
         GTS_ASSERT(m_taskScheduler.isRunning());
 
-        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount());
+        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount(), (uint8_t)gts::Thread::getHardwareThreadCount());
 
         Task* pTask = m_taskScheduler.allocateTask<DivideAndConquerTask<TFunc, TRange, TPartitioner>>(
             func, userData, range, partitioner, m_priority);
@@ -104,7 +104,6 @@ public:
      * a minimum block size of 1.
      *
      * @example
-     *  parallelFor<AdaptivePartitioner>(0, 1024, [](int i) {...}).
      *  parallelFor(0, 1024, [](int i) {...}).
      */
     template<typename TIter, typename TFunc>

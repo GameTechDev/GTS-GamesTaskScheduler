@@ -56,7 +56,7 @@ public:
     GTS_INLINE bool adjustIfStolen(Task*) { return false; }
 
     //--------------------------------------------------------------------------
-    GTS_INLINE void setWorkerCount(uint8_t) {}
+    GTS_INLINE void setWorkerCount(uint8_t, uint8_t) {}
 
     //--------------------------------------------------------------------------
     GTS_INLINE StaticPartitioner split(uint8_t) { return *this; }
@@ -78,7 +78,7 @@ public:
     {}
 
     //--------------------------------------------------------------------------
-    GTS_INLINE explicit AdaptivePartitioner(uint8_t initialDepth, uint8_t)
+    GTS_INLINE explicit AdaptivePartitioner(uint8_t initialDepth)
         : m_initialOfferingDepth(initialDepth)
     {}
 
@@ -129,19 +129,19 @@ public:
 
 
     //--------------------------------------------------------------------------
-    GTS_INLINE AdaptivePartitioner split(uint8_t depth)
+    GTS_INLINE AdaptivePartitioner split(uint8_t)
     {
         --m_initialOfferingDepth;
-        return AdaptivePartitioner(m_initialOfferingDepth, depth);
+        return AdaptivePartitioner(m_initialOfferingDepth);
     }
 
     //--------------------------------------------------------------------------
-    GTS_INLINE void setWorkerCount(uint8_t workerCount)
+    GTS_INLINE void setWorkerCount(uint8_t workerCount, uint8_t totalWorkerCount)
     {
         // Experimental evidence suggests an initial offering of half the worker
         // count rounded to the next even number with a minimum of 4. 
         // TODO: is there a more precise model?
-        m_initialOfferingDepth = (uint8_t)std::max(4, (workerCount / 4) * 2 + 2);
+        m_initialOfferingDepth = (uint8_t)std::max((int)totalWorkerCount, (int)(workerCount * 0.5f + 0.5f));
     }
 
 private:

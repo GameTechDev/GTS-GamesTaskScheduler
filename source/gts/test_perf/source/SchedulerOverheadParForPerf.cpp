@@ -26,25 +26,15 @@
 
 #include <gts/micro_scheduler/WorkerPool.h>
 #include <gts/micro_scheduler/MicroScheduler.h>
+#include <gts/micro_scheduler/patterns/ParallelFor.h>
+#include <gts/micro_scheduler/patterns/BlockedRange1d.h>
 
-//------------------------------------------------------------------------------
-// A small, dummy compute workload.
-gts::Task* poorDistributionTask(gts::Task*, gts::TaskContext const&)
-{
-    volatile float sum = 0.f;
-    for (volatile uint32_t ii = 0; ii < 1000; ++ii)
-    {
-        sum += ii * ii;
-    }
-    return nullptr;
-}
 
 //------------------------------------------------------------------------------
 /**
- * Test the scenario where single tasks are submitted from a single thread,
- * which causes worst case load balancing for the scheduler.
+ * Test the overhead of the Micro-scheduler through an empty parallel-for.
  */
-Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t threadCount, bool affinitize)
+Stats schedulerOverheadParForPerf(uint32_t size, uint32_t iterations, uint32_t threadCount, bool affinitize)
 {
     Stats stats(iterations);
 
@@ -83,22 +73,14 @@ Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t thr
     gts::MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
 
+    gts::ParallelFor parallelFor(taskScheduler);
+
     // Do test.
     for (uint32_t ii = 0; ii < iterations; ++ii)
     {
         auto start = std::chrono::high_resolution_clock::now();
 
-        gts::Task* pRootTask = taskScheduler.allocateTaskRaw([](gts::Task*, gts::TaskContext const&)->gts::Task* { return nullptr; });
-        pRootTask->addRef(taskCount);
-
-        for (uint32_t t = 0; t < taskCount; ++t)
-        {
-            gts::Task* pChildTask = taskScheduler.allocateTaskRaw(poorDistributionTask);
-            pRootTask->addChildTaskWithoutRef(pChildTask);
-            taskScheduler.queueTask(pChildTask);
-        }
-
-        taskScheduler.spawnTaskAndWait(pRootTask);
+        parallelFor.operator()<gts::StaticPartitioner>(0u, size, [](uint32_t) { return nullptr; }, 1);
 
         auto end = std::chrono::high_resolution_clock::now();
 

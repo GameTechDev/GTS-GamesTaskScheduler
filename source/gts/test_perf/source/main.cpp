@@ -30,156 +30,282 @@
 // Tests:
 
 //------------------------------------------------------------------------------
-void mandelbrot()
+void schedulerOverheadParFor(Output& output)
 {
-    uint32_t iterations = 50;
+    uint32_t size = 100000;
+    uint32_t iterations = 100;
 
-    Output output("mandelbrot.txt");
+    output << "=== SchedulerOverhead ParFor ===" << std::endl;
+    output << "size: " << size << std::endl;
+
+    output << "--- no affinity ---" << std::endl;
+
+    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    {
+        Stats stats = schedulerOverheadParForPerf(size, iterations, iThread, false);
+        output << stats.mean() << ", ";
+
+        iterations += 5;
+    }
+    output << std::endl;
+
+    output << "--- affinity ---" << std::endl;
+
+    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    {
+        Stats stats = schedulerOverheadParForPerf(size, iterations, iThread, true);
+        output << stats.mean() << ", ";
+
+        iterations += 5;
+    }
+    output << std::endl;
+
+    //Stats stats = schedulerOverheadParForPerf(size, iterations + 1000, gts::Thread::getHardwareThreadCount());
+    //output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void schedulerOverheadFib(Output& output)
+{
+    uint32_t fibN = 30;
+    uint32_t iterations = 100;
+
+    output << "=== SchedulerOverhead Fib ===" << std::endl;
+    output << "Fib#: " << fibN << std::endl;
+
+    output << "--- no affinity ---" << std::endl;
+
+    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    {
+        Stats stats = schedulerOverheadFibPerf(fibN, iterations, iThread, false);
+        output << stats.mean() << ", ";
+
+        iterations += 5;
+    }
+    output << std::endl;
+
+    output << "--- affinity ---" << std::endl;
+
+    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    {
+        Stats stats = schedulerOverheadFibPerf(fibN, iterations, iThread, false);
+        output << stats.mean() << ", ";
+
+        iterations += 5;
+    }
+    output << std::endl;
+
+    //Stats stats = schedulerOverheadFibPerf(fibN, iterations + 1000, gts::Thread::getHardwareThreadCount());
+    //output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void poorDistribution(Output& output)
+{
+    const uint32_t INIT_ITERS = 100;
+    uint32_t iterations = INIT_ITERS;
+
+    output << "=== PoorDistribution ===" << std::endl;
+
+    output << "--- no affinity ---" << std::endl;
+
+    for (uint32_t taskCount = 1000; taskCount <= 5000; taskCount += 1000)
+    {
+        iterations = INIT_ITERS;
+        output << "#tasks: " << taskCount << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        {
+            Stats stats = poorDistributionPerf(taskCount, iterations, iThread, false);
+            output << stats.mean() << ", ";
+            iterations += 10;
+        }
+        output << std::endl;
+    }
+
+    output << "--- affinity ---" << std::endl;
+
+    for (uint32_t taskCount = 1000; taskCount <= 5000; taskCount += 1000)
+    {
+        iterations = INIT_ITERS;
+        output << "#tasks: " << taskCount << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        {
+            Stats stats = poorDistributionPerf(taskCount, iterations, iThread, true);
+            output << stats.mean() << ", ";
+            iterations += 10;
+        }
+        output << std::endl;
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void mandelbrot(Output& output)
+{
+    const uint32_t INIT_ITERS = 100;
+    uint32_t iterations = INIT_ITERS;
 
     output << "=== Mandelbrot ===" << std::endl;
 
     output << "--- serial ---" << std::endl;
-    output << "Dimensions, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << std::endl;
 
     for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
+        output << "dim: " << dim << std::endl;
         Stats stats = mandelbrotPerfSerial(dim, iterations);
-        output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
+        output << stats.mean() << std::endl;
     }
 
     output << "--- parallel ---" << std::endl;
+    output << "--- no affinity ---" << std::endl;
 
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
-        output << "Dimensions, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << "Thread Count" << std::endl;
-        for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
         {
-            Stats stats = mandelbrotPerfParallel(dim, iterations, iThread);
-            output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << iThread << std::endl;
+            Stats stats = mandelbrotPerfParallel(dim, iterations, iThread, false);
+            output << stats.mean() << ", ";
+            iterations += 10;
         }
-        iterations += 10;
+        output << std::endl;
     }
-}
 
-//------------------------------------------------------------------------------
-void poorDistribution()
-{
-    uint32_t iterations = 50;
+    output << "--- affinity ---" << std::endl;
 
-    Output output("poorDistribution.txt");
-
-    output << "--- PoorDistribution ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
-        output << "Data Count, " << "Mean Time, " << "Min, " << "Max, " << "Thread Count" << std::endl;
-        for (uint32_t taskCount = 1000; taskCount <= 5000; taskCount += 1000)
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
         {
-            Stats stats = poorDistributionPerf(taskCount, iterations, iThread);
-            output << taskCount << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << iThread << std::endl;
+            Stats stats = mandelbrotPerfParallel(dim, iterations, iThread, true);
+            output << stats.mean() << ", ";
+            iterations += 10;
         }
-        iterations += 10;
+        output << std::endl;
     }
+
+    output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void schedulerOverhead()
+void aoBench(Output& output)
 {
-    uint32_t fibN = 30;
-    uint32_t iterations = 20;
-
-    Output output("schedulerOverhead.txt");
-
-    output << "--- SchedulerOverhead ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-    {
-        output << "Fib #, " << "Mean Time, " << "Min, " << "Max, " << "Thread Count" << std::endl;
-        Stats stats = schedulerOverheadPerf(fibN, iterations, iThread);
-        output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << iThread << std::endl;
-
-        iterations += 5;
-    }
-
-    //Stats stats = schedulerOverheadPerf(fibN, iterations + 1000, gts::Thread::getHardwareThreadCount());
-    //output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << 20 << std::endl;
-}
-
-//------------------------------------------------------------------------------
-void aoBench()
-{
-    float iterations = 2;
+    const float INIT_ITERS = 2;
     const uint32_t NSUBSAMPLES = 2;
 
-    Output output("aoBench.txt");
+    float iterations = INIT_ITERS;
 
     output << "=== AO Bench ===" << std::endl;
 
     output << "--- serial ---" << std::endl;
-    output << "Data Count, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << std::endl;
 
     for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
+        output << "dim: " << dim << std::endl;
         Stats stats = aoBenchPerfSerial(dim, dim, NSUBSAMPLES, (uint32_t)iterations);
-        output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
+        output << stats.mean() << std::endl;
     }
 
     output << "--- parallel ---" << std::endl;
+    output << "--- no affinity ---" << std::endl;
 
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
-        output << "Data Count, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << "Thread Count" << std::endl;
-        for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
         {
-            Stats stats = aoBenchPerfParallel(dim, dim, NSUBSAMPLES, (uint32_t)iterations, iThread);
-            output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << iThread << std::endl;
+            Stats stats = aoBenchPerfParallel(dim, dim, NSUBSAMPLES, (uint32_t)iterations, iThread, false);
+            output << stats.mean() << ", ";
+            iterations += 0.25f;
         }
-
-        iterations += 0.25f;
+        output << std::endl;
     }
+
+    output << "--- affinity ---" << std::endl;
+
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    {
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        {
+            Stats stats = aoBenchPerfParallel(dim, dim, NSUBSAMPLES, (uint32_t)iterations, iThread, true);
+            output << stats.mean() << ", ";
+            iterations += 0.25f;
+        }
+        output << std::endl;
+    }
+
+    output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void matMul()
+void matMul(Output& output)
 {
-    uint32_t iterations = 50;
-
-    Output output("matMul.txt");
+    const uint32_t INIT_ITERS = 100;
+    uint32_t iterations = INIT_ITERS;
 
     output << "=== MatMul ===" << std::endl;
 
     output << "--- serial ---" << std::endl;
-    output << "Data Count, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << std::endl;
 
     for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
+        output << "dim: " << dim << std::endl;
         Stats stats = matMulPefSerial(dim, dim, dim, iterations);
-        output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
+        output << stats.mean() << ", ";
     }
 
     output << "--- parallel ---" << std::endl;
+    output << "--- no affinity ---" << std::endl;
 
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
     {
-        output << "Data Count, " << "Mean Time, " << "Min, " << "Max, " << "Std Dev" << "Thread Count" << std::endl;
-        for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
         {
-            Stats stats = matMulPefParallel(dim, dim, dim, iterations, iThread);
-            output << dim << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << ", " << iThread << std::endl;
+            Stats stats = matMulPefParallel(dim, dim, dim, iterations, iThread, false);
+            output << stats.mean() << ", ";
+            iterations += 10;
         }
-
-        iterations += 10;
+        output << std::endl;
     }
+
+    output << "--- affinity ---" << std::endl;
+
+    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    {
+        iterations = INIT_ITERS;
+        output << "dim: " << dim << std::endl;
+        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        {
+            Stats stats = matMulPefParallel(dim, dim, dim, iterations, iThread, true);
+            output << stats.mean() << ", ";
+            iterations += 10;
+        }
+        output << std::endl;
+    }
+
+    output << std::endl;
 }
 
 //------------------------------------------------------------------------------
 int main()
 {
-    mandelbrot();
-    poorDistribution();
-    schedulerOverhead();
-    aoBench();
-    matMul();
+    Output output("results.txt");
+
+    schedulerOverheadParFor(output);
+    schedulerOverheadFib(output);
+    poorDistribution(output);
+    mandelbrot(output);
+    aoBench(output);
+    matMul(output);
 
     return 0;
 }
