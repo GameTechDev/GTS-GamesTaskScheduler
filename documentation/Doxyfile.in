@@ -1,4 +1,0 @@
-PROJECT_NAME        = "@Psyllium@"
-PROJECT_NUMBER      = "@1@.@0@"
-OUTPUT_DIRECTORY    = @CMAKE_CURRENT_BINARY_DIR@/doc
-INPUT               = @CMAKE_CURRENT_SOURCE_DIR@/source/psyllium/include/psyllium

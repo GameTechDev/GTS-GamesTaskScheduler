@@ -1,4 +1,4 @@
-[![maintained](https://img.shields.io/maintenance/yes/2019.svg)]()
+[![maintained](https://img.shields.io/maintenance/yes/2020.svg)]()
 [![license](https://img.shields.io/badge/License-MIT-blue.svg)]()
 [![language count](https://img.shields.io/github/languages/count/GameTechDev/GTS-GamesTaskScheduler.svg)]()
 [![top language](https://img.shields.io/github/languages/top/GameTechDev/GTS-GamesTaskScheduler.svg)]()

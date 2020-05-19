@@ -1,0 +1,27 @@
+var classgts_1_1_quad_range =
+[
+    [ "size_type", "classgts_1_1_quad_range.html#a7cc6c37579ba1efe5832563e15ef7065", null ],
+    [ "split_result", "classgts_1_1_quad_range.html#a6103234d799715a07b9bfbf2d75b22df", null ],
+    [ "x_iter_type", "classgts_1_1_quad_range.html#ae1ab8c2146abb98654e835feaec2bec6", null ],
+    [ "x_range_type", "classgts_1_1_quad_range.html#a03f23166ab176e446f336ad2f37d3c1a", null ],
+    [ "y_iter_type", "classgts_1_1_quad_range.html#aa9ca7e56356b9a4376b7c631e57d6477", null ],
+    [ "y_range_type", "classgts_1_1_quad_range.html#a4910d852f33cdc4602f76a8a454e4c26", null ],
+    [ "SPLIT_FACTOR", "classgts_1_1_quad_range.html#ad9d129603443dcd489f770a8be64fd67a26b44342cc3dd05bcacc4255123f96b4", null ],
+    [ "MAX_SPLITS", "classgts_1_1_quad_range.html#ad9d129603443dcd489f770a8be64fd67a34c42cd8f27d689028df32ee9e52b06a", null ],
+    [ "DIMENSIONALITY", "classgts_1_1_quad_range.html#ad9d129603443dcd489f770a8be64fd67a3a51e5d06a7a54abc3a787fe2561ff64", null ],
+    [ "QuadRange", "classgts_1_1_quad_range.html#aac236740cce0fff3b64f9f93fd62f62b", null ],
+    [ "QuadRange", "classgts_1_1_quad_range.html#a2c5ccde5f8316098943306f73aebc9f4", null ],
+    [ "~QuadRange", "classgts_1_1_quad_range.html#a59592d7ec04bfedb694694f509184a52", null ],
+    [ "QuadRange", "classgts_1_1_quad_range.html#aa253d2130979cbb4b00e4d4962c091c3", null ],
+    [ "QuadRange", "classgts_1_1_quad_range.html#af20c73a885a0f25bc64fee65d2166597", null ],
+    [ "empty", "classgts_1_1_quad_range.html#a2776959585fd71913a58cd8f5ca40c51", null ],
+    [ "isDivisible", "classgts_1_1_quad_range.html#a5502903e0b3b5b6fd5f195d3053b6fe9", null ],
+    [ "size", "classgts_1_1_quad_range.html#a4ed246801619f0f586b976ce90187c17", null ],
+    [ "split", "classgts_1_1_quad_range.html#ac1240a06846686df41290263d8c3d971", null ],
+    [ "xNeighbor", "classgts_1_1_quad_range.html#a437dd910d6e0e24d0e453891d5004739", null ],
+    [ "xRange", "classgts_1_1_quad_range.html#a08510ba3870b6f7018c047cb35824ca1", null ],
+    [ "xRange", "classgts_1_1_quad_range.html#a959431839588f98871f12d3eaa7f936f", null ],
+    [ "yNeighbor", "classgts_1_1_quad_range.html#a7fbf3e3542ffd55ef7a14cf4dbc36c9f", null ],
+    [ "yRange", "classgts_1_1_quad_range.html#ad30dfa266a6b70b96684e8ffd0a5586b", null ],
+    [ "yRange", "classgts_1_1_quad_range.html#af343afdf37582ac4d6f942491bfc908b", null ]
+];
