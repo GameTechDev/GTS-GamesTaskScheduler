@@ -7,6 +7,8 @@ workspace "gts"
     startproject "gts"
     
     warnings "Extra"
+    exceptionhandling "Off"
+    rtti "Off"
     
     if(_ARGS[1] == "clang") then
         toolset "msc-llvm-vs2014"
@@ -22,13 +24,14 @@ workspace "gts"
         
     filter { "action:vs*" }        
         defines { "_HAS_EXCEPTIONS=0" }
-        buildoptions "/EHsc"
+        linkoptions { "-IGNORE:4221" }
+        systemversion "latest"
         
     filter { "action:gmake" }
-        buildoptions "-pedantic -fno-exceptions"
+        buildoptions { "-pedantic", "-Wno-error=class-memaccess", "-msse2" }
         
     filter { "action:xcode4" }
-        buildoptions "-pedantic -fno-exceptions"
+        buildoptions { "-pedantic", "-Wno-error=class-memaccess", "-msse2" }
        
     filter {"configurations:Debug"}
         defines { "_DEBUG" }

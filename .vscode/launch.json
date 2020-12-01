@@ -1,0 +1,285 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        //------------------------------------------------------------------------------
+        // GTS UNIT TESTS:
+        {
+            "name": "GTS tests debug_x86",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/Debug_x86/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests debug_x86"
+        },
+        {
+            "name": "GTS tests release_x86",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/Release_x86/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests release_x86"
+        },
+        {
+            "name": "GTS tests debug_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/Debug_x86_64/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests debug_x64"
+        },
+        {
+            "name": "GTS tests release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/Release_x86_64/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests release_x64"
+        },
+        {
+            "name": "GTS tests debugwithgtsmalloc_x86",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/DebugWithGtsMalloc_x86/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests debugwithgtsmalloc_x86"
+        },
+        {
+            "name": "GTS tests releasewithgtsmalloc_x86",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/ReleaseWithGtsMalloc_x86/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests releasewithgtsmalloc_x86"
+        },
+        {
+            "name": "GTS tests debugwithgtsmalloc_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/DebugWithGtsMalloc_x86_64/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests debugwithgtsmalloc_x64"
+        },
+        {
+            "name": "GTS tests releasewithgtsmalloc_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_unit_tests/gmake/ReleaseWithGtsMalloc_x86_64/gts_unit_tests",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "GTS tests releasewithgtsmalloc_x64"
+        },
+        //------------------------------------------------------------------------------
+        // GTS EXAMPLES:
+        {
+            "name": "Examples quick_start release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_examples/gmake/Release_x86_64/quick_start",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "Examples release_x64"
+        },
+        {
+            "name": "Examples 1_initialization release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_examples/gmake/Release_x86_64/1_initialization",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "Examples release_x64"
+        },
+        {
+            "name": "Examples 2_fork_join release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_examples/gmake/Release_x86_64/2_fork_join",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "Examples release_x64"
+        },
+        {
+            "name": "Examples 3_parallel_patterns release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_examples/gmake/Release_x86_64/3_parallel_patterns",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "Examples release_x64"
+        },
+        {
+            "name": "Examples 4_antipatterns release_x64",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/_build/gts_examples/gmake/Release_x86_64/4_antipatterns",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true,
+
+                }
+            ],
+            "preLaunchTask": "Examples release_x64"
+        },
+    ]
+}

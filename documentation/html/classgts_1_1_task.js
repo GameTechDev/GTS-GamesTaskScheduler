@@ -9,7 +9,7 @@ var classgts_1_1_task =
     [ "isStolen", "classgts_1_1_task.html#a11969cabacb89d7d4337e6c386cbefc0", null ],
     [ "name", "classgts_1_1_task.html#a300d77358b2159745512d673825e8238", null ],
     [ "parent", "classgts_1_1_task.html#ab6e1ebadf643f67201cd169b8995364a", null ],
-    [ "recyle", "classgts_1_1_task.html#af44b78fac47997bc176d8544326d67e7", null ],
+    [ "recycle", "classgts_1_1_task.html#aa35cd8382c7e7380464acb21a8322ded", null ],
     [ "refCount", "classgts_1_1_task.html#ad3d1c7c9e5f58f910c2f5f44f917b2be", null ],
     [ "removeRef", "classgts_1_1_task.html#a88deb52ea37ae97e72b9fc3c4e9eacd9", null ],
     [ "setAffinity", "classgts_1_1_task.html#a7665332c06028e3bc97c826a563caac3", null ],
@@ -20,6 +20,5 @@ var classgts_1_1_task =
     [ "waitForAll", "classgts_1_1_task.html#afad495099ad194958daf16dbd5c93a32", null ],
     [ "LocalScheduler", "classgts_1_1_task.html#ae27030011b31a7a81dec2eca254d3476", null ],
     [ "MicroScheduler", "classgts_1_1_task.html#ac2faf59f2faa29bae35296a8ba6f09c6", null ],
-    [ "Task", "classgts_1_1_task.html#aaa7728226b6ce66782e8816b1658dd9a", null ],
     [ "Worker", "classgts_1_1_task.html#a9de4a9533dff2ecc0919852d4c05a67b", null ]
 ];

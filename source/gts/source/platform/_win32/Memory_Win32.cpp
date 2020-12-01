@@ -1,4 +1,4 @@
-/*******************************************************************************
+#/*******************************************************************************
  * Copyright 2019 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -7,10 +7,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions :
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
@@ -20,173 +20,167 @@
  * THE SOFTWARE.
  ******************************************************************************/
 #include "gts/platform/Memory.h"
+
+#ifndef GTS_HAS_CUSTOM_OS_MEMORY_WRAPPERS
+#ifdef GTS_WINDOWS
+
 #include "gts/platform/Assert.h"
+#include "gts/platform/Utils.h"
 
 #include "Windows.h"
 
 namespace gts {
+namespace internal {
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// HEAP MEMORY:
-
-namespace hooks {
-
-static allocHook g_allocHook = [](size_t size)->void*{ return malloc(size); };
+static size_t g_allocGranularity = 0;
+static size_t g_pageSize = 0;
+static size_t g_largePageSize = 0;
+static bool g_hasLargePages = false;
 
 //------------------------------------------------------------------------------
-void setAllocHook(allocHook hook)
+size_t Memory::getAllocationGranularity()
 {
-    g_allocHook = hook;
-}
-
-//------------------------------------------------------------------------------
-allocHook getAllocHook()
-{
-    return g_allocHook;
-}
-
-static freeHook g_freeHook = [](void* ptr){ free(ptr); };
-
-//------------------------------------------------------------------------------
-void setFreeHook(freeHook hook)
-{
-    g_freeHook = hook;
-}
-
-//------------------------------------------------------------------------------
-freeHook getFreeHook()
-{
-    return g_freeHook;
-}
-
-alignedAllocHook g_alignedAllocHook = [](size_t size, size_t alignment)->void* { return GTS_ALIGNED_MALLOC(size, alignment); };
-
-//------------------------------------------------------------------------------
-void setAlignedAllocHook(alignedAllocHook hook)
-{
-    g_alignedAllocHook = hook;
-}
-
-//------------------------------------------------------------------------------
-alignedAllocHook getAlignedAllocHook()
-{
-    return g_alignedAllocHook;
-}
-
-alignedFreeHook g_alignedFreeHook = [](void* ptr){ GTS_ALIGNED_FREE(ptr); };
-
-//! Sets the user defined aligned free hook.
-void setAlignedFreeHook(alignedFreeHook hook)
-{
-    g_alignedFreeHook = hook;
-}
-
-//! Gets the user defined aligned free hook;
-alignedFreeHook getAlignedFreeHook()
-{
-    return g_alignedFreeHook;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// VIRTUAL MEMORY:
-
-//------------------------------------------------------------------------------
-
-osAllocHook g_osAllocHook = [](void* ptr, uint32_t length, AllocationType type)->void*
-{
-    switch (type)
+    if (g_allocGranularity == 0)
     {
-    case AllocationType::RESERVE_COMMIT:
-        return VirtualAlloc(ptr, length, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
-
-    case AllocationType::COMMIT:
-        return VirtualAlloc(ptr, length, MEM_COMMIT, PAGE_READWRITE);
-
-    case AllocationType::RESERVE:
-        return VirtualAlloc(ptr, length, MEM_RESERVE, PAGE_READWRITE);
-
-    case AllocationType::RESET:
-        return VirtualAlloc(ptr, length, MEM_RESET, PAGE_READWRITE);
-
-    case AllocationType::RESET_UNDO:
-        return VirtualAlloc(ptr, length, MEM_RESET_UNDO, PAGE_READWRITE);
-
-    default:
-        return nullptr;
+        SYSTEM_INFO info = {};
+        GetSystemInfo(&info);
+        g_allocGranularity = info.dwAllocationGranularity;
     }
-};
-
-//------------------------------------------------------------------------------
-void setOsAllocHook(osAllocHook hook)
-{
-    g_osAllocHook = hook;
+    return g_allocGranularity;
 }
 
 //------------------------------------------------------------------------------
-osAllocHook getOsAllocHook()
+size_t Memory::getPageSize()
 {
-    return g_osAllocHook;
-}
-
-osFreeHook g_osFreeHook = [](void* ptr, uint32_t length, FreeType type)->bool
-{
-    switch (type)
+    if (g_pageSize == 0)
     {
-    case FreeType::DECOMMIT:
-        return VirtualFree(ptr, length, MEM_DECOMMIT) == TRUE;
+        SYSTEM_INFO info = {};
+        GetSystemInfo(&info);
+        g_pageSize = info.dwPageSize;
+    }
+    return g_pageSize;
+}
 
-    case FreeType::RELEASE:
-        return VirtualFree(ptr, 0, MEM_RELEASE) == TRUE;
+//------------------------------------------------------------------------------
+size_t Memory::getLargePageSize()
+{
+    if (g_largePageSize == 0)
+    {
+        g_largePageSize = GetLargePageMinimum();
+    }
+    return g_largePageSize;
+}
 
-    default:
+//------------------------------------------------------------------------------
+bool Memory::enableLargePageSupport()
+{
+    if (g_hasLargePages)
+    {
+        return true;
+    }
+
+    // https://docs.microsoft.com/en-us/windows/win32/memory/creating-a-file-mapping-using-large-pages?redirectedfrom=MSDN
+    HANDLE           hToken;
+    TOKEN_PRIVILEGES tp;
+    BOOL             result;
+
+    // open process token
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+    {
         return false;
     }
-};
 
-//------------------------------------------------------------------------------
-void setOsFreeHook(osFreeHook hook)
-{
-    g_osFreeHook = hook;
+    // get the luid
+    if (!LookupPrivilegeValue(NULL, TEXT("SeLockMemoryPrivilege"), &tp.Privileges[0].Luid))
+    {
+        return false;
+    }
+
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;
+
+    // enable privilege
+    result = AdjustTokenPrivileges(hToken, FALSE, &tp, 0, (PTOKEN_PRIVILEGES)NULL, 0);
+
+    // It is possible for AdjustTokenPrivileges to return TRUE and still not succeed.
+    // So always check for the last error value.
+    result = (result && (GetLastError() != ERROR_SUCCESS));
+
+    g_hasLargePages = result;
+
+    CloseHandle(hToken);
+    return result;
 }
 
 //------------------------------------------------------------------------------
-osFreeHook getOsFreeHook()
+void* Memory::osHeapAlloc(size_t size)
 {
-    return g_osFreeHook;
-}
-
-} // namespace hooks
-
-//------------------------------------------------------------------------------
-uint32_t Memory::getAllocationGranularity()
-{
-    SYSTEM_INFO info = {};
-    GetSystemInfo(&info);
-    return (uint32_t)info.dwAllocationGranularity;
+    HANDLE hHeap = GetProcessHeap();
+    return HeapAlloc(hHeap, 0, size);
 }
 
 //------------------------------------------------------------------------------
-uint32_t Memory::getPageSize()
+bool Memory::osHeapFree(void* ptr, size_t)
 {
-    SYSTEM_INFO info = {};
-    GetSystemInfo(&info);
-    return (uint32_t)info.dwPageSize;
+    HANDLE hHeap = GetProcessHeap();
+    return HeapFree(hHeap, 0, ptr) == TRUE;
 }
 
 //------------------------------------------------------------------------------
-void* Memory::osAlloc(void* ptr, uint32_t length, AllocationType type)
+void* Memory::osVirtualAlloc(void* ptr, size_t size, bool commit, bool largePage)
 {
-    return hooks::getOsAllocHook()(ptr, length, type);
+    DWORD flags = MEM_RESERVE;
+    if (commit)
+    {
+        flags |= MEM_COMMIT;
+    }
+    if (largePage)
+    {
+        GTS_ASSERT(commit && "Large pages must commit.");
+
+        flags |= MEM_COMMIT;
+        flags |= MEM_LARGE_PAGES;
+    }
+
+    void* pOut =  VirtualAlloc(ptr, size, flags, PAGE_READWRITE);
+    if (pOut == nullptr)
+    {
+        DWORD lastError = GetLastError();
+        if (lastError == ERROR_NOT_ENOUGH_MEMORY || lastError == ERROR_OUTOFMEMORY)
+        {
+            pOut = (void*)UINTPTR_MAX;
+        }
+    }
+
+    return pOut;
 }
 
 //------------------------------------------------------------------------------
-bool Memory::osFree(void* ptr, uint32_t length, FreeType type)
+void* Memory::osVirtualCommit(void* ptr, size_t size)
+{
+    return VirtualAlloc(ptr, size, MEM_COMMIT, PAGE_READWRITE);
+}
+
+//------------------------------------------------------------------------------
+bool Memory::osVirtualDecommit(void* ptr, size_t size)
 {
     GTS_ASSERT(ptr != nullptr);
-
-    return hooks::getOsFreeHook()(ptr, length, type);
+    BOOL result = VirtualFree(ptr, size, MEM_DECOMMIT);
+    GTS_ASSERT(result == TRUE);
+    return result == TRUE;
 }
 
+//------------------------------------------------------------------------------
+bool Memory::osVirtualFree(void* ptr, size_t)
+{
+    GTS_ASSERT(ptr != nullptr);
+    BOOL result = VirtualFree(ptr, size_t(0), MEM_RELEASE);
+    GTS_ASSERT(result == TRUE);
+    return result == TRUE;
+}
+
+} // namespace internal
 } // namespace gts
+
+#endif
+#endif

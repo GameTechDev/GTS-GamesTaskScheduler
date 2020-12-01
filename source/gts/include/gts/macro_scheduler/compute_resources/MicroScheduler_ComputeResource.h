@@ -21,31 +21,94 @@
  ******************************************************************************/
 #pragma once
 
+#include "gts/containers/parallel/ParallelHashTable.h"
+
+#include "gts/micro_scheduler/MicroSchedulerTypes.h"
 #include "gts/macro_scheduler/ComputeResource.h"
+
+#include "gts/containers/parallel/QueueMPSC.h"
 
 namespace gts {
 
 class MicroScheduler;
+class MicroScheduler_Workload;
+
+/**
+ * @addtogroup MacroScheduler
+ * @{
+ */
+
+/** 
+ * @addtogroup ComputeResources
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A ComputeResource that wraps the MicroScheduler.
+ *  A ComputeResource that wraps a MicroScheduler.
  */
 class MicroScheduler_ComputeResource : public ComputeResource
 {
 public:
 
-    MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler);
+    MicroScheduler_ComputeResource() = default;
 
-    virtual ComputeResourceType type() const final;
+    MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler, uint32_t vectorWidth);
 
-    virtual void execute(ISchedule* pSchedule) final;
+    virtual ~MicroScheduler_ComputeResource();
+
+    bool init(MicroScheduler* pMicroScheduler);
+
+    GTS_INLINE MicroScheduler* microScheduler() { return m_pMicroScheduler; }
+
+    GTS_INLINE Schedule* currentSchedule() { return m_pCurrentSchedule.load(memory_order::acquire); }
+
+    GTS_INLINE virtual ComputeResourceType::Enum type() const final { return ComputeResourceType::CpuMicroScheduler; }
+
+    GTS_INLINE uint32_t vectorWidth() { return m_vectorWidth; }
+
+    virtual bool process(Schedule* pSchedule, bool canBlock);
+
+    virtual bool canExecute(Node* pNode) const final;
+
+    virtual void notify(Schedule* pSchedule) final;
+
+    virtual void registerSchedule(Schedule* pSchedulue) final;
+
+    virtual void unregisterSchedule(Schedule* pSchedulue) final;
+
+    virtual void spawnReadyChildren(WorkloadContext const& workloadContext, Task* pCurrentTask);
+
+protected:
+
+    static Task* onCheckForTask(void* pUserData, MicroScheduler*, OwnedId, bool& executedTask);
+
+    bool _buildTaskAndRun(Schedule* pSchedule, Node* pNode);
+
+    Task* _buildTask(Schedule* pSchedule, Node* pNode);
+
+    MicroScheduler* m_pMicroScheduler = nullptr;
 
 private:
 
-    MicroScheduler* m_pMicroScheduler;
+    friend class MicroScheduler_Task;
+
+    struct CheckForTasksData
+    {
+        MicroScheduler_ComputeResource* pSelf = nullptr;
+        Schedule* pSchedule                   = nullptr;
+    };
+
+    MicroScheduler_Workload* _findWorkload(Node* pNode) const;
+
+    Atomic<Schedule*> m_pCurrentSchedule{ nullptr };
+    ParallelHashTable<Schedule*, CheckForTasksData>* m_pCheckForTasksDataBySchedule;
+    uint32_t m_vectorWidth = 0;
 };
+
+/** @} */ // end of ComputeResources
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

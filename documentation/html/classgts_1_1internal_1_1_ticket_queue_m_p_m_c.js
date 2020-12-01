@@ -1,6 +1,6 @@
 var classgts_1_1internal_1_1_ticket_queue_m_p_m_c =
 [
-    [ "allocator_type", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a3e3349c0a968ff5203515345f240c9e4", null ],
+    [ "allocator_type", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a7638018968fc17add0f77f9089b8b883", null ],
     [ "mutex_type", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#ac8c13bcc414725392f1849776ed25bde", null ],
     [ "size_type", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a508334183649c2d08fdfe0e41e162946", null ],
     [ "value_type", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a81cf921b1e538ed79b58d05caa7b7f6b", null ],
@@ -12,6 +12,7 @@ var classgts_1_1internal_1_1_ticket_queue_m_p_m_c =
     [ "capacity", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a0a98ac3bac3f7a29697464ccce7acccc", null ],
     [ "clear", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a29772f2a213db7f40c1e0bfcdf3a381d", null ],
     [ "empty", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a8b64a34bd71b0d23db2a131c4243be27", null ],
+    [ "get_allocator", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#adc927965824c500a485b5ec745cf876c", null ],
     [ "operator=", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a695e37ec0f809940e6a8785d7f7bb289", null ],
     [ "operator=", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#ac11ce84f1b83392ec2db5c959c169267", null ],
     [ "reserve", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#accc0394d8d5a6f0c89d00a10c1dc3bb1", null ],

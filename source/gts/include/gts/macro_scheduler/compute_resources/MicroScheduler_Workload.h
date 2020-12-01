@@ -28,8 +28,8 @@
 
 #include "gts/macro_scheduler/MacroSchedulerTypes.h"
 #include "gts/macro_scheduler/Node.h"
-#include "gts/macro_scheduler/ComputeResourceType.h"
 #include "gts/macro_scheduler/Workload.h"
+#include "gts/macro_scheduler/ComputeResource.h"
 
 namespace gts {
 
@@ -38,286 +38,129 @@ class MicroScheduler;
 struct TaskContext;
 class MicroScheduler_Workload;
 
+/**
+ * @addtogroup MacroScheduler
+ * @{
+ */
+
+/** 
+ * @addtogroup ComputeResources
+ * @{
+ */
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A Task payload for the MicroScheduler.
+ *  A Task payload for the MicroScheduler_Workload.
  */
-class MicroScheduler_Task
+class MicroScheduler_Task : public Task
 {
 public:
 
     MicroScheduler_Task(
-        Workload_ComputeRoutine cpuComputeRoutine,
-        MicroScheduler_Workload* pMyWorkload,
-        uint64_t* pExecutionCost);
+        MicroScheduler_Workload* pThisWorkload,
+        WorkloadContext workloadContext);
 
-    static Task* taskFunc(Task* pThisTask, TaskContext const& ctx);
+    virtual Task* execute(TaskContext const& ctx) final;
 
 private:
 
-    void _executeTask();
-
-    Workload_ComputeRoutine m_cpuComputeRoutine;
-    MicroScheduler_Workload* m_pMyWorkload;
-    uint64_t* m_pExecutionCost;
+    MicroScheduler_Workload* m_pThisWorkload;
+    WorkloadContext m_workloadContext;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A Task payload for the MicroScheduler.
+ *  A abstract Workload that maps to the MicroScheduler. Subclass to create
+ *  concrete MicroScheduler Workloads.
  */
-template<typename TFunc, typename...TArgs>
-class MicroScheduler_LambdaTask
+class MicroScheduler_Workload : public Workload
 {
-    using FuncAndArgsType = typename std::tuple<std::decay_t<TFunc>, std::decay_t<TArgs>...>;
-
 public:
 
-    //--------------------------------------------------------------------------
-    GTS_INLINE MicroScheduler_LambdaTask(
-        MicroScheduler_Workload* pMyWorkload,
-        uint64_t* exeCost,
-        TFunc&& computeRoutine,
-        TArgs&&...args)
-        : m_tuple(std::forward<TFunc>(computeRoutine), std::forward<TArgs>(args)...)
-        , m_pMyWorkload(pMyWorkload)
-        , m_pExecutionCost(exeCost)
+    GTS_INLINE MicroScheduler_Workload()
+        : Workload(WorkloadType::CPP)
+        , m_workerId(ANY_WORKER)
     {}
 
-    //--------------------------------------------------------------------------
-    GTS_INLINE static gts::Task* taskFunc(gts::Task* pThisTask, gts::TaskContext const& ctx)
+    GTS_INLINE uint32_t workerAffinityId() const
     {
-        GTS_ASSERT(pThisTask != nullptr);
-
-        // Unpack the data.
-        MicroScheduler_LambdaTask<TFunc, TArgs...>* pNodeTask =
-            (MicroScheduler_LambdaTask<TFunc, TArgs...>*)pThisTask->getData();
-
-        pNodeTask->_executeTask();
-        pNodeTask->m_pMyWorkload->_spawnReadyChildren(pNodeTask->m_pMyWorkload->node(), pThisTask, ctx);
-        return nullptr;
+        return m_workerId;
     }
 
-private:
-
-    //--------------------------------------------------------------------------
-    template<size_t... Idxs>
-    void _invoke(std::integer_sequence<size_t, Idxs...>, Workload* pThisWorkload, WorkloadContext const& ctx)
+    GTS_INLINE void setWorkerAffinityId(uint32_t workerId)
     {
-        std::invoke(std::move(std::get<Idxs>(m_tuple))..., pThisWorkload, ctx);
+        m_workerId = workerId;
     }
 
-    //--------------------------------------------------------------------------
-    GTS_INLINE void _executeTask()
-    {
-        // Execute this node's work.
-        uint64_t exeCost = GTS_RDTSC();
-        _invoke(
-            std::make_integer_sequence<size_t, std::tuple_size<FuncAndArgsType>::value>(),
-            m_pMyWorkload,
-            WorkloadContext{});
-        *m_pExecutionCost = GTS_RDTSC() - exeCost;
-    }
+protected:
 
-private:
+    friend class MicroScheduler_Task;
 
-    FuncAndArgsType m_tuple;
-    MicroScheduler_Workload* m_pMyWorkload;
-    uint64_t* m_pExecutionCost;
+    TaskContext m_executionContext;
+    uint32_t m_workerId;
 };
-
-
-
-#ifdef GTS_MSVC
-#pragma warning(push)
-#pragma warning(disable : 4324) // alignment padding warning
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A concrete Workload that maps to the MicroScheduler.
+ *  A concrete lambda Workload that maps to the MicroScheduler.
  */
-class GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) MicroScheduler_Workload : public Workload
+class MicroSchedulerLambda_Workload : public MicroScheduler_Workload
 {
-    // Type erased creator.
-    using BuildTaskFunc = Task*(*)(MicroScheduler* pMicroScheduler, MicroScheduler_Workload* pWorkload);
-
-    //--------------------------------------------------------------------------
-    template<typename TFunc, typename...TArgs>
-    GTS_INLINE static Task* taskBuilder(MicroScheduler* pMicroScheduler, MicroScheduler_Workload* pWorkload)
+    template<typename TFunc, typename... TArgs>
+    static GTS_INLINE void _invoker(void* pRawTuple, WorkloadContext const& ctx)
     {
-        GTS_ASSERT(pMicroScheduler != nullptr);
-        Task* pTask = pMicroScheduler->allocateTaskRaw(
-            MicroScheduler_LambdaTask<TFunc, TArgs...>::taskFunc,
-            sizeof(MicroScheduler_LambdaTask<TFunc, TArgs...>));
-        pTask->setData(*(MicroScheduler_LambdaTask<TFunc, TArgs...>*)pWorkload->_dataSuffix());
-        return pTask;
+        // decode the tuple
+        using TupleType = std::tuple<TFunc, TArgs... >;
+        TupleType& tuple = *(TupleType*)pRawTuple;
+
+        _invoke(tuple, std::make_integer_sequence<size_t, std::tuple_size<TupleType>::value>(), ctx);
     }
 
-    //--------------------------------------------------------------------------
-    GTS_INLINE static Task* taskBuilder(MicroScheduler* pMicroScheduler, MicroScheduler_Workload* pWorkload)
+    template<typename TTuple, size_t... Idxs>
+    static GTS_INLINE void _invoke(TTuple& tuple, std::integer_sequence<size_t, Idxs...>, WorkloadContext const& ctx)
     {
-        GTS_ASSERT(pMicroScheduler != nullptr);
-        Task* pTask = pMicroScheduler->allocateTask<MicroScheduler_Task>(
-            pWorkload->m_fcnComputeRoutine,
-            pWorkload,
-            &pWorkload->m_executionCost);
-        return pTask;
+        // invoke function object packed in tuple
+        invoke<void>(std::move(std::get<Idxs>(tuple))..., ctx);
     }
 
-public:
+    using invoke_fn = void(*)(void*, WorkloadContext const&);
 
-    //--------------------------------------------------------------------------
-    template<typename TFunc, typename...TArgs>
-    GTS_INLINE MicroScheduler_Workload(Node* pOwnerNode, TFunc&& computeRoutine, TArgs&&...args)
-        : Workload(ComputeResourceType::CPU_MicroScheduler)
-        , m_executionCost(0)
-        , m_fcnComputeRoutine(nullptr)
-        , m_fcnTaskBuilder(taskBuilder<TFunc, TArgs...>)
-        , m_fcnDataDestructor(dataDestructor<MicroScheduler_LambdaTask<TFunc, TArgs...>>)
-        , m_pMyNode(pOwnerNode)
-        , m_state(0)
+public: // STRUCTORS:
+
+    template<typename TFunc, typename... TArgs>
+    GTS_INLINE MicroSchedulerLambda_Workload(TFunc&& func, TArgs&&... args)
+        : m_invoker(&_invoker<TFunc, TArgs...>)
     {
-        new (_dataSuffix()) MicroScheduler_LambdaTask<TFunc, TArgs...>(
-            this,
-            &m_executionCost,
-            std::forward<TFunc>(computeRoutine),
-            std::forward<TArgs>(args)...);
+        // Place the tuple at the end of this object.
+        new (this + 1) std::tuple<TFunc, TArgs... >(
+            std::forward<TFunc>(func), std::forward<TArgs>(args)...
+            );
     }
 
-    //--------------------------------------------------------------------------
-    GTS_INLINE MicroScheduler_Workload(Node* pOwnerNode, Workload_ComputeRoutine computeRoutine)
-        : Workload(ComputeResourceType::CPU_MicroScheduler)
-        , m_executionCost(0)
-        , m_fcnComputeRoutine(computeRoutine)
-        , m_fcnTaskBuilder(taskBuilder)
-        , m_fcnDataDestructor(emptyDataDestructor)
-        , m_pMyNode(pOwnerNode)
-        , m_state(0)
-    {}
+public: // MUTATORS:
 
-    //--------------------------------------------------------------------------
-    template<typename T, typename... TArgs>
-    GTS_INLINE T* emplaceData(TArgs&&... args)
+    GTS_INLINE virtual void execute(WorkloadContext const& ctx) final
     {
-        m_state |= TASK_HAS_DATA_SUFFIX;
-        m_fcnDataDestructor = dataDestructor<T>;
-        return new (_dataSuffix()) T(std::forward<TArgs>(args)...);
-    }
-
-    //--------------------------------------------------------------------------
-    template<typename T>
-    GTS_INLINE T* setData(T const& data)
-    {
-        m_fcnDataDestructor = dataDestructor<T>;
-        m_state |= TASK_HAS_DATA_SUFFIX;
-        return new (_dataSuffix()) T(data);
-    }
-
-    //--------------------------------------------------------------------------
-    template<typename T>
-    GTS_INLINE T* setData(T* data)
-    {
-        m_state &= ~TASK_HAS_DATA_SUFFIX;
-
-        m_fcnDataDestructor = emptyDataDestructor;
-        ::memcpy(_dataSuffix(), &data, sizeof(T*)); // stores address number!
-        return (T*)((uintptr_t*)_dataSuffix())[0];
-    }
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE void* getData()
-    {
-        if (m_state & TASK_HAS_DATA_SUFFIX)
-        {
-            return _dataSuffix();
-        }
-        else
-        {
-            return (void*)((uintptr_t*)_dataSuffix())[0];
-        }
-    }
-
-    //--------------------------------------------------------------------------
-    template<typename TFunc, typename...TArgs>
-    GTS_INLINE static size_t size()
-    {
-        return sizeof(MicroScheduler_Workload) + sizeof(MicroScheduler_LambdaTask<TFunc, TArgs...>);
-    }
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE static ComputeResourceType type()
-    {
-        return ComputeResourceType::CPU_MicroScheduler;
-    }
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE Node* node()
-    {
-        return m_pMyNode;
-    }
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE Task* _buildTask(MicroScheduler* pMicroScheduler)
-    {
-        GTS_ASSERT(pMicroScheduler != nullptr);
-        Task* pTask = m_fcnTaskBuilder(pMicroScheduler, this);
-        return pTask;
-    }
-
-    void _spawnReadyChildren(Node* pThisNode, Task* pThisTask, TaskContext const& ctx);
-
-private: // HELPERS:
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE void* _dataSuffix()
-    {
-        return this + 1;
-    }
-
-    //--------------------------------------------------------------------------
-    GTS_INLINE void const* _dataSuffix() const
-    {
-        return this + 1;
+        m_invoker(getTuple(), ctx);
     }
 
 private:
 
-    using DataDestructor = void(*)(void* pData);
-
-    static void emptyDataDestructor(void*)
-    {}
-
-    template<typename T>
-    static void dataDestructor(void* pData)
+    GTS_INLINE void* getTuple()
     {
-        GTS_UNREFERENCED_PARAM(pData);
-        reinterpret_cast<T*>(pData)->~T();
+        return this + 1;
     }
 
-    enum States
-    {
-        TASK_HAS_DATA_SUFFIX = 0x01,
-    };
-
-    uint64_t m_executionCost;
-    Workload_ComputeRoutine m_fcnComputeRoutine;
-    BuildTaskFunc m_fcnTaskBuilder;
-    DataDestructor m_fcnDataDestructor;
-    Node* m_pMyNode;
-    uint32_t m_state;
-
-    // vvvvvvvvv TASK DATA IS STORED AS A SUFFIX vvvvvvvvvvvvvvvvvv
+    invoke_fn m_invoker;
 };
 
-#ifdef GTS_MSVC
-#pragma warning(pop)
-#endif
+/** @} */ // end of ComputeResources
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

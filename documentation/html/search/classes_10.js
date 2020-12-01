@@ -1,10 +1,13 @@
 var searchData=
 [
-  ['schedule_692',['Schedule',['../classgts_1_1_schedule.html',1,'gts']]],
-  ['simplepartitioner_693',['SimplePartitioner',['../classgts_1_1_simple_partitioner.html',1,'gts']]],
-  ['slot_5ftype_694',['slot_type',['../structgts_1_1internal_1_1_parallel_sub_vector_1_1slot__type.html',1,'gts::internal::ParallelSubVector']]],
-  ['socketinfo_695',['SocketInfo',['../structgts_1_1_socket_info.html',1,'gts']]],
-  ['splitresult_696',['SplitResult',['../structgts_1_1_split_result.html',1,'gts']]],
-  ['staticpartitioner_697',['StaticPartitioner',['../classgts_1_1_static_partitioner.html',1,'gts']]],
-  ['systemtopology_698',['SystemTopology',['../structgts_1_1_system_topology.html',1,'gts']]]
+  ['schedule_742',['Schedule',['../classgts_1_1_schedule.html',1,'gts']]],
+  ['simplepartitioner_743',['SimplePartitioner',['../classgts_1_1_simple_partitioner.html',1,'gts']]],
+  ['slot_5ftype_744',['slot_type',['../structgts_1_1internal_1_1_parallel_sub_vector_1_1slot__type.html',1,'gts::internal::ParallelSubVector']]],
+  ['socketinfo_745',['SocketInfo',['../structgts_1_1_socket_info.html',1,'gts']]],
+  ['splitresult_746',['SplitResult',['../structgts_1_1_split_result.html',1,'gts']]],
+  ['splitresult_3c_20trange_2c_20maxsplits_2c_201_20_3e_747',['SplitResult&lt; TRange, MaxSplits, 1 &gt;',['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_011_01_4.html',1,'gts']]],
+  ['splitresult_3c_20trange_2c_20maxsplits_2c_202_20_3e_748',['SplitResult&lt; TRange, MaxSplits, 2 &gt;',['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_012_01_4.html',1,'gts']]],
+  ['splitresult_3c_20trange_2c_20maxsplits_2c_203_20_3e_749',['SplitResult&lt; TRange, MaxSplits, 3 &gt;',['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_013_01_4.html',1,'gts']]],
+  ['staticpartitioner_750',['StaticPartitioner',['../classgts_1_1_static_partitioner.html',1,'gts']]],
+  ['systemtopology_751',['SystemTopology',['../structgts_1_1_system_topology.html',1,'gts']]]
 ];

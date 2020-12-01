@@ -3,8 +3,8 @@ var group___thread =
     [ "CpuCoreInfo", "structgts_1_1_cpu_core_info.html", [
       [ "~CpuCoreInfo", "structgts_1_1_cpu_core_info.html#ac80ce0b38632b26adaacacceebcb7b4a", null ],
       [ "efficiencyClass", "structgts_1_1_cpu_core_info.html#af809621edace29c9bd992be024985fb6", null ],
-      [ "hardwareThreadCount", "structgts_1_1_cpu_core_info.html#ad39353d79e17822308e2eac27c3b87bb", null ],
-      [ "pLogicalAffinityMasks", "structgts_1_1_cpu_core_info.html#a09b29f88ca71560b7339b845751d0ac7", null ]
+      [ "hardwareThreadIdCount", "structgts_1_1_cpu_core_info.html#aab77cb1eab6113befec49c83b5452436", null ],
+      [ "pHardwareThreadIds", "structgts_1_1_cpu_core_info.html#a060e816641d83a99469484c850a9c7ab", null ]
     ] ],
     [ "SocketInfo", "structgts_1_1_socket_info.html", [
       [ "~SocketInfo", "structgts_1_1_socket_info.html#a39c38544ab28ef63815a35849036f4ff", null ],
@@ -33,7 +33,7 @@ var group___thread =
       [ "pGroupInfoArray", "structgts_1_1_system_topology.html#a39f5b680636a431dc4f42310901c7243", null ]
     ] ],
     [ "Thread", "classgts_1_1_thread.html", [
-      [ "DEFAULT_STACK_SIZE", "classgts_1_1_thread.html#a931b31494b25593518450edb5806b424a1d5a1056e81ded04d504b1560483c787", null ],
+      [ "DEFAULT_STACK_SIZE", "classgts_1_1_thread.html#af7fa455d177847a8fec3a1db8baf63b8a1d5a1056e81ded04d504b1560483c787", null ],
       [ "Priority", "classgts_1_1_thread.html#a83caeb2d95a82716d9346f26fa061355", [
         [ "PRIORITY_HIGHEST", "classgts_1_1_thread.html#a83caeb2d95a82716d9346f26fa061355a66d26fe62d1203d1cb348c55cbe4b763", null ],
         [ "PRIORITY_ABOVE_NORMAL", "classgts_1_1_thread.html#a83caeb2d95a82716d9346f26fa061355a7f272c18b8cee470ad8af4d45c3b5f79", null ],
@@ -46,19 +46,11 @@ var group___thread =
       [ "destroy", "classgts_1_1_thread.html#a7536bc6a15a95ed926b38254e40633ed", null ],
       [ "getId", "classgts_1_1_thread.html#ab290c08832dcdf13cf0b5c6d39d4315f", null ],
       [ "join", "classgts_1_1_thread.html#ada66d4dd07345b586b8353805141a7c8", null ],
-      [ "setAffinity", "classgts_1_1_thread.html#a70dd3984bbc7ffa2a332147dd322ce8c", null ],
+      [ "setAffinity", "classgts_1_1_thread.html#ada677b13d9ded9682135e50c9e3c5ac4", null ],
       [ "setPriority", "classgts_1_1_thread.html#aead7f3052a28d7fc4c6083041ee08522", null ],
       [ "start", "classgts_1_1_thread.html#a62f6535d478b050986e7dbe3edb1c1a3", null ]
     ] ],
     [ "ThisThread", "structgts_1_1_this_thread.html", null ],
-    [ "Mutex", "classgts_1_1_mutex.html", [
-      [ "Mutex", "classgts_1_1_mutex.html#a4ab62b0a605868e71557590c4e02d982", null ],
-      [ "~Mutex", "classgts_1_1_mutex.html#ae54acf497208d46e71b2f097a6f12e1f", null ],
-      [ "lock", "classgts_1_1_mutex.html#a0f1ae2b65ad8ba7f3f9fb6354478613d", null ],
-      [ "try_lock", "classgts_1_1_mutex.html#a180281e81610e6882c8436f803e9d326", null ],
-      [ "unlock", "classgts_1_1_mutex.html#aaf6147c2c0189e1537287d283708ab0f", null ],
-      [ "BinarySemaphore", "classgts_1_1_mutex.html#a7bccb8e099f80425c69073f34d870b12", null ]
-    ] ],
     [ "BinarySemaphore", "classgts_1_1_binary_semaphore.html", [
       [ "BinarySemaphore", "classgts_1_1_binary_semaphore.html#afed067f5911960d339648b8e36c6edcb", null ],
       [ "~BinarySemaphore", "classgts_1_1_binary_semaphore.html#a86dbe0177002b45e76df50463c75203b", null ],

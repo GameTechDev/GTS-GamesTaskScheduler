@@ -1,6 +1,6 @@
 var classgts_1_1_queue_s_p_s_c =
 [
-    [ "allocator_type", "classgts_1_1_queue_s_p_s_c.html#a127477875552d2481e943b54ac1fecb9", null ],
+    [ "allocator_type", "classgts_1_1_queue_s_p_s_c.html#a8de81e695633e35927700d836ca6d48d", null ],
     [ "size_type", "classgts_1_1_queue_s_p_s_c.html#a3a3b80a4fecb5c437442ca80d186ed2a", null ],
     [ "value_type", "classgts_1_1_queue_s_p_s_c.html#a906302a0ab30115fcc7ed76687c26a1f", null ],
     [ "QueueSPSC", "classgts_1_1_queue_s_p_s_c.html#ae90df09efb07482c08785e230540086e", null ],
@@ -11,6 +11,7 @@ var classgts_1_1_queue_s_p_s_c =
     [ "capacity", "classgts_1_1_queue_s_p_s_c.html#a971f0c38d3202fa827e17e79c4c9c49e", null ],
     [ "clear", "classgts_1_1_queue_s_p_s_c.html#a8a3e07ba96a8526e4782f5562bc2b588", null ],
     [ "empty", "classgts_1_1_queue_s_p_s_c.html#a25e8d9760c4ad5be27f551bedcdc756f", null ],
+    [ "get_allocator", "classgts_1_1_queue_s_p_s_c.html#a29171fde2a0941e0f7aa19b09575bbba", null ],
     [ "operator=", "classgts_1_1_queue_s_p_s_c.html#ae9a2f6a7dbddf499e1f8b91cb7042953", null ],
     [ "operator=", "classgts_1_1_queue_s_p_s_c.html#afcbdcad2303368759bbd13479393c9d8", null ],
     [ "reserve", "classgts_1_1_queue_s_p_s_c.html#a39eb9d23139f13f83f58c8d8cc5e226f", null ],

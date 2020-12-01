@@ -1,0 +1,88 @@
+/*******************************************************************************
+ * Copyright 2019 Intel Corporation
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files(the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions :
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ ******************************************************************************/
+#include <chrono>
+#include <deque>
+
+#include "gts/containers/parallel/QueueSPSC.h"
+
+#include "testers/QueueTester.h"
+
+namespace testing {
+
+// TODO: verify construction/destruction counts.
+
+static QueueTester<gts::QueueSPSC<uint32_t>> tester;
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, emptyConstructor)
+{
+    tester.emptyConstructor();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, copyConstructor)
+{
+    tester.copyConstructor();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, moveConstructor)
+{
+    tester.moveConstructor();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, copyAssign)
+{
+    tester.copyAssign();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, moveAssign)
+{
+    tester.moveAssign();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, copyPushPop)
+{
+    tester.copyPushPop();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, movePushPop)
+{
+    tester.movePushPop();
+}
+
+//------------------------------------------------------------------------------
+TEST(QueueSPSC, pushPopRace)
+{
+    uint32_t producerCount = 1;
+    uint32_t consumerCount = 1;
+    for(uint32_t ii = 0; ii < PARALLEL_ITERATIONS; ++ii)
+    {
+        tester.pushPopRace(producerCount, consumerCount);
+    }
+}
+
+} // namespace testing

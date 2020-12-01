@@ -1,51 +1,31 @@
 var group___allocators =
 [
     [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html", [
-      [ "rebind", "structgts_1_1_aligned_allocator_1_1rebind.html", [
-        [ "other", "structgts_1_1_aligned_allocator_1_1rebind.html#a7bd101aa1eb35af5943d246d2834b9df", null ]
-      ] ],
-      [ "const_pointer", "classgts_1_1_aligned_allocator.html#ad12af6dadb1ff2666d694f421730cc7b", null ],
-      [ "const_reference", "classgts_1_1_aligned_allocator.html#a57d7c6d1574a05a46dce9c61de233c9c", null ],
-      [ "difference_type", "classgts_1_1_aligned_allocator.html#a44bf334ba35cf3dc30072cd82940ee22", null ],
-      [ "pointer", "classgts_1_1_aligned_allocator.html#a8097325bd3c0c70817340dab059d1443", null ],
-      [ "reference", "classgts_1_1_aligned_allocator.html#a6f1c559d5969df93464c3b9efa873929", null ],
-      [ "size_type", "classgts_1_1_aligned_allocator.html#addb4ffea97011b1dafd4f337ad1cd5cb", null ],
-      [ "value_type", "classgts_1_1_aligned_allocator.html#a6930ae0bd1be4aa61d7a3fa5694a1ceb", null ],
-      [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html#a0321864eccc02a4b5277e154b246de46", null ],
-      [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html#ada79797e2b6b72432054868584f70c90", null ],
-      [ "~AlignedAllocator", "classgts_1_1_aligned_allocator.html#a0062539a09138e445fc3038498ba6182", null ],
-      [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html#a044a498d2fd32191e98ba7b6bb227784", null ],
-      [ "allocate", "classgts_1_1_aligned_allocator.html#ad86fb1cbaa8c8ce22ad8732a8302f134", null ],
-      [ "allocate", "classgts_1_1_aligned_allocator.html#ae8305c65d9912245c8bd572a02f09b8c", null ],
-      [ "construct", "classgts_1_1_aligned_allocator.html#adadf6d26fdd7a60383ecf82a992f35a3", null ],
-      [ "deallocate", "classgts_1_1_aligned_allocator.html#a8eb9cb8bf18802c1b4d28abf3bde56b3", null ],
-      [ "destroy", "classgts_1_1_aligned_allocator.html#a59aac34932dfe111dce5bd36baa329e0", null ],
-      [ "max_size", "classgts_1_1_aligned_allocator.html#ad3b958afab059d79e81753fb38b3aa84", null ],
-      [ "operator!=", "classgts_1_1_aligned_allocator.html#a30d257d27e294b388eb06770a83683bb", null ],
-      [ "operator==", "classgts_1_1_aligned_allocator.html#a45cc9a969bd982d0c51929d45fddbcbd", null ]
+      [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html#af313a449778781084a045c9f1115a95c", null ],
+      [ "AlignedAllocator", "classgts_1_1_aligned_allocator.html#aa9ec534808d73337ea04344c4e1049ab", null ],
+      [ "~AlignedAllocator", "classgts_1_1_aligned_allocator.html#ae20000a8a0c2309daee1cc90b412c587", null ],
+      [ "allocate", "classgts_1_1_aligned_allocator.html#ad978c6de55db3acb1f1c3e0f88a58f34", null ],
+      [ "construct", "classgts_1_1_aligned_allocator.html#a6482f12caf0f5a86a79bd80e3f1cae9d", null ],
+      [ "deallocate", "classgts_1_1_aligned_allocator.html#ac755abcd71d3dabb91b51c28081cff05", null ],
+      [ "delete_object", "classgts_1_1_aligned_allocator.html#a8452f5095b313c27c037aefa221252d2", null ],
+      [ "destroy", "classgts_1_1_aligned_allocator.html#a46c9dec19d63f70b33db7b1bb5a14171", null ],
+      [ "max_size", "classgts_1_1_aligned_allocator.html#af87c0abaa0de8a232f4cd741d5d62fda", null ],
+      [ "new_object", "classgts_1_1_aligned_allocator.html#a49f3f08528c1554583c49be79b285d5e", null ],
+      [ "vector_delete_object", "classgts_1_1_aligned_allocator.html#a7614d7bf1d057f2a7f06cefe708f0b75", null ],
+      [ "vector_new_object", "classgts_1_1_aligned_allocator.html#a60fae7ed36c0ac9ee12c90ced874587b", null ]
     ] ],
     [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html", [
-      [ "rebind", "structgts_1_1_os_heap_allocator_1_1rebind.html", [
-        [ "other", "structgts_1_1_os_heap_allocator_1_1rebind.html#ab3d79f3d4094d10e76e1e699779c5568", null ]
-      ] ],
-      [ "const_pointer", "classgts_1_1_os_heap_allocator.html#a876fe1e7b698f0220775db9ac342f05a", null ],
-      [ "const_reference", "classgts_1_1_os_heap_allocator.html#afa3377ae06550185e2fcb6ee243e37ba", null ],
-      [ "difference_type", "classgts_1_1_os_heap_allocator.html#ab302193bc286a24418f4f4b53c1a6867", null ],
-      [ "pointer", "classgts_1_1_os_heap_allocator.html#ae0651e1766c92bbb40409bb80d49e295", null ],
-      [ "reference", "classgts_1_1_os_heap_allocator.html#a908b0d115a3423abdcb8a1acadd9d3f2", null ],
-      [ "size_type", "classgts_1_1_os_heap_allocator.html#aeb8e7241e7997d75d82dbe488f4d7282", null ],
-      [ "value_type", "classgts_1_1_os_heap_allocator.html#a3f84a0d28eaa035052fd207a821952a9", null ],
-      [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#ab7d6bac93fbfc645488cd4e8301de26a", null ],
-      [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#ae75708e141810c6f233c53994a5fa470", null ],
-      [ "~OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#a4356ac37d459ef9ba9e54cb4b1f056a0", null ],
-      [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#a7aeb6e486f2f71d6bb3dd3a223d1e0be", null ],
-      [ "allocate", "classgts_1_1_os_heap_allocator.html#a025d694827c1756231918aece4ff7b03", null ],
-      [ "allocate", "classgts_1_1_os_heap_allocator.html#a0ef1c6045a923c5b63de69afdd3e15bb", null ],
-      [ "construct", "classgts_1_1_os_heap_allocator.html#ab2cf5b315013b4fc6eac14650def9321", null ],
-      [ "deallocate", "classgts_1_1_os_heap_allocator.html#accd3a8112103471f5414a9f63752517b", null ],
-      [ "destroy", "classgts_1_1_os_heap_allocator.html#a9122d1acf8cd0fbd66571d65ecf7f69b", null ],
-      [ "max_size", "classgts_1_1_os_heap_allocator.html#acaa93b288dbe27b6daeedf99e9af0583", null ],
-      [ "operator!=", "classgts_1_1_os_heap_allocator.html#aa0c8f5166fe1fa0f37bb385cf2e18a41", null ],
-      [ "operator==", "classgts_1_1_os_heap_allocator.html#af2edd46761e976746ac5fdbb58058d63", null ]
+      [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#a3a68db49b31239dd2b3bbd5a76dfb944", null ],
+      [ "OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#aa962f6ab4059f33595ea601887e68a30", null ],
+      [ "~OsHeapAllocator", "classgts_1_1_os_heap_allocator.html#a01b16212fa5e71a9f984956c02c47fd6", null ],
+      [ "allocate", "classgts_1_1_os_heap_allocator.html#a0a6e664e4085dcb840f644c0ffe8730f", null ],
+      [ "construct", "classgts_1_1_os_heap_allocator.html#a92a28dd1af74566bcc82a8ed25b30e58", null ],
+      [ "deallocate", "classgts_1_1_os_heap_allocator.html#a1e82c76b9385e40ffc70d9cc3bee1f65", null ],
+      [ "delete_object", "classgts_1_1_os_heap_allocator.html#aa5efc3a96e44bd4201e3feb436969da0", null ],
+      [ "destroy", "classgts_1_1_os_heap_allocator.html#a3d5ee0d7f9dee6a588ef9d1ffcf596af", null ],
+      [ "max_size", "classgts_1_1_os_heap_allocator.html#a7d31fe4accd6d25a80017a0a00f4bfc8", null ],
+      [ "new_object", "classgts_1_1_os_heap_allocator.html#a2592081e502e5f7190bb5c9c4b979ea3", null ],
+      [ "vector_delete_object", "classgts_1_1_os_heap_allocator.html#a9be7cc26ca8c91d6baf1f31ddd54ad5b", null ],
+      [ "vector_new_object", "classgts_1_1_os_heap_allocator.html#a6848287621b37e4d2b7006858c939678", null ]
     ] ]
 ];

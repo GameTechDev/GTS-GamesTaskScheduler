@@ -24,238 +24,230 @@
  ////////////////////////////////////////////////////////////////////////////////
  // Task
 
+// MUTATORS:
+
 //------------------------------------------------------------------------------
-Task::Task()
+void Task::addChildTaskWithoutRef(Task* pChild)
+{
+    GTS_ASSERT(pChild->header().pParent == nullptr);
+    GTS_ASSERT(header().refCount.load(memory_order::acquire) > 1 && "Ref count is 1, did you forget to addRef?");
+
+    GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::SeaGreen4, "ADD CHILD", this, pChild);
+
+    pChild->header().pParent = this;
+}
+
+//------------------------------------------------------------------------------
+void Task::addChildTaskWithRef(Task* pChild, memory_order order)
+{
+    addRef(1, order);
+    addChildTaskWithoutRef(pChild);
+}
+
+//------------------------------------------------------------------------------
+void Task::setContinuationTask(Task* pContinuation)
+{
+    GTS_ASSERT(pContinuation->header().pParent == nullptr);
+
+    GTS_ASSERT(
+        (header().executionState == internal::TaskHeader::EXECUTING) &&
+        "This task is not executing. Setting a continuation will orphan this task from the DAG.");
+
+    GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::SeaGreen4, "SET CONT", this, pContinuation);
+
+    pContinuation->header().flags |= internal::TaskHeader::TASK_IS_CONTINUATION;
+
+    if(pContinuation != this) // if not recycling.
+    {
+        // Unlink this task from the DAG
+        Task* parent = header().pParent;
+        header().pParent = nullptr;
+
+        // Link the continuation to this task's parent to reconnect the DAG.
+        pContinuation->header().pParent = parent;
+    }
+}
+
+//------------------------------------------------------------------------------
+void Task::recycle()
+{
+    header().executionState = internal::TaskHeader::ALLOCATED;
+}
+
+//------------------------------------------------------------------------------
+void Task::setAffinity(uint32_t workerIdx)
+{
+    header().affinity = workerIdx;
+}
+
+//------------------------------------------------------------------------------
+int32_t Task::addRef(int32_t count, memory_order order)
+{
+    GTS_ASSERT(header().refCount.load(memory_order::relaxed) > 0);
+
+    int32_t refCount;
+
+    switch (order)
+    {
+    case memory_order::relaxed:
+        refCount = header().refCount.load(memory_order::relaxed) + count;
+        header().refCount.store(refCount, memory_order::relaxed);
+        return refCount;
+
+    default:
+        return header().refCount.fetch_add(count, order) + count;
+    }
+}
+
+//------------------------------------------------------------------------------
+int32_t Task::removeRef(int32_t count, memory_order order)
+{
+    GTS_ASSERT(header().refCount.load(memory_order::relaxed) - count >= 0);
+    return addRef(-count, order);
+}
+
+//------------------------------------------------------------------------------
+void Task::setRef(int32_t count, memory_order order)
+{
+    GTS_ASSERT(header().refCount.load(memory_order::relaxed) > 0);
+    header().refCount.store(count, order);
+}
+
+//------------------------------------------------------------------------------
+void Task::setName(const char* name)
+{
+#ifdef GTS_USE_TASK_NAME
+    header().pName = name;
+#else
+    GTS_UNREFERENCED_PARAM(name);
+#endif
+}
+
+// ACCCESSORS:
+
+//------------------------------------------------------------------------------
+int32_t Task::refCount(memory_order order) const
+{
+    return header().refCount.load(order);
+}
+
+//------------------------------------------------------------------------------
+uint32_t Task::getAffinity() const
+{
+    return header().affinity;
+}
+
+//------------------------------------------------------------------------------
+bool Task::isStolen() const
+{
+    return (header().flags & internal::TaskHeader::TASK_IS_STOLEN) != 0;
+}
+
+//------------------------------------------------------------------------------
+Task* Task::parent()
+{
+    return header().pParent;
+}
+
+//------------------------------------------------------------------------------
+const char* Task::name() const
+{
+#ifdef GTS_USE_TASK_NAME
+    return header().pName;
+#else
+    return "define GTS_USE_TASK_NAME";
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// CStyleTask
+
+//------------------------------------------------------------------------------
+CStyleTask::CStyleTask()
     : m_fcnTaskRoutine(nullptr)
-    , m_fcnDataDestructor(emptyDataDestructor)
-    , m_pParent(nullptr)
-    , m_pMyScheduler(nullptr)
-    , m_isolationTag(0)
-    , m_affinity(UINT32_MAX)
-    , m_refCount(1)
-    , m_state(0)
+    , m_fcnDataDestructor(nullptr)
+    , m_pData(nullptr)
 {}
 
 
 //------------------------------------------------------------------------------
-Task::Task(TaskRoutine taskRountine)
-    : m_fcnTaskRoutine(taskRountine)
-    , m_fcnDataDestructor(emptyDataDestructor)
-    , m_pParent(nullptr)
-    , m_pMyScheduler(nullptr)
-    , m_isolationTag(0)
-    , m_affinity(UINT32_MAX)
-    , m_refCount(1)
-    , m_state(0)
-{}
-
-//------------------------------------------------------------------------------
-Task::Task(Task const&)
+CStyleTask::CStyleTask(CStyleTask const&)
+    : m_fcnTaskRoutine(nullptr)
+    , m_fcnDataDestructor(nullptr)
+    , m_pData(nullptr)
 {
     // must impl for STL :(
     GTS_ASSERT(0 && "Cannot copy a task");
 }
 
 //------------------------------------------------------------------------------
-Task* Task::execute(Task* thisTask, TaskContext const& taskContext)
+template<typename TData>
+CStyleTask::CStyleTask(TaskRoutine taskRountine, TData* pData)
+    : m_fcnTaskRoutine(taskRountine)
+    , m_fcnDataDestructor(nullptr)
+    , m_pData(pData)
 {
-    return m_fcnTaskRoutine(thisTask, taskContext);
+    _resetDataDestructor<TData*>();
+}
+
+//------------------------------------------------------------------------------
+CStyleTask::~CStyleTask()
+{
+    if(m_fcnDataDestructor)
+    {
+        m_fcnDataDestructor(getData());
+    }
 }
 
 // MUTATORS:
 
 //------------------------------------------------------------------------------
-void Task::addChildTaskWithoutRef(Task* pChild)
+Task* CStyleTask::execute(TaskContext const& taskContext)
 {
-    GTS_ASSERT(pChild->m_pParent == nullptr);
-    GTS_ASSERT(m_refCount.load(gts::memory_order::acquire) > 1 && "Ref count is 1, did you forget to addRef?");
-
-    GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "ADD CHILD", this, pChild);
-
-    pChild->m_pParent = this;
+    return m_fcnTaskRoutine(getData(), taskContext);
 }
 
 //------------------------------------------------------------------------------
-void Task::addChildTaskWithRef(Task* pChild, gts::memory_order order)
+template<typename TData>
+TData* CStyleTask::setData(TData* pData)
 {
-    addRef(1, order);
-    addChildTaskWithoutRef(pChild);
-}
-
-
-//------------------------------------------------------------------------------
-void Task::setContinuationTask(Task* pContinuation)
-{
-    GTS_ASSERT(pContinuation->m_pParent == nullptr);
-
-    GTS_ASSERT(
-        (m_state & TASK_IS_EXECUTING) &&
-        "This task is not executing. Setting a continuation will orphan this task from the DAG.");
-
-    GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "SET CONT", this, pContinuation);
-
-    pContinuation->m_state |= TASK_IS_CONTINUATION;
-
-    // Unlink this task from the DAG
-    Task* parent = m_pParent;
-    m_pParent    = nullptr;
-
-    // Link the continuation to this task's parent to reconnect the DAG.
-    pContinuation->m_pParent = parent;
-}
-
-//------------------------------------------------------------------------------
-void Task::recyleAsChildOf(Task* pParent)
-{
-    m_state |= RECYLE;
-    m_pParent = pParent;
-}
-
-//------------------------------------------------------------------------------
-template<typename T, typename... TArgs>
-T* Task::emplaceData(TArgs&&... args)
-{
-    m_fcnDataDestructor(_dataSuffix());
-
-    m_state |= TASK_HAS_DATA_SUFFIX;
-    m_fcnDataDestructor = dataDestructor<T>;
-    return new (_dataSuffix()) T(std::forward<TArgs>(args)...);
-}
-
-//------------------------------------------------------------------------------
-template<typename T>
-T* Task::setData(T const& data)
-{
-    m_fcnDataDestructor(_dataSuffix());
-
-    m_fcnDataDestructor = dataDestructor<T>;
-    m_state |= TASK_HAS_DATA_SUFFIX;
-    return new (_dataSuffix()) T(data);
-}
-
-//------------------------------------------------------------------------------
-template<typename T>
-T* Task::setData(T* data)
-{
-    m_fcnDataDestructor(_dataSuffix());
-
-    m_state &= ~TASK_HAS_DATA_SUFFIX;
-    m_fcnDataDestructor = emptyDataDestructor;
-    ::memcpy(_dataSuffix(), &data, sizeof(T*)); // stores address number!
-    return (T*)((uintptr_t*)_dataSuffix())[0];
-}
-
-//------------------------------------------------------------------------------
-void Task::setAffinity(uint32_t workerIdx)
-{
-    m_affinity = workerIdx;
-}
-
-//------------------------------------------------------------------------------
-int32_t Task::addRef(int32_t count, gts::memory_order order)
-{
-    GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) > 0);
-
-    int32_t refCount;
-
-    switch (order)
-    {
-    case gts::memory_order::relaxed:
-        refCount = m_refCount.load(gts::memory_order::relaxed) + count;
-        m_refCount.store(refCount, gts::memory_order::relaxed);
-        return refCount;
-
-    default:
-        return m_refCount.fetch_add(count, order) + count;
-    }
-}
-
-//------------------------------------------------------------------------------
-int32_t Task::removeRef(int32_t count, gts::memory_order order)
-{
-    GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) - count >= 0);
-    return addRef(-count, order);
-}
-
-//------------------------------------------------------------------------------
-void Task::setRef(int32_t count, gts::memory_order order)
-{
-    GTS_ASSERT(m_refCount.load(gts::memory_order::relaxed) > 0);
-    m_refCount.store(count, order);
+    m_pData = pData;
+    _resetDataDestructor<TData*>();
 }
 
 // ACCCESSORS:
 
 //------------------------------------------------------------------------------
-int32_t Task::refCount(gts::memory_order order) const
+void const* CStyleTask::getData() const
 {
-    return m_refCount.load(order);
+    return m_pData;
 }
 
 //------------------------------------------------------------------------------
-uint32_t Task::getAffinity() const
+void* CStyleTask::getData()
 {
-    return m_affinity;
-}
-
-//------------------------------------------------------------------------------
-void const* Task::getData() const
-{
-    if (m_state & TASK_HAS_DATA_SUFFIX)
-    {
-        return _dataSuffix();
-    }
-    else
-    {
-        return (void*)((uintptr_t*)_dataSuffix())[0];
-    }
-}
-
-//------------------------------------------------------------------------------
-void* Task::getData()
-{
-    if (m_state & TASK_HAS_DATA_SUFFIX)
-    {
-        return _dataSuffix();
-    }
-    else
-    {
-        return (void*)((uintptr_t*)_dataSuffix())[0];
-    }
-}
-
-//------------------------------------------------------------------------------
-bool Task::isStolen() const
-{
-    return (m_state & TASK_IS_STOLEN) != 0;
-}
-
-//------------------------------------------------------------------------------
-Task* Task::parent()
-{
-    return m_pParent;
-}
-
-//------------------------------------------------------------------------------
-uintptr_t Task::isolationTag() const
-{
-    return m_isolationTag;
+    return m_pData;
 }
 
 // HELPERS:
 
 //------------------------------------------------------------------------------
-void* Task::_dataSuffix()
+template<typename TData>
+void CStyleTask::_resetDataDestructor()
 {
-    return this + 1;
-}
+    if (m_fcnDataDestructor)
+    {
+        m_fcnDataDestructor(m_pData);
+        m_fcnDataDestructor = nullptr;
+    }
 
-//------------------------------------------------------------------------------
-void const* Task::_dataSuffix() const
-{
-    return this + 1;
+    static bool isNotPointerOrTriviallyDestructable = !(std::is_pointer<TData>::value || std::is_trivially_destructible<TData>::value);
+    if (isNotPointerOrTriviallyDestructable)
+    {
+        m_fcnDataDestructor = dataDestructor<TData>;
+    }
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -264,10 +256,10 @@ void const* Task::_dataSuffix() const
 //------------------------------------------------------------------------------
 template<typename TFunc, typename...TArgs>
 template<size_t... Idxs>
-Task* LambdaTaskWrapper<TFunc, TArgs...>::_invoke(std::integer_sequence<size_t, Idxs...>, Task* pThisTask, TaskContext const& ctx)
+Task* LambdaTaskWrapper<TFunc, TArgs...>::_invoke(std::integer_sequence<size_t, Idxs...>, TaskContext const& ctx)
 {
     // invoke function object packed in tuple
-    return std::invoke(std::move(std::get<Idxs>(m_tuple))..., pThisTask, ctx);
+    return invoke<Task*>(std::move(std::get<Idxs>(m_tuple))..., ctx);
 }
 
 //------------------------------------------------------------------------------
@@ -278,12 +270,7 @@ LambdaTaskWrapper<TFunc, TArgs...>::LambdaTaskWrapper(TFunc&& func, TArgs&&...ar
 
 //------------------------------------------------------------------------------
 template<typename TFunc, typename...TArgs>
-gts::Task* LambdaTaskWrapper<TFunc, TArgs...>::taskFunc(gts::Task* pThisTask, gts::TaskContext const& ctx)
+Task* LambdaTaskWrapper<TFunc, TArgs...>::execute(TaskContext const& ctx)
 {
-    GTS_ASSERT(pThisTask != nullptr);
-
-    // Unpack the data.
-    LambdaTaskWrapper<TFunc, TArgs...>* pNodeTask = (LambdaTaskWrapper<TFunc, TArgs...>*)pThisTask->getData();
-
-    return pNodeTask->_invoke(std::make_integer_sequence<size_t, std::tuple_size<FucnArgsTupleType>::value>(), pThisTask, ctx);
+    return _invoke(std::make_integer_sequence<size_t, std::tuple_size<FucnArgsTupleType>::value>(), ctx);
 }

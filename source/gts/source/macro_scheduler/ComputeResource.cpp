@@ -24,11 +24,12 @@
 namespace gts {
 
 //------------------------------------------------------------------------------
-uint32_t ComputeResource::s_nextId = 0;
+ComputeResourceId ComputeResource::s_nextId = 0;
 
 //------------------------------------------------------------------------------
 ComputeResource::ComputeResource()
-    : m_id(s_nextId++)
+    : m_exeWeight(1.0)
+    , m_id(s_nextId++)
 {
 }
 

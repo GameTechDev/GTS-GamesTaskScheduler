@@ -24,29 +24,33 @@
 #include "gts/platform/Utils.h"
 #include "gts/platform/Assert.h"
 #include "gts/platform/Memory.h"
-#include "gts/analysis/Instrumenter.h"
-#include "gts/analysis/Analyzer.h"
+#include "gts/analysis/Trace.h"
+#include "gts/analysis/Counter.h"
 
 #include "gts/micro_scheduler/MicroScheduler.h"
 
 #include "Worker.h"
+#include "LocalScheduler.h"
 
 #include <iostream>
 
 namespace gts {
 
+Atomic<uint16_t> WorkerPool::s_nextWorkerPoolId = { 0 };
+
 //------------------------------------------------------------------------------
 WorkerPool::WorkerPool()
-    : m_pGetThreadLocalIdxFcn(nullptr)
-    , m_pWorkersByIdx(nullptr)
-    , m_pWorkerOwnershipByIdx(nullptr)
-    , m_totalWorkerCount(0)
-    , m_runningWorkerCount(0)
-    , m_suspendedThreadCount(0)
-    , m_haltedThreadCount(0)
+    : m_pWorkersByIdx(nullptr)
+    , m_pRegisteredSchedulers(nullptr)
+    , m_pGetThreadLocalStateFcn(nullptr)
+    , m_pSetThreadLocalStateFcn(nullptr)
+    , m_poolId(UINT16_MAX)
+    , m_workerCount(0)
+    , m_sleepingWorkerCount(0)
+    , m_haltedWorkerCount(0)
     , m_isRunning(false)
     , m_ishalting(false)
-    , m_isPartition(false)
+    , m_debugName()
 {}
 
 //------------------------------------------------------------------------------
@@ -72,62 +76,104 @@ bool WorkerPool::initialize(uint32_t threadCount)
 }
 
 //------------------------------------------------------------------------------
-bool WorkerPool::initialize(WorkerPoolDesc const& desc)
+bool WorkerPool::initialize(WorkerPoolDesc& desc)
 {
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WorkerPool Init", 0, 0);
+    m_poolId = s_nextWorkerPoolId.fetch_add(1, memory_order::acquire);
+    GTS_ASSERT(m_poolId != UINT16_MAX && "ID overflow"); // just in case anyone gets pool happy.
+
+    GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKERPOOL INIT SHUTDOWN", m_poolId);
 
     GTS_ASSERT(desc.workerDescs.size() < INT16_MAX);
     const uint16_t workerCount = (uint16_t)desc.workerDescs.size();
-
-    GTS_ANALYSIS_START(workerCount);
+    memcpy(m_debugName, desc.name, DESC_NAME_SIZE);
 
     if (workerCount <= 0)
     {
-        GTS_ASSERT(0 && "m_totalWorkerCount <= 0");
+        GTS_ASSERT(0 && "m_workerCount <= 0");
+    }
+    m_workerCount = workerCount;
+    
+    if (!_initWorkers(desc))
+    {
+        return false;
     }
 
-    m_totalWorkerCount = workerCount;
+    m_pRegisteredSchedulers = alignedNew<RegisteredSchedulers, GTS_CACHE_LINE_SIZE>();
+
+    return true;
+}
+
+//------------------------------------------------------------------------------
+bool WorkerPool::_initWorkers(WorkerPoolDesc& desc)
+{
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKERPOOL INIT WORKERS", this, m_poolId);
 
     // Create the Workers.
-    m_pWorkersByIdx = gts::alignedVectorNew<Worker, GTS_CACHE_LINE_SIZE>(workerCount);
-    m_pWorkerOwnershipByIdx = gts::alignedVectorNew<bool, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_totalWorkerCount);
+    m_pWorkersByIdx = gts::alignedVectorNew<Worker, GTS_CACHE_LINE_SIZE>(m_workerCount);
 
     // Mark the scheduler as running.
-    m_isRunning.store(true, gts::memory_order::seq_cst);
+    m_isRunning.store(true, gts::memory_order::release);
 
-    const uint32_t masterWorkerIdx = 0;
+    const uint32_t masterWorkerId = 0;
 
+    // Initialize the TLS functions.
+    if (desc.pGetThreadLocalStateFcn != nullptr)
+    {
+        GTS_ASSERT(desc.pSetThreadLocalStateFcn != nullptr);
+        m_pGetThreadLocalStateFcn = desc.pGetThreadLocalStateFcn;
+        m_pSetThreadLocalStateFcn = desc.pSetThreadLocalStateFcn;
+    }
+    else
+    {
+        Worker::_initTlsGetAndSet(
+            m_pGetThreadLocalStateFcn,
+            m_pSetThreadLocalStateFcn);
+    }   
+
+    if (Worker::s_pGetThreadLocalStateFcn == nullptr)
+    {
+        Worker::s_pGetThreadLocalStateFcn = m_pGetThreadLocalStateFcn;
+    }
+    Worker::s_pGetThreadLocalStateFcnRefCount.fetch_add(1, memory_order::release);
+    
     // Initialize the MASTER Worker.
-    if (!m_pWorkersByIdx[masterWorkerIdx].initialize(
+    if (!m_pWorkersByIdx[masterWorkerId].initialize(
         this,
-        masterWorkerIdx,
-        desc.workerDescs[masterWorkerIdx].affinityMask,
-        desc.workerDescs[masterWorkerIdx].priority,
-        desc.pGetThreadLocalIdxFcn,
-        desc.pSetThreadLocalIdxFcn,
+        OwnedId(m_poolId, masterWorkerId),
+        WorkerThreadDesc::GroupAndAffinity(),
+        Thread::Priority::PRIORITY_NORMAL,
+        desc.workerDescs[0].name,
+        desc.workerDescs[0].pUserData,
+        desc.pGetThreadLocalStateFcn,
+        desc.pSetThreadLocalStateFcn,
+        desc.pVisitor,
+        desc.cachableTaskSize,
+        desc.initialTaskCountPerWorker,
         true))
     {
         return false;
     }
 
-    m_pWorkerOwnershipByIdx[masterWorkerIdx] = true;
-
     // Initialize the Workers
-    for (uint32_t workerIdx = masterWorkerIdx + 1; workerIdx < workerCount; ++workerIdx)
+    for (SubIdType workerId = masterWorkerId + 1; workerId < m_workerCount; ++workerId)
     {
-        GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WorkerPool InitWorker", workerIdx, 0);
-        if (!m_pWorkersByIdx[workerIdx].initialize(
+        GTS_TRACE_SCOPED_ZONE_P3(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::AntiqueWhite, "WORKERPOOL INIT WORKER", this, m_poolId, workerId);
+
+        if (!m_pWorkersByIdx[workerId].initialize(
             this,
-            workerIdx,
-            desc.workerDescs[workerIdx].affinityMask,
-            desc.workerDescs[workerIdx].priority,
-            desc.pGetThreadLocalIdxFcn,
-            desc.pSetThreadLocalIdxFcn))
+            OwnedId(m_poolId, workerId),
+            desc.workerDescs[workerId].affinity,
+            desc.workerDescs[workerId].priority,
+            desc.workerDescs[workerId].name,
+            desc.workerDescs[workerId].pUserData,
+            desc.pGetThreadLocalStateFcn,
+            desc.pSetThreadLocalStateFcn,
+            desc.pVisitor,
+            desc.cachableTaskSize,
+            desc.initialTaskCountPerWorker))
         {
             return false;
         }
-
-        m_pWorkerOwnershipByIdx[workerIdx] = true;
     }
 
     return true;
@@ -136,87 +182,76 @@ bool WorkerPool::initialize(WorkerPoolDesc const& desc)
 //------------------------------------------------------------------------------
 bool WorkerPool::shutdown()
 {
-    if (m_isPartition)
-    {
-        GTS_ASSERT(0 && "Cannot shutdown a parition.");
-        return false;
-    }
-
     if (isRunning())
     {
-        GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WorkerPool Shutdown", m_pGetThreadLocalIdxFcn(), 0);
-
-        //
-        // Shutdown all the registered MicroSchedulers.
-
-        for (size_t shedulerIdx = 0; shedulerIdx < m_registeredSchedulers.size(); ++shedulerIdx)
-        {
-            MicroScheduler* pMicroScheduler = m_registeredSchedulers[shedulerIdx];
-            if (pMicroScheduler)
-            {
-                pMicroScheduler->shutdown();
-            }
-        }
+        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKERPOOL SHUTDOWN", this, m_poolId);
 
         _haltAllWorkers(); //-------------------
 
-        //
-        // Reclaim WorkerPool partitions. Must happen before destroying threads.
+        // Unregister all the registered MicroSchedulers.
+        _unRegisterAllSchedulers();
 
-        for (size_t partitionIdx = 0; partitionIdx < m_partitions.size(); ++partitionIdx)
+        alignedDelete(m_pRegisteredSchedulers);
+        m_pRegisteredSchedulers = nullptr;
+
+        // Make master Worker unknown.
+        uintptr_t state = m_pGetThreadLocalStateFcn();
+        GTS_ASSERT(state && "Are you shutting down the WorkerPool on a different threads that it was initialized on?");
+        if(((Worker*)state)->m_refCount.fetch_sub(1, memory_order::acq_rel) - 1 == 0)
         {
-            WorkerPool* pPartition = m_partitions[partitionIdx];
-
-            // Stop running becuase we don't want shutdown to be called on delete.
-            pPartition->m_isRunning.store(false, gts::memory_order::release);
-
-            for (size_t workerIdx = 0; workerIdx < m_totalWorkerCount; ++workerIdx)
-            {
-                if (pPartition->m_pWorkerOwnershipByIdx[workerIdx])
-                {
-                    m_haltedThreadCount.fetch_add(1);
-                    m_pWorkerOwnershipByIdx[workerIdx] = true;
-                    m_pWorkersByIdx[workerIdx].m_pMyPool = this;
-                }
-            }
-
-            gts::alignedVectorDelete(pPartition->m_pWorkerOwnershipByIdx, m_totalWorkerCount);
-            delete pPartition;
+            m_pSetThreadLocalStateFcn(0);
         }
+        
+        // Analysis dump. Must happen before the workers are destroyed.
+        char filename[128];
+        #ifdef GTS_MSVC
+            sprintf_s(filename, "WorkerPool_Analysis_%d.txt", m_poolId);
+        #else
+            snprintf(filename, 128, "WorkerPool_Analysis_%d.txt", m_poolId);
+        #endif
 
-        //
-        // After reclaim
-
-        // Stop tracking WorkerPool partitions
-        m_partitions.clear();
+        GTS_WP_COUNTER_DUMP_TO(m_poolId, filename);
 
         // Destroy all the Workers.
         _destroyWorkers();
 
+        if (Worker::s_pGetThreadLocalStateFcnRefCount.fetch_sub(1, memory_order::acq_rel) - 1 == 0)
+        {
+            Worker::s_pGetThreadLocalStateFcn = nullptr;
+        }
+
         //
         // Reclaim memory
 
-        gts::alignedVectorDelete(m_pWorkerOwnershipByIdx, m_totalWorkerCount);
-        m_pWorkerOwnershipByIdx = nullptr;
-
-        gts::alignedVectorDelete(m_pWorkersByIdx, m_totalWorkerCount);
+        gts::alignedVectorDelete(m_pWorkersByIdx, m_workerCount);
         m_pWorkersByIdx = nullptr;
 
-        m_suspendedThreadCount.store(0);
-        m_runningWorkerCount.store(0);
+        m_sleepingWorkerCount.store(0, memory_order::release);
+
+        GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKERPOOL DESTROYED", this, m_poolId);
     }
-
-    GTS_ANALYSIS_STOP("analysis_dump.txt");
-
-    GTS_INSTRUMENTER_MARKER(analysis::Tag::INTERNAL, "WorkerPool Destroyed", m_pGetThreadLocalIdxFcn(), 0);
 
     return true;
 }
 
 //------------------------------------------------------------------------------
+OwnedId WorkerPool::thisWorkerId() const
+{
+    uintptr_t state = m_pGetThreadLocalStateFcn();
+    if (state)
+    {
+        return ((Worker*)state)->m_id;
+    }
+    else
+    {
+        return OwnedId();
+    }
+}
+
+//------------------------------------------------------------------------------
 void WorkerPool::_destroyWorkers()
 {
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WorkerPool DestroyWorkers", m_pGetThreadLocalIdxFcn(), 0);
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKERPOOL INIT WORKER", this, m_poolId);
 
     // Signal all Workers to quit.
     m_isRunning.store(false, gts::memory_order::release);
@@ -224,211 +259,104 @@ void WorkerPool::_destroyWorkers()
     // Wake up suspended workers so they exit.
     _resumeAllWorkers();
 
-    // Close all threads.
-    for (uint32_t thread = 1; thread < m_totalWorkerCount; ++thread)
+    // Shutdown all the workers.
+    for (uint32_t thread = 0; thread < m_workerCount; ++thread)
     {
         m_pWorkersByIdx[thread].shutdown();
     }
 }
 
 //------------------------------------------------------------------------------
-uint32_t WorkerPool::thisMicroSchedulerId()
+MicroScheduler* WorkerPool::currentMicroScheduler() const
 {
-    uint32_t workerIdx = m_pGetThreadLocalIdxFcn();
-    GTS_ASSERT(workerIdx != gts::UNKNOWN_WORKER_IDX);
+    uintptr_t state = m_pGetThreadLocalStateFcn();
+    if (state == 0)
+    {
+        GTS_ASSERT(0);
+        return nullptr;
+    }
 
-    uint32_t schedulerIdx = m_pWorkersByIdx[workerIdx].m_currentSchedulerIdx % m_registeredSchedulers.size();
-    return schedulerIdx;
+    return ((Worker*)state)->currentMicroScheduler();
 }
 
 //------------------------------------------------------------------------------
-void WorkerPool::getWorkerIndices(Vector<uint32_t>& out)
+void WorkerPool::enumerateWorkerIds(Vector<OwnedId>& out) const
 {
+    GTS_ASSERT(out.empty());
     out.clear();
-
-    for (size_t ii = 0; ii < m_totalWorkerCount; ++ii)
+    for (uint32_t ii = 0; ii < m_workerCount; ++ii)
     {
-        if (m_pWorkerOwnershipByIdx[ii])
-        {
-            out.push_back((uint32_t)ii);
-        }
+        out.push_back(m_pWorkersByIdx[ii].id());
     }
 }
 
 //------------------------------------------------------------------------------
-WorkerPool* WorkerPool::makePartition(Vector<uint32_t> const& workerIndices)
+void WorkerPool::enumerateWorkerTids(Vector<ThreadId>& out) const
 {
-    if (!isRunning())
+    GTS_ASSERT(out.empty());
+    out.clear();
+    for (uint32_t ii = 0; ii < m_workerCount; ++ii)
     {
-        GTS_ASSERT(0 && "The WorkerPool cannot be running.");
-        return nullptr;
+        out.push_back(m_pWorkersByIdx[ii].tid());
     }
-
-    if (m_isPartition)
-    {
-        GTS_ASSERT(0 && "Cannot partition a partition.");
-        return nullptr;
-    }
-
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WorkerPool Make Partition", 0, 0);
-
-    _haltAllWorkers();
-
-    WorkerPool* pPartition = new WorkerPool;
-    m_partitions.push_back(pPartition);
-
-    pPartition->m_pGetThreadLocalIdxFcn = m_pGetThreadLocalIdxFcn;
-    pPartition->m_pWorkersByIdx         = m_pWorkersByIdx;
-    pPartition->m_pWorkerOwnershipByIdx = gts::alignedVectorNew<bool, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_totalWorkerCount);
-    pPartition->m_totalWorkerCount      = m_totalWorkerCount;
-    pPartition->m_registeredSchedulers  = m_registeredSchedulers;
-
-    pPartition->m_suspendedThreadCount.store(0, gts::memory_order::relaxed);
-    pPartition->m_haltedThreadCount.store(0, gts::memory_order::relaxed);
-
-    pPartition->m_isRunning.store(true, gts::memory_order::relaxed);
-    pPartition->m_ishalting.store(true, gts::memory_order::relaxed);
-
-    pPartition->m_isPartition = true;
-
-    for (size_t ii = 0; ii < workerIndices.size(); ++ii)
-    {
-        size_t index = workerIndices[ii];
-        if (index == 0)
-        {
-            GTS_ASSERT(0 && "Cannot use main thread in a partition.");
-            goto fail;
-        }
-        if (index >= m_totalWorkerCount)
-        {
-            GTS_ASSERT(0 && "Worker index out of range.");
-            goto fail;
-        }
-        if (!m_pWorkerOwnershipByIdx[ii])
-        {
-            GTS_ASSERT(0 && "Worker index belongs to another parition.");
-            goto fail;
-        }
-
-        pPartition->m_pWorkerOwnershipByIdx[index] = true;
-
-        // Tally this halted Worker.
-        pPartition->m_haltedThreadCount.fetch_add(1);
-    }
-
-    // Remove the Worker form the schduler. Do this after setting up the partition
-    // in case it fails.
-    for (size_t ii = 0; ii < workerIndices.size(); ++ii)
-    {
-        // Remove the Worker form the schduler.
-        size_t index = workerIndices[ii];
-        m_pWorkerOwnershipByIdx[index] = false;
-
-        // Untally this halted Worker.
-        m_haltedThreadCount.fetch_sub(1);
-    }
-
-    // Point the Parition's Workers to the Parition.
-    for (size_t ii = 0; ii < m_totalWorkerCount; ++ii)
-    {
-        if (pPartition->m_pWorkerOwnershipByIdx[ii])
-        {
-            pPartition->m_pWorkersByIdx[ii].m_pMyPool = pPartition;
-        }
-    }
-
-    _resumeAllWorkers();
-    return pPartition;
-
-fail:
-
-    delete pPartition;
-    _resumeAllWorkers();
-    return nullptr;
 }
 
 //------------------------------------------------------------------------------
-uint32_t WorkerPool::_suspendedWorkerCount() const
+void WorkerPool::resetIdGenerator()
 {
-    // Count the workers in a suspended state.
-    uint32_t totalSuspendedThreads = 0;
-    for (uint32_t ii = 1; ii < m_totalWorkerCount; ++ii) // ii = 1. ignore master
-    {
-        // Slow, but needs to be atomic.
-        if (m_pWorkerOwnershipByIdx[ii] && m_pWorkersByIdx[ii].m_suspendSemaphore.isWaiting())
-        {
-            ++totalSuspendedThreads;
-        }
-    }
-    return totalSuspendedThreads;
+    s_nextWorkerPoolId.store(0, memory_order::release);
 }
 
 //------------------------------------------------------------------------------
-void WorkerPool::_suspendAllWorkers()
+void WorkerPool::_wakeWorker(Worker* pThisWorker, uint32_t count, bool reset)
 {
-    //
-    // Count all the workers to be suspended.
+    GTS_TRACE_SCOPED_ZONE_P3(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::Orange2, "WORKERPOOL WAKE WORKER", this, m_poolId, pThisWorker->id().uid());
+    GTS_WP_COUNTER_INC(pThisWorker->id(), gts::analysis::WorkerPoolCounters::NUM_WAKE_CALLS);
 
-    uint32_t totalWorkerCount = workerCount();
-    if (!m_isPartition)
-    {
-        totalWorkerCount -= 1; // ignore master thread.
-    }
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-    {
-        totalWorkerCount += m_partitions[ii]->workerCount();
-    }
+    GTS_ASSERT(count > 0);
 
-    //
-    // Wait for all the Workers to suspend.
-
-    uint32_t totalSuspendedThreadCount = 0;
-    do
-    {
-        // Count the workers in a suspended state.
-        totalSuspendedThreadCount = _suspendedWorkerCount();
-        for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-        {
-            totalSuspendedThreadCount += m_partitions[ii]->_suspendedWorkerCount();
-        }
-
-        GTS_PAUSE();
-
-    } while (totalSuspendedThreadCount < totalWorkerCount);
-}
-
-//------------------------------------------------------------------------------
-void WorkerPool::_wakeWorkers(uint32_t count)
-{
-    GTS_ANALYSIS_COUNT(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_WAKE_CALLS);
-    GTS_ANALYSIS_TIME_SCOPED(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_WAKE_CALLS);
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "Wake Workers", thisWorkerIndex(), 0);
-
-    // Make sure we have suspeneded threads before entering the more expensive
+    // Make sure we have suspended threads before entering the more expensive
     // suspend process.
-    if (m_suspendedThreadCount.load(gts::memory_order::acquire) > 0)
+    if (m_sleepingWorkerCount.load(gts::memory_order::acquire) > 0)
     {
-        // Only wake up the first Worker. Each resumed Worker will wake up the
-        // next. This distribute the resume load over the Workers.
-        for (uint32_t ii = 1; ii < m_totalWorkerCount; ++ii) // <- start at 1 because the main thread #0 does not suspend and will not resume.
+        uint32_t startIdx = 1; // <- start at 1 because the master thread #0 does not suspend and will not resume.
+        OwnedId thisWorkerId;
+        if(pThisWorker)
         {
-            if (m_pWorkerOwnershipByIdx[ii])
+            startIdx = fastRand(pThisWorker->m_randState) % m_workerCount;
+            if(startIdx == 0)
             {
-                Worker& worker = m_pWorkersByIdx[ii];
-                if(worker.m_isSuspendedWeak)
-                {
-                    worker.wake(count);
-                    break;
-                }
+                ++startIdx;
             }
+            thisWorkerId = pThisWorker->id();
+        }
+
+        // Search through all the Workers for a sleeping Worker.
+        if (!_wakeWorkerLoop(startIdx, m_workerCount, thisWorkerId.localId(), count, reset))
+        {
+            _wakeWorkerLoop(1, startIdx, thisWorkerId.localId(), count, reset);
         }
     }
+}
 
-    // Wake any partitions.
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
+//------------------------------------------------------------------------------
+bool WorkerPool::_wakeWorkerLoop(uint32_t startIdx, uint32_t endIdx, SubIdType thisWorkerId, uint32_t count, bool reset)
+{
+    for (uint32_t ii = startIdx; ii < endIdx; ++ii) 
     {
-        m_partitions[ii]->_wakeWorkers(count);
+        if (ii == thisWorkerId)
+        {
+            continue; // already awake!
+        }
+
+        Worker& worker = m_pWorkersByIdx[ii];
+        if (worker.wake(count, reset, false))
+        {
+            return true;
+        }
+        GTS_SPECULATION_FENCE();
     }
+    return false;
 }
 
 //------------------------------------------------------------------------------
@@ -436,10 +364,10 @@ uint32_t WorkerPool::_haltedWorkerCount() const
 {
     // Count the workers in a halted state.
     uint32_t totalhaltedThreads = 0;
-    for (uint32_t ii = 1; ii < m_totalWorkerCount; ++ii) // ii = 1. ignore master
+    for (uint32_t ii = 1; ii < m_workerCount; ++ii) // ii = 1. ignore master
     {
         // Slow, but needs to be atomic.
-        if (m_pWorkerOwnershipByIdx[ii] && m_pWorkersByIdx[ii].m_haltSemaphore.isWaiting())
+        if (m_pWorkersByIdx[ii].isHaulted())
         {
             ++totalhaltedThreads;
         }
@@ -450,50 +378,28 @@ uint32_t WorkerPool::_haltedWorkerCount() const
 //------------------------------------------------------------------------------
 void WorkerPool::_haltAllWorkers()
 {
-    GTS_ANALYSIS_COUNT(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_haltS_SIGNALED);
-    GTS_ANALYSIS_TIME_SCOPED(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_haltS_SIGNALED);
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::AntiqueWhite, "WORKERPOOL HALT WORKERS", this, m_poolId);
+    GTS_WP_COUNTER_INC(thisWorkerId(), gts::analysis::WorkerPoolCounters::NUM_HALTS_SIGNALED);
 
-    //
-    // halt this pool and all its partitions.
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
 
+    // halt this pool
     m_ishalting.store(true, gts::memory_order::seq_cst);
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-    {
-        m_partitions[ii]->m_ishalting.store(true, gts::memory_order::seq_cst);
-    }
 
-    //
     // Count all the workers to be halted.
-
     uint32_t totalWorkerCount = workerCount();
-    if (!m_isPartition)
-    {
-        totalWorkerCount -= 1; // ignore master thread.
-    }
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-    {
-        totalWorkerCount += m_partitions[ii]->workerCount();
-    }
+    totalWorkerCount -= 1; // ignore master thread.
 
-    //
     // Wait for all the Workers to halt.
-
     uint32_t totalhaltedThreadCount = 0;
     do
     {
         // Get all workers our of their suspended state.
-        _wakeWorkers(1);
-        for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-        {
-            m_partitions[ii]->_wakeWorkers(1);
-        }
+        _wakeWorker(pWorker, m_workerCount, true);
 
         // Count the workers in a halted state.
         totalhaltedThreadCount = _haltedWorkerCount();
-        for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-        {
-            totalhaltedThreadCount += m_partitions[ii]->_haltedWorkerCount();
-        }
 
         GTS_PAUSE();
 
@@ -505,11 +411,9 @@ void WorkerPool::_haltAllWorkers()
 //------------------------------------------------------------------------------
 void WorkerPool::_resumeAllWorkers()
 {
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::AntiqueWhite, "WORKERPOOL RESUME WORKERS", this, m_poolId);
+
     m_ishalting.store(false, gts::memory_order::release);
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-    {
-        m_partitions[ii]->m_ishalting.store(false, gts::memory_order::release);
-    }
 
     // Get the total Worker count.
     uint32_t totalhaltedThreadCount = 0;
@@ -518,22 +422,15 @@ void WorkerPool::_resumeAllWorkers()
     do
     {
         // Get all workers our of their suspend state.
-        for (volatile size_t ii = 1; ii < m_totalWorkerCount; ++ii)
+        for (volatile size_t ii = 1; ii < m_workerCount; ++ii)  // ii = 1. ignore master
         {
-            GTS_ANALYSIS_COUNT(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_RESUME_CHECKS);
-            GTS_ANALYSIS_TIME_SCOPED(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_RESUME_CHECKS);
-
-            if (m_pWorkerOwnershipByIdx[ii])
-            {
-                Worker& worker = m_pWorkersByIdx[ii];
-                GTS_ANALYSIS_COUNT(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_RESUME_SUCCESSES);
-                GTS_ANALYSIS_TIME_SCOPED(thisWorkerIndex(), gts::analysis::AnalysisType::NUM_RESUME_SUCCESSES);
-                worker.m_haltSemaphore.signal();
-            }
+            GTS_WP_COUNTER_INC(thisWorkerId(), gts::analysis::WorkerPoolCounters::NUM_RESUMES);
+            Worker& worker = m_pWorkersByIdx[ii];
+            worker.resume();
         }
 
         // Count the halted workers so far.
-        totalhaltedThreadCount = m_haltedThreadCount.load(gts::memory_order::acquire);
+        totalhaltedThreadCount = m_haltedWorkerCount.load(gts::memory_order::acquire);
 
         GTS_PAUSE();
 
@@ -541,26 +438,17 @@ void WorkerPool::_resumeAllWorkers()
 }
 
 //------------------------------------------------------------------------------
-void WorkerPool::_registerScheduler(MicroScheduler* pMicroScheduler)
+bool WorkerPool::_unRegisterScheduler(MicroScheduler* pMicroScheduler)
 {
-    _haltAllWorkers();
-
-    m_registeredSchedulers.push_back(pMicroScheduler);
-
-    _resumeAllWorkers();
-}
-
-//------------------------------------------------------------------------------
-void WorkerPool::_unRegisterScheduler(MicroScheduler* pMicroScheduler)
-{
-    _haltAllWorkers();
+    GTS_ASSERT(pMicroScheduler != nullptr);
 
     bool foundScheduler = false;
 
     size_t ii = 0;
-    for (; ii < m_registeredSchedulers.size(); ++ii)
+
+    for (; ii < m_pRegisteredSchedulers->schedulers.size(); ++ii)
     {
-        if (m_registeredSchedulers[ii] == pMicroScheduler)
+        if (m_pRegisteredSchedulers->schedulers[ii] == pMicroScheduler)
         {
             foundScheduler = true;
             break;
@@ -569,20 +457,43 @@ void WorkerPool::_unRegisterScheduler(MicroScheduler* pMicroScheduler)
 
     if (foundScheduler)
     {
-        if (ii != m_registeredSchedulers.size() - 1)
+        pMicroScheduler->_unRegisterFromWorkers(this);
+
+        if (ii != m_pRegisteredSchedulers->schedulers.size() - 1)
         {
             // swap out
-            MicroScheduler* back = m_registeredSchedulers.back();
-            m_registeredSchedulers.pop_back();
-            m_registeredSchedulers[ii] = back;
+            MicroScheduler* back = m_pRegisteredSchedulers->schedulers.back();
+            m_pRegisteredSchedulers->schedulers.pop_back();
+            m_pRegisteredSchedulers->schedulers[ii] = back;
         }
         else
         {
-            m_registeredSchedulers.pop_back();
+            m_pRegisteredSchedulers->schedulers.pop_back();
         }
-    }
 
-    _resumeAllWorkers();
+        return true;
+    }
+    else
+    {
+        GTS_ASSERT(0 && "pMicroScheduler is not registered.");
+        return false;
+    }
+}
+
+//------------------------------------------------------------------------------
+void WorkerPool::_unRegisterAllSchedulers()
+{
+    Lock<MutexType> lock(m_pRegisteredSchedulers->mutex);
+
+    while(!m_pRegisteredSchedulers->schedulers.empty())
+    {
+        MicroScheduler* pMicroScheduler = m_pRegisteredSchedulers->schedulers.back();
+        GTS_ASSERT(pMicroScheduler != nullptr);
+
+        pMicroScheduler->_unRegisterFromWorkerPool(this, false);
+
+        //m_pRegisteredSchedulers->schedulers.pop_back();
+    }
 }
 
 } // namespace gts

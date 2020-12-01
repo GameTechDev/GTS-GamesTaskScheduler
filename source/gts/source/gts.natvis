@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+    <!-- Task -->
+    <Type Name="gts::Task">
+        <Expand>
+            <Item Name="[header]" ExcludeView="simple">((gts::internal::TaskHeader*)this)[-1]</Item>
+        </Expand>
+    </Type>
+
+    <!-- Vector -->
+    <Type Name="gts::Vector&lt;*&gt;">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <Item Name="[capacity]" ExcludeView="simple">m_capacity</Item>
+            <ArrayItems>
+                <Size>m_size</Size>
+                <ValuePointer>m_pBegin</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- KeyValue -->
+    <Type Name="gts::KeyValue&lt;*&gt;">
+        <DisplayString>{{ key={key} value={value} }}</DisplayString>
+        <Expand>
+            <Item Name="[key]" ExcludeView="simple">key</Item>
+            <Item Name="[value]" ExcludeView="simple">value</Item>
+        </Expand>
+    </Type>
+
+    <!-- Atomic -->
+    <Type Name="gts::Atomic&lt;*&gt;">
+        <DisplayString>{*($T1*)&amp;m_atom}</DisplayString>
+        <Expand>
+            <Item Name="[value]" ExcludeView="simple">*($T1*)&amp;m_atom</Item>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable::Slot -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;::Slot&lt;*&gt;">
+        <DisplayString>{{ keyVal={keyVal} state={state} }}</DisplayString>
+        <Expand>
+            <Item Name="[keyVal]" ExcludeView="simple">keyVal</Item>
+            <Item Name="[state]" ExcludeView="simple">state</Item>
+            <Item Name="[sharedMutex]" ExcludeView="simple">sharedMutex</Item>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable::Table -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;::Table&lt;*&gt;">
+        <DisplayString>{{ capacity={capacity} maxProbe={maxProbe} }}</DisplayString>
+        <Expand>
+            <Item Name="[ppSlots]" ExcludeView="simple">ppSlots</Item>
+            <Item Name="[capacity]" ExcludeView="simple">capacity</Item>
+            <Item Name="[maxProbe]" ExcludeView="simple">maxProbe</Item>
+            <ArrayItems>
+                <Size>capacity</Size>
+                <ValuePointer>ppSlots</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;">
+        <Expand>
+            <Item Name="[capacity]" ExcludeView="simple">(**(table_type**)&amp;m_pTable).capacity</Item>
+            <Item Name="[data backing]" ExcludeView="simple">m_dataBacking</Item>
+            <ArrayItems>
+                <Size>(**(table_type**)&amp;m_pTable).capacity</Size>
+                <ValuePointer>(**(table_type**)&amp;m_pTable).ppSlots</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- CpuCoreInfo -->
+    <Type Name="gts::CpuCoreInfo">
+        <DisplayString>{{ HW threads={hardwareThreadCount} efficiency class={efficiencyClass} }}</DisplayString>
+        <Expand>
+            <Item Name="[HW threads]" ExcludeView="simple">hardwareThreadCount</Item>
+            <Item Name="[efficiency class]" ExcludeView="simple">efficiencyClass</Item>
+            <ArrayItems>
+                <Size>hardwareThreadCount</Size>
+                <ValuePointer>pLogicalAffinityMasks</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- SocketInfo -->
+    <Type Name="gts::SocketInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- NumaNodeInfo -->
+    <Type Name="gts::NumaNodeInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} node ID={nodeId} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <Item Name="[node ID]" ExcludeView="simple">nodeId</Item>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- ProcessorGroupInfo -->
+    <Type Name="gts::ProcessorGroupInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} group ID={groupId} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <Item Name="[group ID]" ExcludeView="simple">groupId</Item>
+            <Synthetic Name="Cores"></Synthetic>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+            <Synthetic Name="Numa Nodes"></Synthetic>
+            <ArrayItems>
+                <Size>numaNodeInfoElementCount</Size>
+                <ValuePointer>pNumaInfoArray</ValuePointer>
+            </ArrayItems>
+            <Synthetic Name="Sockets"></Synthetic>
+            <ArrayItems>
+                <Size>socketInfoElementCount</Size>
+                <ValuePointer>pSocketInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- SystemTopology -->
+    <Type Name="gts::SystemTopology">
+        <DisplayString>{{ groups={groupInfoElementCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[groups]" ExcludeView="simple">groupInfoElementCount</Item>
+            <ArrayItems>
+                <Size>groupInfoElementCount</Size>
+                <ValuePointer>pGroupInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- Node -->
+    <Type Name="gts::Node">
+        <DisplayString>{{ name={m_name} }}</DisplayString>
+    </Type>
+
+</AutoVisualizer>

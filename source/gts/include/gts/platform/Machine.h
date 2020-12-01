@@ -7,10 +7,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions :
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
@@ -21,48 +21,58 @@
  ******************************************************************************/
 #pragma once
 
+#if defined(GTS_USER_CONFIG)
+#include // Point to your own header location.
+#else
+#include "../../user_config.h"
+#endif
+
+/**
+ * @defgroup Platform
+ *  Platform specific functionality
+ * @{
+ */
+
+/**
+ * @defgroup Machine
+ *  Machine specific macros.
+ * @{
+ */
+
+// TODO: Update this with CI
+#define GTS_VERSION_MAJOR    0
+#define GTS_VERSION_MINOR    1
+#define GTS_VERSION_REVISION 0
+
+/** @} */ // end of Machine
+/** @} */ // end of Platform
+
  ////////////////////////////////////////////////////////////////////////////////
  // COMPILER:
 
 #define GTS_TOKENPASTE(x, y) x ## y
 #define GTS_TOKENPASTE2(x, y) GTS_TOKENPASTE(x, y)
 
-#define GTS_UNREFERENCED_PARAM(x) (void) ((const volatile void *) &(x))
+#define GTS_UNREFERENCED_PARAM(x) (void)(x)
 
 #if defined(_MSC_VER)
 
-    #if _MSC_VER < 1800
-        #error "Requires at least Visual C++ compiler 18 (VS 2013)"
+    #if _MSC_VER < 1900
+        #error "Requires at least Visual C++ compiler 18 (VS 2015)"
     #endif
 
     #define GTS_MSVC 1
 
     #if defined(_M_AMD64)
+        #define GTS_64BIT 1
         #define GTS_ARCH_X64 1
         #define GTS_ARCH_X86 1
     #else
+        #define GTS_32BIT 1
         #define GTS_ARCH_X86 1
-    #endif 
-
-#elif defined(__GNUG__)
-
-    // C++11 support
-    #if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 8)
-        #error "Requires at least GCC compiler 4.8"
     #endif
 
-    #define GTS_GCC 1
-
-    #if defined(__x86_64__)
-        #define GTS_ARCH_X64 1
-        #define GTS_ARCH_X86 1
-    #elif defined(__i386__)
-        #define GTS_ARCH_X86 1
-    #elif defined(__aarch64__)
-        #define GTS_ARCH_ARM64 1
-    #elif defined(__arm__)
-        #define GTS_ARCH_ARM32 1
-    #endif
+#define GTS_DEPRECATE __declspec(deprecated)
 
 #elif defined(__clang__)
 
@@ -74,17 +84,51 @@
     #define GTS_CLANG 1
 
     #if defined(__x86_64__)
+        #define GTS_64BIT 1
         #define GTS_ARCH_X64 1
         #define GTS_ARCH_X86 1
     #elif defined(__i386__)
+        #define GTS_32BIT 1
         #define GTS_ARCH_X86 1
     #elif defined(__aarch64__)
+        #define GTS_64BIT 1
         #define GTS_ARCH_ARM 1
         #define GTS_ARCH_ARM64 1
     #elif defined(__arm__)
+        #define GTS_32BIT 1
         #define GTS_ARCH_ARM 1
         #define GTS_ARCH_ARM32 1
     #endif
+
+#define GTS_DEPRECATE __attribute__(deprecated)
+
+#elif defined(__GNUG__)
+
+    // C++11 support
+    #if __GNUC__ < 4 || (__GNUC__ == 4 && __GNUC_MINOR__ < 8)
+        #error "Requires at least GCC compiler 4.8"
+    #endif
+
+    #define GTS_GCC 1
+
+    #if defined(__x86_64__)
+        #define GTS_64BIT 1
+        #define GTS_ARCH_X64 1
+        #define GTS_ARCH_X86 1
+    #elif defined(__i386__)
+        #define GTS_32BIT 1
+        #define GTS_ARCH_X86 1
+    #elif defined(__aarch64__)
+        #define GTS_64BIT 1
+        #define GTS_ARCH_ARM 1
+        #define GTS_ARCH_ARM64 1
+    #elif defined(__arm__)
+        #define GTS_32BIT 1
+        #define GTS_ARCH_ARM 1
+        #define GTS_ARCH_ARM32 1
+    #endif
+
+#define GTS_DEPRECATE __attribute__(deprecated)
 
 #else
 
@@ -96,29 +140,20 @@
 ////////////////////////////////////////////////////////////////////////////////
 // COMPILER LANGUAGE LEVEL FIXES:
 
-#define MULITCORELIB_USE_STD
-
-#if GTS_MSVC && _MSC_VER < 1900
-
-    typedef signed char         int8_t;
-    typedef unsigned char       uint8_t;
-    typedef signed short        int16_t;
-    typedef unsigned short      uint16_t;
-    typedef signed int          int32_t;
-    typedef unsigned int        uint32_t;
-    typedef signed long long    int64_t;
-    typedef unsigned long long  uint64_t;
-
-    #define GTS_ALIGN(alignment) __declspec(align(alignment))
-    #define GTS_THREAD_LOCAL __declspec(thread)
-
-#else
-
+#if GTS_MSVC
     #include <cstdint>
-
     #define GTS_ALIGN(alignment) alignas(alignment)
+    #define GTS_ALIGN_OF(expr) alignof(expr)
     #define GTS_THREAD_LOCAL thread_local
-
+#elif GTS_GCC || GTS_CLANG
+    #include <cstdint>
+    #define GTS_ALIGN(alignment) alignas(alignment)
+    #define GTS_ALIGN_OF(expr) __alignof__(expr)
+    #define GTS_THREAD_LOCAL thread_local
+#else
+    #define GTS_ALIGN(alignment) #error "not implemented"
+    #define GTS_ALIGN_OF(expr) #error "not implemented"
+    #define GTS_THREAD_LOCAL #error "not implemented"
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,7 +164,7 @@
 #define GTS_CACHE_LINE_SIZE 64
 
 // Account for adjacent cache-line prefetch
-#define GTS_NO_SHARING_CACHE_LINE_SIZE (GTS_CACHE_LINE_SIZE * 2)
+#define GTS_NO_SHARING_CACHE_LINE_SIZE (GTS_CACHE_LINE_SIZE * 4)
 
 #else
 
@@ -149,24 +184,30 @@
 #define GTS_FORCE_INLINE __forceinline
 #define GTS_NO_INLINE __declspec(noinline)
 #define GTS_DEBUG_BREAK() __debugbreak()
+#define GTS_NOT_ALIASED __restrict
+#define GTS_SHARED_LIB_EXPORT __declspec(dllexport)
+#define GTS_SHARED_LIB_IMPORT __declspec(dllimport)
+#define GTS_CPU_ID(registers, leaf) __cpuid((int*)registers, leaf);
+#define GTS_OPTIMIZE_OFF_BEGIN __pragma(optimize("", off))
+#define GTS_OPTIMIZE_OFF_END __pragma(optimize( "", on ))
 
-#elif GTS_GCC
+#elif GTS_GCC || GTS_CLANG
 
-#include <intrin.h>
-
-#define GTS_INLINE inline
-#define GTS_FORCE_INLINE __attribute__((always_inline))
-#define GTS_NO_INLINE __attribute__ ((noinline))
-#define GTS_DEBUG_BREAK() __builtin_trap()
-
-#elif GTS_CLANG
-
-#include <intrin.h>
+#include <x86intrin.h>
+#include <cpuid.h>
 
 #define GTS_INLINE inline
 #define GTS_FORCE_INLINE __attribute__((always_inline))
 #define GTS_NO_INLINE __attribute__ ((noinline))
 #define GTS_DEBUG_BREAK() __builtin_trap()
+#define GTS_NOT_ALIASED __restrict__
+#define GTS_SHARED_LIB_EXPORT __attribute__((visibility("default")))
+#define GTS_SHARED_LIB_IMPORT
+#define GTS_CPU_ID(registers, leaf) __get_cpuid(leaf, registers, registers + 1, registers + 2, registers + 3);
+#define GTS_OPTIMIZE_OFF_BEGIN \
+    _Pragma("GCC push_options") \
+    _Pragma("GCC optimize (\"O0\")")
+#define GTS_OPTIMIZE_OFF_END _Pragma("GCC pop_options")
 
 #else
 
@@ -174,9 +215,16 @@
 #define GTS_FORECE_INLINE
 #define GTS_NO_INLINE
 #define GTS_DEBUG_BREAK() #error "not implemented"
+#define GTS_NOT_ALIASED
+#define GTS_SHARED_LIB_EXPORT #error "not implemented"
+#define GTS_SHARED_LIB_IMPORT #error "not implemented"
+#define GTS_OPTIMIZE_OFF_BEGIN #error "not implemented"
+#define GTS_OPTIMIZE_OFF_END #error "not implemented"
 
 #endif
 
+
+#ifndef GTS_HAS_CUSTOM_CPU_INTRINSICS_WRAPPERS
 namespace gts {
 
 //------------------------------------------------------------------------------
@@ -190,6 +238,7 @@ GTS_INLINE void pause()
     #error "not implemented"
 #endif
 }
+#define GTS_PAUSE() gts::pause()
 
 //------------------------------------------------------------------------------
 GTS_INLINE uint64_t rdtsc()
@@ -215,18 +264,7 @@ GTS_INLINE uint64_t rdtsc()
     #error "not implemented"
 #endif
 }
-
-//------------------------------------------------------------------------------
-GTS_INLINE void serializeCPU()
-{
-#ifdef GTS_ARCH_X86
-    _mm_lfence();
-#elif GTS_ARCH_ARM
-    __isb();
-#else
-    #error "not implemented"
-#endif
-}
+#define GTS_RDTSC() gts::rdtsc()
 
 //------------------------------------------------------------------------------
 GTS_INLINE void memoryFence()
@@ -239,14 +277,67 @@ GTS_INLINE void memoryFence()
     #error "not implemented"
 #endif
 }
+#define GTS_MFENCE() gts::memoryFence()
+
+//------------------------------------------------------------------------------
+GTS_INLINE void speculationFence()
+{
+#ifdef GTS_ARCH_X86
+    _mm_lfence();
+#elif GTS_ARCH_ARM
+    __isb(); // or CSDB?
+#else
+    #error "not implemented"
+#endif
+}
+#define GTS_SPECULATION_FENCE() gts::speculationFence()
+
+//------------------------------------------------------------------------------
+GTS_INLINE uint32_t msbScan(uint32_t bitSet)
+{
+#ifdef GTS_MSVC
+    unsigned long result = 0;
+    _BitScanReverse(&result, (unsigned long)bitSet);
+    return (uint32_t)result;
+#elif (GTS_CLANG || GTS_GCC)
+    return 31 - __builtin_clz(bitSet);
+#else
+    return (uint32_t)::floor(::log2((float)bitSet));
+#endif
+}
+#define GTS_MSB_SCAN(bitSet) gts::msbScan(bitSet)
+
+//------------------------------------------------------------------------------
+GTS_INLINE uint64_t msbScan64(uint64_t bitSet)
+{
+#ifdef GTS_MSVC
+    #ifdef GTS_ARCH_X64
+        unsigned long result = 0;
+        _BitScanReverse64(&result, (unsigned __int64)bitSet);
+        return (uint64_t)result;
+    #else
+        unsigned long result = 0;
+
+        // Check high word.
+        _BitScanReverse(&result, (unsigned long)((bitSet & ~UINT32_MAX) >> 32));
+        if (result == 0)
+        {
+            // If no high word, check low word.
+            _BitScanReverse(&result, (unsigned long)(bitSet & UINT32_MAX));
+        }
+        return (uint64_t)result;
+    #endif // GTS_ARCH_X64
+#elif (GTS_CLANG || GTS_GCC)
+    return 63 - __builtin_clzll(bitSet);
+#else
+    return (uint64_t)::floor(::log2((double)bitSet));
+#endif
+}
+#define GTS_MSB_SCAN64(bitSet) gts::msbScan64(bitSet)
+
 
 } // namespace gts
-
-
-#define GTS_PAUSE() gts::pause()
-#define GTS_RDTSC() gts::rdtsc()
-#define GTS_SERIALIZE_CPU() gts::serializeCPU()
-#define GTS_MFENCE() gts::memoryFence()
+#endif // GTS_HAS_CUSTOM_CPU_INTRINSICS_WRAPPERS
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -266,21 +357,4 @@ GTS_INLINE void memoryFence()
 #elif defined(__APPLE__)
     #define GTS_MAC 1
     #define GTS_POSIX 1
-#endif
-
-#ifdef GTS_WINDOWS
-
-    #define GTS_ALIGNED_MALLOC(size, alignment) _aligned_malloc(size, alignment)
-    #define GTS_ALIGNED_FREE(ptr) _aligned_free(ptr)
-
-#elif GTS_LINUX || GTS_APPLE
-
-    #define GTS_ALIGNED_MALLOC(size, alignment) posix_memalign(size, alignment)
-    #define GTS_ALIGNED_FREE(ptr) free(ptr)
-
-#else
-
-    #define GTS_ALIGNED_MALLOC #error "not implemented"
-    #define GTS_ALIGNED_FREE #error "not implemented"
-
 #endif

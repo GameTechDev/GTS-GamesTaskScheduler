@@ -1,8 +1,22 @@
 var searchData=
 [
-  ['back_751',['back',['../classgts_1_1_parallel_vector.html#a8a2c07af1c3ede8be5fc58175758b683',1,'gts::ParallelVector::back()'],['../classgts_1_1_vector.html#a478627a7d02c4e8bf658c245626ead31',1,'gts::Vector::back() const'],['../classgts_1_1_vector.html#a880350448d3b88633e3d0e65e2d856ce',1,'gts::Vector::back()']]],
-  ['begin_752',['begin',['../classgts_1_1_parallel_hash_table.html#a6c3a2e2d2d37270b565145fff0a0c399',1,'gts::ParallelHashTable::begin()'],['../classgts_1_1_parallel_vector.html#a1a542355791d9ad510cd984c1bf62fe6',1,'gts::ParallelVector::begin()']]],
-  ['bincount_753',['binCount',['../classgts_1_1_binned_allocator.html#a28a7a8443894eafd34f71c9e1ba9e686',1,'gts::BinnedAllocator']]],
-  ['blocksize_754',['blockSize',['../classgts_1_1_block_allocator.html#a3941aa14321abcbd882af8895d103ba3',1,'gts::BlockAllocator']]],
-  ['buildschedule_755',['buildSchedule',['../classgts_1_1_macro_scheduler.html#a674d8bde40dd9b40652028facb9eb797',1,'gts::MacroScheduler::buildSchedule()'],['../classgts_1_1_dynamic_micro_scheduler___macro_scheduler.html#adefb82f7d5780d1108c6b66b89273962',1,'gts::DynamicMicroScheduler_MacroScheduler::buildSchedule()']]]
+  ['addchildtaskwithoutref_790',['addChildTaskWithoutRef',['../classgts_1_1_task.html#aa8ab1e33d6e658ec73e73a3dd020e375',1,'gts::Task']]],
+  ['addchildtaskwithref_791',['addChildTaskWithRef',['../classgts_1_1_task.html#a3ba82924b8ac948c9e33a74a4e60fe29',1,'gts::Task']]],
+  ['addexternalvictim_792',['addExternalVictim',['../classgts_1_1_micro_scheduler.html#aaf38be6a898a3965e2c24f5f896a63d0',1,'gts::MicroScheduler']]],
+  ['addref_793',['addRef',['../classgts_1_1_schedule.html#a0a9a1ef56a61c88ca90bbef8bce4d228',1,'gts::Schedule::addRef()'],['../classgts_1_1_task.html#aa5b4870753c61b5921d0656abd58ad41',1,'gts::Task::addRef()']]],
+  ['addsuccessor_794',['addSuccessor',['../classgts_1_1_node.html#ac93329e6cbdc2653caae0bdf58b058f1',1,'gts::Node']]],
+  ['addworkload_795',['addWorkload',['../classgts_1_1_node.html#a92129bb0b83a49fab31cc805011e0255',1,'gts::Node::addWorkload(TArgs &amp;&amp;... args)'],['../classgts_1_1_node.html#a770f3ee8fb009da42ab53199c10b564c',1,'gts::Node::addWorkload(TFunc &amp;&amp;func, TArgs &amp;&amp;... args)']]],
+  ['affinity_796',['affinity',['../classgts_1_1_node.html#a4eee8bea1057e8bff2e005b0db3962ee',1,'gts::Node']]],
+  ['aligndownto_797',['alignDownTo',['../group___utilities.html#gad31d7f260bcd4558260fde27ed011412',1,'gts']]],
+  ['aligneddelete_798',['alignedDelete',['../group___memory.html#ga93e0e86dd2fa0f36d84f98744717e923',1,'gts']]],
+  ['alignednew_799',['alignedNew',['../group___memory.html#ga79c511bcbe0a0ec097e0e9e6caf4cae5',1,'gts']]],
+  ['alignedvectordelete_800',['alignedVectorDelete',['../group___memory.html#ga63d3a17f4e198fc892f4fabc39e59309',1,'gts']]],
+  ['alignedvectornew_801',['alignedVectorNew',['../group___memory.html#ga4ea3fd7f54664623b91a953dcbbbc5e2',1,'gts']]],
+  ['alignupto_802',['alignUpTo',['../group___utilities.html#ga63e068fd29dd151dd923a441ca6cdb41',1,'gts']]],
+  ['allocate_803',['allocate',['../classgts_1_1internal_1_1_block_allocator.html#af0d5abc60efe2cf34310b2296dcc8661',1,'gts::internal::BlockAllocator::allocate()'],['../classgts_1_1_binned_allocator.html#a88d37e35f90e9448fa29a1ca0fd2de7f',1,'gts::BinnedAllocator::allocate()']]],
+  ['allocatenode_804',['allocateNode',['../classgts_1_1_macro_scheduler.html#a45a80bf2775a677ad1e6adeef6bfd66a',1,'gts::MacroScheduler']]],
+  ['allocatepage_805',['allocatePage',['../structgts_1_1_memory_store.html#a14bf525c5873a8585f2914f6fd5f8179',1,'gts::MemoryStore']]],
+  ['allocateslab_806',['allocateSlab',['../structgts_1_1_memory_store.html#a1934d505b58ae0a5b05b3bf1af4d2195',1,'gts::MemoryStore']]],
+  ['allocatetask_807',['allocateTask',['../classgts_1_1_micro_scheduler.html#afa24e7a258e9bc879200050400d72bb9',1,'gts::MicroScheduler::allocateTask(TArgs &amp;&amp;... args)'],['../classgts_1_1_micro_scheduler.html#aab60269532f283c552cea2e2bb54cb66',1,'gts::MicroScheduler::allocateTask(TFunc &amp;&amp;func, TArgs &amp;&amp;... args)']]],
+  ['at_808',['at',['../classgts_1_1_parallel_vector.html#a2ed8cd92657795251be4cd6932a28574',1,'gts::ParallelVector']]]
 ];

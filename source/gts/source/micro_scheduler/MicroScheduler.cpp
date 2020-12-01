@@ -1,39 +1,38 @@
 /*******************************************************************************
- * Copyright 2019 Intel Corporation
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files(the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions :
- * 
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- * 
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- ******************************************************************************/
+* Copyright 2019 Intel Corporation
+*
+* Permission is hereby granted, free of charge, to any person obtaining a copy
+* of this software and associated documentation files(the "Software"), to deal
+* in the Software without restriction, including without limitation the rights
+* to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
+* copies of the Software, and to permit persons to whom the Software is
+* furnished to do so, subject to the following conditions :
+* 
+* The above copyright notice and this permission notice shall be included in
+* all copies or substantial portions of the Software.
+* 
+* THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+* IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+* FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
+* AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+* LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+* OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+* THE SOFTWARE.
+******************************************************************************/
 #include "gts/micro_scheduler/MicroScheduler.h"
 
 #ifdef GTS_USE_ITT
 #include <ittnotify.h>
 #endif
 
-#include "gts/analysis/Instrumenter.h"
-#include "gts/analysis/Analyzer.h"
+#include "gts/analysis/Trace.h"
+#include "gts/analysis/Counter.h"
 
 #include "gts/micro_scheduler/WorkerPool.h"
 
 #include "Worker.h"
-#include "Schedule.h"
+#include "LocalScheduler.h"
 #include "Containers.h"
-#include "Backoff.h"
 
 namespace gts {
 
@@ -41,265 +40,38 @@ namespace gts {
 ////////////////////////////////////////////////////////////////////////////////
 // MicroScheduler:
 
-//------------------------------------------------------------------------------
-Task* MicroScheduler::_allocateEmptyTask(TaskRoutine taskRoutine, uint32_t size)
-{
-    uint32_t workerIndex = m_pWorkerPool->thisWorkerIndex();
+Atomic<uint16_t> MicroScheduler::s_nextSchedulerId = { 0 };
 
-    GTS_ANALYSIS_COUNT(workerIndex, gts::analysis::AnalysisType::NUM_ALLOCATIONS);
-    GTS_ANALYSIS_TIME_SCOPED(workerIndex, gts::analysis::AnalysisType::NUM_ALLOCATIONS);
+// STRUCTORS:
 
-    Task* pTask = nullptr;
-    pTask = new (m_pTaskAllocator->allocate(workerIndex, size)) Task(taskRoutine);
-    GTS_ASSERT(pTask != nullptr);
-
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "ALLOCATE TASK", pTask, 0);
-
-    pTask->m_pMyScheduler = this;
-
-    // All new tasks belong this schedule's isolation group.
-    if(workerIndex != UNKNOWN_WORKER_IDX)
-    {
-        pTask->m_isolationTag = m_pSchedulesByIdx[workerIndex].m_isolationTag;
-    }
-
-    return pTask;
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::spawnTask(Task* pTask, uint32_t priority)
-{
-    GTS_ASSERT(pTask != nullptr);
-    GTS_ASSERT(!(pTask->m_state & Task::TASK_IS_CONTINUATION) &&
-        "Cannot queue a continuation.");
-
-    pTask->m_state |= Task::TASK_IS_QUEUED;
-
-    uint32_t myWorkerIndex = m_pWorkerPool->thisWorkerIndex();
-    uint32_t workerAffinityIdx = pTask->m_affinity;
-
-    bool result = false;
-    GTS_UNREFERENCED_PARAM(result);
-
-    // If this worker is known.
-    if (myWorkerIndex != UNKNOWN_WORKER_IDX)
-    {
-        // If this Worker is on this MicroScheduler.
-        if (m_pScheduleOwnershipByIdx[myWorkerIndex])
-        {
-            Schedule& schedule = m_pSchedulesByIdx[myWorkerIndex];
-
-            // If there is no specified affinity,
-            if (workerAffinityIdx == UNKNOWN_WORKER_IDX)
-            {
-                GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "SPAWN TASK", pTask, workerAffinityIdx);
-
-                // we are good to queue into this Worker's deque.
-                result = schedule.spawnTask(pTask, priority);
-                GTS_ASSERT(result && "Task queue overflow");
-
-                // Wake any worker.
-                m_pWorkerPool->_wakeWorkers(1); // TODO: maybe m_pWorkerPool->workerCount() is better in real workload.
-            }
-            // Otherwise, ship it to the requested worker.
-            else
-            {
-                GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "SPAWN AFFINITY TASK", pTask, workerAffinityIdx);
-
-                GTS_ASSERT(workerAffinityIdx < m_scheduleCount && "Worker index out of range.");
-
-                result = m_pSchedulesByIdx[workerAffinityIdx].queueAffinityTask(pTask);
-                GTS_ASSERT(result && "Affinity queue overflow");
-
-                // Wake the worker.
-                m_pSchedulesByIdx[workerAffinityIdx].m_pMyScheduler->m_pWorkerPool->m_pWorkersByIdx[workerAffinityIdx].wake(1);
-            }
-        }
-        // Otherwise, ship it a Worker on this MicroScheduler. 
-        else
-        {
-            GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "SPAWN OFF-SCHEDULER TASK", pTask, workerAffinityIdx);
-
-            // Find the first valid Schedule and give it the Task.
-            for (size_t ii = 0; ii < m_scheduleCount; ++ii)
-            {
-                if (m_pScheduleOwnershipByIdx[ii])
-                {
-                    result = m_pSchedulesByIdx[ii].queueAffinityTask(pTask);
-                    GTS_ASSERT(result && "Affinity queue too small!");
-
-                    m_pSchedulesByIdx[ii].m_pMyScheduler->m_pWorkerPool->m_pWorkersByIdx[ii].wake(1);
-
-                    break;
-                }
-            }
-        }
-    }
-    // Otherwise, this thread is unknown so there is no deque for it. All we can
-    // do is add it to the shared queue.
-    else
-    {
-        GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "QUEUE NON-WORKER TASK", pTask, 0);
-
-        result = m_pTaskQueue->tryPush(pTask);
-        GTS_ASSERT(result && "Task queue overflow");
-
-        // Wake any worker.
-        m_pWorkerPool->_wakeWorkers(1);
-    }
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::spawnTaskAndWait(Task* pTask, uint32_t priority)
-{
-    GTS_ASSERT(pTask != nullptr);
-
-    Task waiter;
-    waiter.m_refCount.store(2, gts::memory_order::relaxed);
-    waiter.m_state |= Task::TASK_IS_WAITING;
-
-    waiter.m_pParent = pTask->m_pParent;
-    pTask->m_pParent = &waiter;
-
-    spawnTask(pTask, priority);
-    _wait(&waiter, nullptr, m_pWorkerPool->thisWorkerIndex());
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::queueTask(Task* pTask)
-{
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "QUEUE TASK", pTask, 0);
-
-    bool result = m_pTaskQueue->tryPush(pTask);
-    GTS_ASSERT(result && "Task queue overflow");
-    GTS_UNREFERENCED_PARAM(result);
-
-    // Wake any worker.
-    m_pWorkerPool->_wakeWorkers(1);
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::_wait(Task* pWaiterTask, Task* pStartTask, uint32_t workerIndex)
-{
-    GTS_ANALYSIS_COUNT(workerIndex, gts::analysis::AnalysisType::NUM_WAITS);
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "WAIT", pWaiterTask, 0);
-
-    if (workerIndex != UNKNOWN_WORKER_IDX)
-    {
-        // Working-block until done.
-        Backoff backoff;
-        while (pWaiterTask->refCount() > 1)
-        {
-            m_pSchedulesByIdx[workerIndex].wait(pWaiterTask, pStartTask, backoff);
-            if(pWaiterTask->refCount() > 1)
-            {
-                gts::ThisThread::yield();
-            }
-        }
-    }
-    else
-    {
-        GTS_ASSERT(pStartTask == nullptr);
-
-        // Block until done.
-        uint32_t spinCount = 1;
-        while (pWaiterTask->refCount() > 1)
-        {
-            gts::SpinWait::backoffUntilSpinCountThenYield(spinCount, 16);
-            m_pWorkerPool->_wakeWorkers(1);
-        }
-    }
-}
-
-//--------------------------------------------------------------------------
-uintptr_t MicroScheduler::_isolateSchedule(uintptr_t isolationTag)
-{
-    uint32_t workerIndex = m_pWorkerPool->thisWorkerIndex();
-    uintptr_t oldTag = m_pSchedulesByIdx[workerIndex].m_isolationTag;
-    m_pSchedulesByIdx[workerIndex].m_isolationTag = isolationTag;
-    return oldTag;
-}
-
-//--------------------------------------------------------------------------
-void Task::waitForChildren(TaskContext const& ctx)
-{
-    m_pMyScheduler->_wait(this, nullptr, ctx.workerIndex);
-}
-
-//--------------------------------------------------------------------------
-void Task::destroy(TaskContext const& ctx)
-{
-    m_pMyScheduler->_freeTask(ctx.workerIndex, this);
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::_freeTask(uint32_t workerIdx, Task* pTask)
-{
-    GTS_ASSERT(pTask != nullptr);
-
-    GTS_ANALYSIS_COUNT(workerIdx, gts::analysis::AnalysisType::NUM_FREES);
-    GTS_ANALYSIS_TIME_SCOPED(workerIdx, gts::analysis::AnalysisType::NUM_FREES);
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "FREE TASK", pTask, 0);
-
-    pTask->m_fcnDataDestructor(pTask->_dataSuffix());
-    m_pTaskAllocator->free(workerIdx, pTask);
-}
-
-// ACCESSORS:
-
-//------------------------------------------------------------------------------
-bool MicroScheduler::isRunning() const
-{
-    return m_isRunning.load(gts::memory_order::acquire);
-}
-
-//------------------------------------------------------------------------------
-uint32_t MicroScheduler::thisWorkerIndex()
-{
-    return m_pWorkerPool->thisWorkerIndex();
-}
-
-//------------------------------------------------------------------------------
-uint32_t MicroScheduler::workerCount() const
-{
-    return m_scheduleCount;
-}
-
-//------------------------------------------------------------------------------
-bool MicroScheduler::isPartition() const
-{
-    return m_pRootMicroScheduler != nullptr;
-}
 //------------------------------------------------------------------------------
 MicroScheduler::MicroScheduler()
-    : m_pTaskQueue(nullptr)
-    , m_pTaskAllocator(nullptr)
+    : m_pPriorityTaskQueue(nullptr)
     , m_pWorkerPool(nullptr)
-    , m_pSchedulesByIdx(nullptr)
-    , m_pScheduleOwnershipByIdx(nullptr)
-    , m_pRootMicroScheduler(nullptr)
-    , m_scheduleCount(0)
-    , m_isRunning(false)
-    , m_canStealFromRoot(false)
+    , m_pMyMaster(nullptr)
+    , m_ppLocalSchedulersByIdx(nullptr)
+    , m_pExternalSchedulers(nullptr)
+    , m_pCallbacks(nullptr)
+    , m_creationThreadId(0)
+    , m_localSchedulerCount(0)
+    , m_schedulerId(UINT16_MAX)
+    , m_isAttached(false)
+    , m_isActive(true)
 {}
 
 //------------------------------------------------------------------------------
 MicroScheduler::~MicroScheduler()
 {
-    if (!isPartition())
-    {
-        shutdown();
-    }
+    shutdown();
 }
 
 //------------------------------------------------------------------------------
-bool MicroScheduler::initialize(WorkerPool* pWorkerPool, uint32_t priorityLevelCount)
+bool MicroScheduler::initialize(WorkerPool* pWorkerPool)
 {
     GTS_ASSERT(pWorkerPool != nullptr);
 
     MicroSchedulerDesc desc;
     desc.pWorkerPool = pWorkerPool;
-    desc.priorityCount = priorityLevelCount;
 
     return initialize(desc);
 }
@@ -310,20 +82,23 @@ bool MicroScheduler::initialize(MicroSchedulerDesc const& desc)
     // If reinitializing, shutdown the previous scheduler.
     shutdown();
 
-    m_isRunning.store(true);
+    m_schedulerId = s_nextSchedulerId.fetch_add(1, memory_order::acq_rel);
+    GTS_ASSERT(m_schedulerId != UINT16_MAX && "ID overflow"); // just in case anyone gets scheduler happy.
+
+    m_isAttached.store(true, memory_order::release);
+
+    memcpy(m_debugName, desc.name, DESC_NAME_SIZE);
+    m_creationThreadId = ThisThread::getId();
 
     GTS_ASSERT(desc.pWorkerPool != nullptr);
     m_pWorkerPool = desc.pWorkerPool;
-    m_scheduleCount = m_pWorkerPool->m_totalWorkerCount;
+    m_localSchedulerCount = m_pWorkerPool->m_workerCount;
 
-    // Size data structures to account for all worker indices.
-    if (m_scheduleCount <= 0)
+    if (m_localSchedulerCount <= 0)
     {
-        GTS_ASSERT(m_scheduleCount > 0);
+        GTS_ASSERT(m_localSchedulerCount > 0);
         return false;
     }
-
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "Scheduler Init", 0, 0);
 
     uint32_t priorityCount = desc.priorityCount;
     if (priorityCount <= 0)
@@ -332,33 +107,57 @@ bool MicroScheduler::initialize(MicroSchedulerDesc const& desc)
         return false;
     }
 
-    // Initialize non-worker queue per priority.
-    m_pTaskQueue = gts::alignedNew<TaskQueue, GTS_NO_SHARING_CACHE_LINE_SIZE>();
-    m_pTaskAllocator = gts::alignedNew<TaskAllocator, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_scheduleCount);
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::AntiqueWhite, "MIRCOSCHED INIT", this, 0);
 
-    // Create and init all the Schedules.
-    m_pSchedulesByIdx = gts::alignedVectorNew<Schedule, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_scheduleCount);
-    m_pScheduleOwnershipByIdx = gts::alignedVectorNew<bool, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_scheduleCount);
-    for (uint32_t ii = 0; ii < m_scheduleCount; ++ii)
+    m_pExternalSchedulers = alignedNew<ExternalSchedulers, GTS_NO_SHARING_CACHE_LINE_SIZE>();
+    m_pCallbacks          = alignedVectorNew<Callbacks, GTS_NO_SHARING_CACHE_LINE_SIZE>((size_t)MicroSchedulerCallbackType::COUNT);
+
+    // Make sure this Worker is registered and is referenced as our Master.
+    uintptr_t workerState = m_pWorkerPool->m_pGetThreadLocalStateFcn();
+    if (workerState == 0)
     {
-        m_pSchedulesByIdx[ii].initialize(
-            ii,
+        m_pMyMaster = alignedNew<Worker, GTS_NO_SHARING_CACHE_LINE_SIZE>();
+        m_pMyMaster->initialize(
+            m_pWorkerPool,
+            OwnedId(m_schedulerId, 0),
+            WorkerThreadDesc::GroupAndAffinity(),
+            Thread::Priority::PRIORITY_NORMAL,
+            nullptr,
+            nullptr,
+            m_pWorkerPool->m_pGetThreadLocalStateFcn,
+            m_pWorkerPool->m_pSetThreadLocalStateFcn,
+            nullptr,
+            m_pWorkerPool->m_pWorkersByIdx[0].m_cachableTaskSize,
+            0,
+            true);
+
+        m_pWorkerPool->m_pSetThreadLocalStateFcn((uintptr_t)m_pMyMaster);
+    }
+    else
+    {
+        m_pMyMaster = (Worker*)workerState;
+        m_pMyMaster->m_refCount.fetch_add(1, memory_order::release);
+        fflush(stdout);
+    }
+
+    // Initialize non-worker queue per priority.
+    m_pPriorityTaskQueue = alignedNew<PriorityTaskQueue, GTS_NO_SHARING_CACHE_LINE_SIZE>();
+    m_pPriorityTaskQueue->resize(priorityCount);
+
+    // Create and init all the Schedulers.
+    m_ppLocalSchedulersByIdx = alignedVectorNew<LocalScheduler*, GTS_NO_SHARING_CACHE_LINE_SIZE>(m_localSchedulerCount);
+    for (uint16_t ii = 0; ii < m_localSchedulerCount; ++ii)
+    {
+        m_ppLocalSchedulersByIdx[ii] = alignedNew<LocalScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
+        m_ppLocalSchedulersByIdx[ii]->initialize(
+            OwnedId(m_schedulerId, ii),
             this,
             desc.priorityCount,
             desc.priorityBoostAge);
-
-        m_pScheduleOwnershipByIdx[ii] = true;
     }
 
-    // Set the Victim pools
-    _setupVictimPools(
-        m_pSchedulesByIdx,
-        m_pScheduleOwnershipByIdx,
-        m_pSchedulesByIdx,
-        m_pScheduleOwnershipByIdx,
-        m_scheduleCount);
-
-    m_pWorkerPool->_registerScheduler(this);
+    // Attach the Schedulers to Workers.
+    _registerWithWorkerPool(m_pWorkerPool);
 
     return true;
 }
@@ -366,246 +165,734 @@ bool MicroScheduler::initialize(MicroSchedulerDesc const& desc)
 //------------------------------------------------------------------------------
 void MicroScheduler::shutdown()
 {
-    if (isPartition())
-    {
-        GTS_ASSERT(0 && "Cannot shutdown a parition.");
-        return;
-    }
-
     if (!isRunning())
     {
         return;
     }
 
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "Scheduler Shutdown", 0, 0);
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::AntiqueWhite, "MIRCOSCHED SHUTDOWN", this, 0);
 
-    //
-    // Tell this MicroScheduler and its partitions to quit.
+    // Tell this MicroScheduler to quit.
+    m_isAttached.store(false, memory_order::release);
 
-    m_isRunning.store(false, gts::memory_order::release);
+    m_pExternalSchedulers->unregisterAllThieves(this);
+    m_pExternalSchedulers->unregisterAllVictims(this);
 
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
+    GTS_ASSERT(m_pWorkerPool != nullptr);
+
+    // Unregister from the WorkerPool
+    _unRegisterFromWorkerPool(m_pWorkerPool, true);
+
+    // Must delete before the WorkerPool to cleanup internal Task resources.
+    for (uint16_t ii = 0; ii < m_localSchedulerCount; ++ii)
     {
-        MicroScheduler* pMicroScheduler = m_partitions[ii];
-        pMicroScheduler->m_isRunning.store(false, gts::memory_order::release);
+        alignedDelete(m_ppLocalSchedulersByIdx[ii]);
     }
+    alignedVectorDelete(m_ppLocalSchedulersByIdx, m_localSchedulerCount);
+    m_ppLocalSchedulersByIdx = nullptr;
 
-    //
-    // If the MicroScheduler and its partitions are registered, unregister them.
-
-    if (m_pWorkerPool)
+    // A MicroScheduler must be shutdown on the thread that created it, or 
+    // it may clear the wrong TL storage.
+    GTS_ASSERT(m_pMyMaster->m_threadId == ThisThread::getId() && "A MicroScheduler must be shutdown on the thread that created it.");
+    if (m_pMyMaster->m_refCount.fetch_sub(1, memory_order::acq_rel) - 1 == 0)
     {
-        for (size_t ii = 0; ii < m_pWorkerPool->m_partitions.size(); ++ii)
-        {
-            MicroScheduler* pMicroScheduler = m_partitions[ii];
-            if (pMicroScheduler->m_pWorkerPool)
-            {
-                pMicroScheduler->m_pWorkerPool->_unRegisterScheduler(pMicroScheduler);
-                pMicroScheduler->m_pWorkerPool = nullptr;
-            }
-        }
+        // Delete our Master Worker if only we referenced it. This occurs
+        // when a MicroScheduler is initialized on a thread outside the
+        // WorkerPool.
+        m_pMyMaster->shutdown();
+        alignedDelete(m_pMyMaster);
 
-        m_pWorkerPool->_unRegisterScheduler(this);
-        m_pWorkerPool = nullptr;
+        // Clear TL storage.
+        m_pWorkerPool->m_pSetThreadLocalStateFcn(0);
     }
+    m_pWorkerPool = nullptr;
 
-    //
-    // Delete the paritions.
+    alignedVectorDelete(m_pCallbacks, (size_t)MicroSchedulerCallbackType::COUNT);
+    m_pCallbacks = nullptr;
 
-    for (size_t ii = 0; ii < m_partitions.size(); ++ii)
-    {
-        gts::alignedDelete(m_partitions[ii]->m_pTaskQueue);
-        gts::alignedVectorDelete(m_partitions[ii]->m_pScheduleOwnershipByIdx, m_scheduleCount);
-        delete m_partitions[ii];
-    }
-    m_partitions.clear();
+    alignedDelete(m_pExternalSchedulers);
+    m_pExternalSchedulers = nullptr;
 
-    m_pRootMicroScheduler = nullptr;
+    alignedDelete(m_pPriorityTaskQueue);
+    m_pPriorityTaskQueue = nullptr;
 
-    gts::alignedVectorDelete(m_pScheduleOwnershipByIdx, m_scheduleCount);
-    m_pScheduleOwnershipByIdx = nullptr;
-
-    gts::alignedVectorDelete(m_pSchedulesByIdx, m_scheduleCount);
-    m_pSchedulesByIdx = nullptr;
-
-    gts::alignedDelete(m_pTaskAllocator);
-    m_pTaskAllocator = nullptr;
-
-    gts::alignedDelete(m_pTaskQueue);
-    m_pTaskQueue = nullptr;
+    char filename[128];
+#ifdef GTS_MSVC
+    sprintf_s(filename, "MicroScheduler_Analysis_%d.txt", m_schedulerId);
+#else
+    snprintf(filename, 128, "MicroScheduler_Analysis_%d.txt", m_schedulerId);
+#endif
+    GTS_MS_COUNTER_DUMP_TO(m_schedulerId, filename);
 }
 
 //------------------------------------------------------------------------------
-MicroScheduler* MicroScheduler::makePartition(WorkerPool* pParitionedPool, bool canStealFromMainParition)
+void MicroScheduler::resetIdGenerator()
 {
-    if (pParitionedPool == nullptr || !pParitionedPool->isParition())
+    s_nextSchedulerId.exchange(0, memory_order::seq_cst);
+}
+
+//------------------------------------------------------------------------------
+void* MicroScheduler::_allocateRawTask(uint32_t size)
+{
+    GTS_SIM_TRACE_MARKER(sim_trace::MARKER_ALLOCATE_TASK_BEGIN);
+
+    GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::Magenta, "MIRCOSCHED ALLOC TASK", this);
+
+    uintptr_t state = Worker::getLocalState();
+    Task* pTask;
+
+    if(state)
     {
-        GTS_ASSERT(0 && "WorkerPool must be a parition.");
-        return nullptr;
-    }
+        GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::Magenta, "MIRCOSCHED ALLOC KNOWN WORKER", this);
 
-    if (!pParitionedPool->isRunning())
-    {
-        GTS_ASSERT(0 && "The WorkerPool cannot be running.");
-        return nullptr;
-    }
+        Worker* pWorker = (Worker*)state;
+        pTask = pWorker->allocateTask(size);
+        GTS_ASSERT(pTask != nullptr);
 
-    if (isPartition())
-    {
-        GTS_ASSERT(0 && "Cannot partition a partition.");
-        return nullptr;
-    }
-
-    GTS_INSTRUMENTER_SCOPED(analysis::Tag::INTERNAL, "Scheduler Make Partition", 0, 0);
-
-    // halt all Worker to prevent any races while reassigning Schedules.
-    m_pWorkerPool->_haltAllWorkers();
-
-    // Copy data from this MicroScheduler to the new partition.
-    MicroScheduler* pPartition            = new MicroScheduler;
-    pPartition->m_pRootMicroScheduler     = this;
-    pPartition->m_pTaskQueue              = gts::alignedNew<TaskQueue, GTS_CACHE_LINE_SIZE>();
-    pPartition->m_pScheduleOwnershipByIdx = gts::alignedVectorNew<bool, GTS_CACHE_LINE_SIZE>(m_scheduleCount);
-    pPartition->m_pTaskAllocator          = m_pTaskAllocator;
-    pPartition->m_pWorkerPool             = pParitionedPool;
-    pPartition->m_canStealFromRoot        = canStealFromMainParition;
-    pPartition->m_pSchedulesByIdx         = m_pSchedulesByIdx;
-    pPartition->m_scheduleCount           = m_scheduleCount;
-    pPartition->m_isRunning.store(true, gts::memory_order::relaxed);
-
-
-    // For each Worker in the partitioned WorkerPool, assign the associated
-    // Schedule to this partition. 1-1 map between Workers and Schedules.
-    Vector<uint32_t> workerIndices;
-    pParitionedPool->getWorkerIndices(workerIndices);
-    for (size_t ii = 0; ii < workerIndices.size(); ++ii)
-    {
-        uint32_t index = workerIndices[ii];
-        if (m_pScheduleOwnershipByIdx[index] == false)
-        {
-            delete pPartition; // destroy failed partition.
-
-            GTS_ASSERT(0 && "Schedule index belongs to another parition.");
-            m_pWorkerPool->_resumeAllWorkers();
-            return nullptr;
-        }
-
-        // Remove the Schedule from this MicroScheduler and add it to the parition.
-        m_pScheduleOwnershipByIdx[index]             = false;
-        pPartition->m_pScheduleOwnershipByIdx[index] = true;
-    }
-
-    // Point the Parition's Schedules to the Parition.
-    for (size_t ii = 0; ii < m_scheduleCount; ++ii)
-    {
-        if (pPartition->m_pScheduleOwnershipByIdx[ii])
-        {
-            Schedule& schedule             = m_pSchedulesByIdx[ii];
-            schedule.m_pMyScheduler        = pPartition;
-            schedule.m_pTaskQueue = pPartition->m_pTaskQueue;
-        }
-    }
-
-    // Repopulate the victim pools
-    if (canStealFromMainParition)
-    {
-        // If this partition can steal from this scheduler, expose its schedules.
-        _setupVictimPools(
-            pPartition->m_pSchedulesByIdx,
-            pPartition->m_pScheduleOwnershipByIdx,
-            m_pSchedulesByIdx,
-            m_pScheduleOwnershipByIdx,
-            m_scheduleCount);
+        pTask->header().pMyLocalScheduler = m_ppLocalSchedulersByIdx[pWorker->id().localId()];
     }
     else
     {
-        // If this partition can only steal from its own schedules.
-        _setupVictimPools(
-            pPartition->m_pSchedulesByIdx,
-            pPartition->m_pScheduleOwnershipByIdx,
-            pPartition->m_pSchedulesByIdx,
-            pPartition->m_pScheduleOwnershipByIdx,
-            m_scheduleCount);
+        GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::DarkMagenta, "MIRCOSCHED ALLOC UNKNOWN WORKER", this);
+
+        internal::TaskHeader* pTaskHeader = 
+            new (GTS_ALIGNED_MALLOC(size + sizeof(internal::TaskHeader), GTS_NO_SHARING_CACHE_LINE_SIZE)) internal::TaskHeader();
+        GTS_ASSERT(pTaskHeader != nullptr);
+        pTask = pTaskHeader->_task();
     }
 
-    _setupVictimPools(
-        m_pSchedulesByIdx,
-        m_pScheduleOwnershipByIdx,
-        m_pSchedulesByIdx,
-        m_pScheduleOwnershipByIdx,
-        m_scheduleCount);
 
-    // Track the parition
-    m_partitions.push_back(pPartition);
+    GTS_SIM_TRACE_MARKER(sim_trace::MARKER_ALLOCATE_TASK_END);
+    return pTask;
+}
 
-    // Register the partition with it's worker pool.
-    pPartition->m_pWorkerPool->m_registeredSchedulers.push_back(pPartition);
+//------------------------------------------------------------------------------
+void MicroScheduler::_wakeWorkers(Worker* pThisWorker, uint32_t count, bool reset, bool wakeExternalVictims)
+{
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::Orange2, "MIRCOSCHED WAKE WORKERS", this, count);
 
-    // Resume the workers.
-    pPartition->m_pWorkerPool->_resumeAllWorkers();
-    m_pWorkerPool->_resumeAllWorkers();
+    m_pWorkerPool->_wakeWorker(pThisWorker, count, reset);
 
-    return pPartition;
+    if (wakeExternalVictims)
+    {
+        m_pExternalSchedulers->wakeThieves(pThisWorker, 1, reset);
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_addTask(Worker* pWorker, Task* pTask, uint32_t priority)
+{
+    GTS_SIM_TRACE_MARKER(sim_trace::MARKER_PUSH_TASK_BEGIN);
+
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::SeaGreen, "MIRCOSCHED ADD TASK", this, pTask);
+
+    GTS_ASSERT(pTask != nullptr);
+    GTS_ASSERT(!(pTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION) &&
+        "Cannot queue a continuation.");
+
+    pTask->header().executionState = internal::TaskHeader::READY;
+
+    uint32_t mandatoryAffinity = pTask->header().affinity;
+
+    GTS_MS_COUNTER_INC(pWorker ? pWorker->id() : OwnedId(), analysis::MicroSchedulerCounters::NUM_SPAWNS);
+
+    bool result = false;
+    GTS_UNREFERENCED_PARAM(result);
+
+    // If this Task has a mandatory affinity.
+    if (mandatoryAffinity != ANY_WORKER)
+    {
+        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::SeaGreen, "MIRCOSCHED SPAWN AFFINITY TASK", this, pTask);
+
+        GTS_ASSERT(mandatoryAffinity < m_localSchedulerCount && "Worker index out of range.");
+
+        result = m_ppLocalSchedulersByIdx[mandatoryAffinity]->queueAffinityTask(pTask, priority);
+        GTS_ASSERT(result && "Affinity queue overflow");
+
+        // Wake the worker.
+        m_pWorkerPool->m_pWorkersByIdx[mandatoryAffinity].wake(1, false, true);
+    }
+    // This thread is an actual WorkerPool thread or Master thread and
+    // it executes work on this scheduler.
+    else if (pWorker != nullptr && pWorker->id().ownerId() == m_pWorkerPool->poolId())
+    {
+        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::SeaGreen, "MIRCOSCHED SPAWN TASK", this, pTask);
+
+        SubIdType localId = pWorker->id().localId();
+
+        // we are good to queue into this Worker's deque.
+        LocalScheduler* pLocalScheduler = m_ppLocalSchedulersByIdx[localId];
+        result = pLocalScheduler->spawnTask(pTask, priority);
+        GTS_ASSERT(result && "Task queue overflow");
+
+        // Try to wake a workers.
+        _wakeWorkers(pWorker, 1, true, true);
+    }
+    // This Worker is does not execute work on this MicroScheduler so there is
+    // no storage for it and we must use the MPMC Task queue.
+    else
+    {
+        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::SeaGreen, "MIRCOSCHED QUEUE OFF-SCHED TASK", this, pTask);
+
+        result = (*m_pPriorityTaskQueue)[priority].tryPush(pTask);
+        GTS_ASSERT(result && "Task queue overflow");
+
+        // Wake any worker.
+        _wakeWorkers(pWorker, 1, true, true);
+    }
+
+    GTS_SIM_TRACE_MARKER(sim_trace::MARKER_PUSH_TASK_END);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::spawnTask(Task* pTask, uint32_t priority)
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+    _addTask(pWorker, pTask, priority);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::spawnTaskAndWait(Task* pTask, uint32_t priority)
+{
+    EmptyTask* pWaiter = allocateTask<EmptyTask>();
+    pWaiter->header().executionState = internal::TaskHeader::ALLOCATED;
+    pWaiter->header().flags |= internal::TaskHeader::TASK_IS_WAITER;
+    // Ref count is self + pTask + wait. Wait ref distinguishes pWaiter from a continuation.
+    pWaiter->header().refCount.store(3, memory_order::relaxed);
+    pWaiter->addChildTaskWithoutRef(pTask);
+
+    // Queue the task if we cannot execute it
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+    if(!pWorker || (pTask->header().affinity != ANY_WORKER && pTask->header().affinity != pWorker->id().localId()))
+    {
+        _addTask(pWorker, pTask, priority);
+        _wait(pWorker, pWaiter, nullptr);
+    }
+    else
+    {
+        _wait(pWorker, pWaiter, pTask);
+    }
+
+    destoryTask(pWaiter);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::waitFor(Task* pTask)
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+    _wait(pWorker, pTask, nullptr);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::waitForAll()
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+    _wait(pWorker, nullptr, nullptr);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_wait(Worker* pWorker, Task* pWaiterTask, Task* pChild)
+{
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::AntiqueWhite, "MIRCOSCHED RUN UNTIL DONE", this, pWaiterTask);
+
+    if (pWorker != nullptr)
+    {
+        m_ppLocalSchedulersByIdx[pWorker->id().localId()]->runUntilDone(pWaiterTask, pChild);
+        GTS_ASSERT(pWaiterTask ? pWaiterTask->refCount() == 1 : true);
+    }
+    else if(pWaiterTask)
+    {
+        _wakeWorkers(pWorker, 1, true, true);
+
+        // TODO: use Event
+
+        // Block until done.
+        BackoffType backoff;
+        while (pWaiterTask->refCount() > 2)
+        {
+            backoff.tick();
+            _wakeWorkers(pWorker, 1, true, true);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::destoryTask(Task* pTask)
+{
+    GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::Magenta, "MIRCOSCHED DESTORY TASK", this);
+
+    pTask->~Task();
+    Task* pParent = pTask->parent();
+    _freeTask(pTask);
+
+    if(pParent)
+    {
+        if(pParent->refCount() == 2)
+        {
+            pParent->setRef(1, memory_order::relaxed);
+        }
+        else
+        {
+            GTS_SPECULATION_FENCE();
+            if(pParent->removeRef(1) > 1)
+            {
+                return;
+            }
+        }
+        spawnTask(pParent);
+    }
+}
+
+//--------------------------------------------------------------------------
+void MicroScheduler::addExternalVictim(MicroScheduler* pScheduler)
+{
+    if (pScheduler == this)
+    {
+        GTS_ASSERT(0 && "Self victimization is not allowed.");
+        return;
+    }
+
+    GTS_MS_COUNTER_INC(OwnedId(m_schedulerId, 0), gts::analysis::MicroSchedulerCounters::NUM_SCHEDULER_REGISTERS);
+
+    m_pExternalSchedulers->registerVictim(pScheduler, this);
+}
+
+//--------------------------------------------------------------------------
+void MicroScheduler::removeExternalVictim(MicroScheduler* pScheduler)
+{
+    GTS_MS_COUNTER_INC(OwnedId(m_schedulerId, 0), gts::analysis::MicroSchedulerCounters::NUM_SCHEDULER_UNREGISTERS);
+
+    m_pExternalSchedulers->unregisterVictim(pScheduler, this);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_freeTask(Task* pTask)
+{
+    GTS_ASSERT(pTask != nullptr);
+
+    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::Magenta, "MIRCOSCHED FREE TASK", this, pTask);
+
+    uintptr_t state = Worker::getLocalState();
+    if(state)
+    {
+        GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::Magenta, "MIRCOSCHED FREE KNOWN TASK", this);
+        ((Worker*)state)->freeTask(pTask);
+    }
+    else
+    {
+        GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::DarkMagenta, "MIRCOSCHED FREE UNKNOWN TASK", this);
+        GTS_ALIGNED_FREE(&pTask->header());
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::wakeWorker()
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+    _wakeWorkers(pWorker, 1, true, false);
+}
+
+// ACCESSORS:
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::isRunning() const
+{
+    return m_isAttached.load(memory_order::acquire);
+}
+
+//------------------------------------------------------------------------------
+OwnedId MicroScheduler::thisWorkerId() const
+{
+    return m_pWorkerPool->thisWorkerId();
+}
+
+//------------------------------------------------------------------------------
+uint32_t MicroScheduler::workerCount() const
+{
+    return m_localSchedulerCount;
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::_hasDequeTasks() const
+{
+    for (size_t ii = 0, len = m_localSchedulerCount; ii < len; ++ii)
+    {
+        if(m_ppLocalSchedulersByIdx[ii]->hasDequeTasks())
+        {
+            GTS_TRACE_ZONE_MARKER_P1(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::AntiqueWhite, "HAS DEQUE TASK", ii);
+            return true;
+        }
+    }
+    return false; 
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::_hasAffinityTasks() const
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+
+    if (!pWorker || pWorker->id().localId() >= m_localSchedulerCount)
+    {
+        return false;
+    }
+
+    if (m_ppLocalSchedulersByIdx[pWorker->id().localId()]->hasAffinityTasks())
+    {
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::AntiqueWhite, "HAS AFFINITY TASK");
+        return true;
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::_hasQueueTasks() const
+{
+    for (size_t iPriority = 0, numPrios = m_pPriorityTaskQueue->size(); iPriority < numPrios; ++iPriority)
+    {
+        if (!(*m_pPriorityTaskQueue)[iPriority].empty())
+        {
+            GTS_TRACE_ZONE_MARKER_P1(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::AntiqueWhite, "HAS QUEUE TASK", iPriority);
+            return true;
+        }
+    }
+    return false;
 }
 
 //------------------------------------------------------------------------------
 bool MicroScheduler::hasTasks() const
 {
-    for (size_t ii = 0; ii < m_scheduleCount; ++ii)
+    if (_hasDequeTasks())
     {
-        if (m_pScheduleOwnershipByIdx[ii] && m_pSchedulesByIdx[ii].hasTasks())
-        {
-            return true;
-        }
-    }
-
-    if (!m_pTaskQueue->empty())
-    {
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::YellowGreen, "HAS DEQUE TASK");
         return true;
     }
 
-    if (m_canStealFromRoot)
+    if (_hasAffinityTasks())
     {
-        for (size_t ii = 0; ii < m_pRootMicroScheduler->m_scheduleCount; ++ii)
-        {
-            if (m_pRootMicroScheduler->m_pScheduleOwnershipByIdx[ii]
-                && m_pRootMicroScheduler->m_pSchedulesByIdx[ii].hasTasks())
-            {
-                return true;
-            }
-        }
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::YellowGreen, "HAS AFFINITY TASK");
+        return true;
     }
 
+    if (_hasQueueTasks())
+    {
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::YellowGreen, "HAS QUEUE TASK");
+        return true;
+    }
+
+    GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::Orange, "NO TASKS FOUND");
     return false;
 }
 
 //------------------------------------------------------------------------------
-void MicroScheduler::_setupVictimPools(Schedule*& pDstSched, bool* pDstOwnership, Schedule* const pSrcSched, bool* pSrcOwnership, uint32_t scheduleCount)
+Task* MicroScheduler::_getTask(Worker* pWorker, bool considerAffinity, bool callerIsExternal, SubIdType localId, bool& executedTask)
 {
-    // For each schedule,
-    for (uint32_t scheduleIdx = 0; scheduleIdx < scheduleCount; ++scheduleIdx)
+    Task* pTask = nullptr;
+    for (size_t ii = 0, len = m_localSchedulerCount; ii < len; ++ii)
     {
-        // Is the index owned by the destination?
-        if (!pDstOwnership[scheduleIdx])
+        bool checkForMyAffinityTask = considerAffinity && ii == localId;
+        pTask = m_ppLocalSchedulersByIdx[ii]->_getNonLocalTask(pWorker, checkForMyAffinityTask, callerIsExternal, localId, executedTask);
+        if (pTask)
         {
-            // No, skip.
-            continue;
+            break;
         }
+    }
+    return pTask;
+}
 
-        // Create a victim pool from all schedules owned by the source.
-        Vector<Schedule*> victimPool;
-        for (uint32_t ii = 0; ii < scheduleCount; ++ii)
-        {
-            // If not the destination schedule and the source owns it.
-            if (ii != scheduleIdx && pSrcOwnership[ii])
-            {
-                // Add it.
-                victimPool.push_back(&pSrcSched[ii]);
-            }
-        }
-        // Assign the pool the the desination Schedule.
-        pDstSched[scheduleIdx].setVictimPool(victimPool);
+//------------------------------------------------------------------------------
+Task* MicroScheduler::_getExternalTask(Worker* pWorker, SubIdType localId, bool& executedTask)
+{
+    return m_pExternalSchedulers->getTask(pWorker, localId, executedTask);
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::hasExternalTasks() const
+{
+    return m_pExternalSchedulers->hasDequeTasks();
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_registerWithWorkerPool(WorkerPool* pWorkerPool)
+{
+    constexpr uint32_t startIdx = 1;
+
+    {
+        Lock<MutexType> lock(pWorkerPool->m_pRegisteredSchedulers->mutex);
+
+        m_isAttached.store(true, memory_order::release);
+
+        // Register the MicroScheduler.
+        pWorkerPool->m_pRegisteredSchedulers->schedulers.push_back(this);
+    }
+
+    // Register each localScheduler with a Worker.
+    for (uint32_t ii = startIdx; ii < m_localSchedulerCount; ++ii)
+    {
+        pWorkerPool->m_pWorkersByIdx[ii].registerLocalScheduler(m_ppLocalSchedulersByIdx[ii]);
     }
 }
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_unRegisterFromWorkerPool(WorkerPool* pWorkerPool, bool lockWorkerPool)
+{
+    if (lockWorkerPool)
+    {
+        m_pWorkerPool->m_pRegisteredSchedulers->mutex.lock();
+    }
+
+    bool wasUnregistered = pWorkerPool->_unRegisterScheduler(this);
+
+    if (lockWorkerPool)
+    {
+        m_pWorkerPool->m_pRegisteredSchedulers->mutex.unlock();
+    }
+
+    if (wasUnregistered)
+    {
+        m_isAttached.store(false, memory_order::release);
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::_unRegisterFromWorkers(WorkerPool* pWorkerPool)
+{
+    constexpr uint32_t startIdx = 1;
+
+    for (uint32_t iSchedule = startIdx; iSchedule < m_localSchedulerCount; ++iSchedule)
+    {
+        pWorkerPool->m_pWorkersByIdx[iSchedule].unregisterLocalScheduler(m_ppLocalSchedulersByIdx[iSchedule]);
+    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// class ExternalSchedulers
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::registerVictim(MicroScheduler* pVictim, MicroScheduler* pThief)
+{
+    Lock<MutexType> lock(m_mutex);
+
+    GTS_ASSERT(_locateVictim(pVictim) == -1 && "MicroScheduler is already a victim.");
+    m_victims.push_back(pVictim);
+
+    // Let the scheduler know that we are a thief
+    pVictim->m_pExternalSchedulers->addThief(pThief);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::unregisterVictim(MicroScheduler* pVictim, MicroScheduler* pThief)
+{
+    // Let the victim know that there is no longer a thief referencing it.
+    pVictim->m_pExternalSchedulers->removeThief(pThief);
+
+    removeVictim(pVictim);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::unregisterAllVictims(MicroScheduler* pThief)
+{
+    for (uint32_t ii = 0; ii < m_victims.size(); ++ii)
+    {
+        unregisterVictim(m_victims[ii], pThief);
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::unregisterAllThieves(MicroScheduler* pVictim)
+{
+    for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
+    {
+        // Let the victim know that there is no longer a thief referencing it.
+        m_thieves[ii]->m_pExternalSchedulers->removeVictim(pVictim);
+
+        removeThief(m_thieves[ii]);
+    }
+}
+
+//------------------------------------------------------------------------------
+Task* MicroScheduler::ExternalSchedulers::getTask(Worker* pWorker, SubIdType localId, bool& executedTask)
+{
+    Task* pTask = nullptr;
+    for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
+    {
+        MicroScheduler* pVictim = m_victims[iVictim];
+        if (pVictim->isActive())
+        {
+            pTask = m_victims[iVictim]->_getTask(pWorker, false, true, localId, executedTask);
+            if (pTask)
+            {
+                break;
+            }
+        }
+    }
+    return pTask;
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::ExternalSchedulers::hasDequeTasks() const
+{
+    for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
+    {
+        if (m_victims[iVictim]->_hasDequeTasks())
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::ExternalSchedulers::hasVictims() const
+{
+    return m_victims.size() == 0;
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::wakeThieves(Worker* pThisWorker, uint32_t count, bool reset)
+{
+    for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
+    {
+        m_thieves[ii]->_wakeWorkers(pThisWorker, count, reset, false);
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::addThief(MicroScheduler* pScheduler)
+{
+    Lock<MutexType> lock(m_mutex);
+
+    GTS_ASSERT(_locateThief(pScheduler) == -1 && "MicroScheduler is already a thief.");
+    m_thieves.push_back(pScheduler);
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::removeThief(MicroScheduler* pScheduler)
+{
+    Lock<MutexType> lock(m_mutex);
+
+    int32_t slotIdx = _locateThief(pScheduler);
+    GTS_ASSERT(slotIdx != -1);
+
+    if (slotIdx != (int32_t)m_thieves.size() - 1)
+    {
+        // swap out
+        MicroScheduler* back = m_thieves.back();
+        m_thieves.pop_back();
+        m_thieves[slotIdx] = back;
+    }
+    else
+    {
+        m_thieves.pop_back();
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::removeVictim(MicroScheduler* pScheduler)
+{
+    Lock<MutexType> lock(m_mutex);
+
+    int32_t slotIdx = _locateVictim(pScheduler);
+    GTS_ASSERT(slotIdx != -1);
+
+    // Wait until it's not in use by any thieves.
+    BackoffType backoff;
+    while (m_thiefAccessCount.load(memory_order::acquire) > 0)
+    {
+        backoff.tick();
+    }
+
+    if (slotIdx != (int32_t)m_victims.size() - 1)
+    {
+        // swap out
+        MicroScheduler* back = m_victims.back();
+        m_victims.pop_back();
+        m_victims[slotIdx] = back;
+    }
+    else
+    {
+        m_victims.pop_back();
+    }
+}
+
+//------------------------------------------------------------------------------
+int32_t MicroScheduler::ExternalSchedulers::_locateVictim(MicroScheduler* pScheduler)
+{
+    for (uint32_t ii = 0; ii < m_victims.size(); ++ii)
+    {
+        if (m_victims[ii] == pScheduler)
+        {
+            return ii;
+        }
+    }
+    return -1;
+}
+
+//------------------------------------------------------------------------------
+int32_t MicroScheduler::ExternalSchedulers::_locateThief(MicroScheduler* pScheduler)
+{
+    for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
+    {
+        if (m_thieves[ii] == pScheduler)
+        {
+            return ii;
+        }
+    }
+    return -1;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// class Callbacks
+
+//------------------------------------------------------------------------------
+void MicroScheduler::Callbacks::registerCallback(uintptr_t func, void* pData)
+{
+    Lock<rw_lock_type> lock(m_mutex);
+
+    GTS_ASSERT(_locateCallback(func, pData) == -1 && "Callback is already registered.");
+    m_callbacks.push_back({ func, pData });
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::Callbacks::unregisterCallback(uintptr_t func, void* pData)
+{
+    Lock<rw_lock_type> lock(m_mutex);
+
+    int32_t slotIdx = _locateCallback(func, pData);
+    GTS_ASSERT(slotIdx != -1);
+
+    if (slotIdx != (int32_t)m_callbacks.size() - 1)
+    {
+        // swap out
+        Callback back = m_callbacks.back();
+        m_callbacks.pop_back();
+        m_callbacks[slotIdx] = back;
+    }
+    else
+    {
+        m_callbacks.pop_back();
+    }
+}
+
+//------------------------------------------------------------------------------
+int32_t MicroScheduler::Callbacks::_locateCallback(uintptr_t func, void* pData)
+{
+    for (uint32_t ii = 0; ii < m_callbacks.size(); ++ii)
+    {
+        if (m_callbacks[ii].func == func && m_callbacks[ii].pData == pData)
+        {
+            return ii;
+        }
+    }
+    return -1;
+}
+
 
 } // namespace gts

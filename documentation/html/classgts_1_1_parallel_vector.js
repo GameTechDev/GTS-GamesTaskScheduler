@@ -32,6 +32,7 @@ var classgts_1_1_parallel_vector =
     [ "empty", "classgts_1_1_parallel_vector.html#a7869fa41cb1dfcbe669b2be085cdcc60", null ],
     [ "end", "classgts_1_1_parallel_vector.html#ac4e40b6feeafcaaa48a660a54e5c5cdf", null ],
     [ "front", "classgts_1_1_parallel_vector.html#a6b8556e08ace3c5e3c25517cb732294b", null ],
+    [ "get_allocator", "classgts_1_1_parallel_vector.html#a75c6eb6164453f3ab2f46ed236688235", null ],
     [ "max_size", "classgts_1_1_parallel_vector.html#a1fb665f871c4fa1868ade266082e564c", null ],
     [ "operator=", "classgts_1_1_parallel_vector.html#a73f5d1d680bd0290099ef4b5444584f5", null ],
     [ "operator=", "classgts_1_1_parallel_vector.html#a79b31216ad4bc1fcc27912a8e78a0303", null ],

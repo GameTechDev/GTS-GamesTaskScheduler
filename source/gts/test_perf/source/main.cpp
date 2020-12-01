@@ -19,293 +19,542 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  ******************************************************************************/
-#include "gts/platform/Thread.h"
+#include <gts/platform/Thread.h>
 
 #include "gts_perf/Stats.h"
 #include "gts_perf/Output.h"
 #include "gts_perf/PerfTests.h"
+
+#define PROFILEx
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Tests:
 
 //------------------------------------------------------------------------------
-void schedulerOverheadParFor(Output& output)
+void initWorkerPool(gts::WorkerPool& workerPool, uint32_t threadCount, bool affinitize)
 {
-    uint32_t size = 100000;
-    uint32_t iterations = 100;
+    if (affinitize)
+    {
+        gts::WorkerPoolDesc workerPoolDesc;
 
-    output << "=== SchedulerOverhead ParFor ===" << std::endl;
+        // Get the CPU topology.
+        gts::SystemTopology sysTopo;
+        gts::Thread::getSystemTopology(sysTopo);
+
+        // Loop through each processor group.
+        for (size_t iGroup = 0; iGroup < sysTopo.groupInfoElementCount; ++iGroup)
+        {
+            gts::ProcessorGroupInfo const& groupInfo = sysTopo.pGroupInfoArray[iGroup];
+
+            // Loop through each physical core.
+            for (size_t iCore = 0; iCore < groupInfo.coreInfoElementCount; ++iCore)
+            {
+                gts::CpuCoreInfo const& coreInfo = groupInfo.pCoreInfoArray[iCore];
+
+                // Loop through each thread.
+                for (size_t iThead = 0; iThead < coreInfo.hardwareThreadIdCount; ++iThead)
+                {
+                    gts::WorkerThreadDesc workerDesc;
+
+                    // Set the affinity mask.
+                    gts::AffinitySet affinitySet;
+                    affinitySet.set(coreInfo.pHardwareThreadIds[iThead]);
+                    workerDesc.affinity = {iGroup, affinitySet };
+
+                    // Add the worker desc to the pool desc.
+                    workerPoolDesc.workerDescs.push_back(workerDesc);
+                }
+            }
+        }
+
+        // Affinitize the Master thread here since the Worker Pool does not own it.
+        gts::AffinitySet affinitySet;
+        affinitySet.set(sysTopo.pGroupInfoArray[0].pCoreInfoArray[0].pHardwareThreadIds[0]);
+        gts::ThisThread::setAffinity(0, affinitySet);
+
+        workerPool.initialize(workerPoolDesc);
+    }
+    else
+    {
+        workerPool.initialize(threadCount);
+    }
+}
+
+//------------------------------------------------------------------------------
+void spawnTaskOverhead(Output& output,
+    uint32_t iterations = 100000)
+{
+    output << "=== Spawn Task Overhead Without Alloc (cycles) ===" << std::endl;
+    output << "iterations: " << iterations << std::endl;
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, 1, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = spawnTaskOverheadWithoutAllocPerf(taskScheduler, iterations);
+        output << stats.mean() << ", ";
+
+        output << std::endl;
+    }
+    
+    output << "=== Spawn Task Overhead With Alloc Caching (cycles) ===" << std::endl;
+    output << "iterations: " << iterations << std::endl;
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, 1, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = spawnTaskOverheadWithAllocCachingPerf(taskScheduler, iterations);
+        output << stats.mean() << ", ";
+
+        output << std::endl;
+    }
+
+    output << "=== Spawn Task Overhead With Alloc No Caching (cycles) ===" << std::endl;
+    output << "iterations: " << iterations << std::endl;
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, 1, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = spawnTaskOverheadWithAllocPerf(taskScheduler, iterations);
+        output << stats.mean() << ", ";
+
+        output << std::endl;
+    }
+}
+
+//------------------------------------------------------------------------------
+void schedulerOverheadParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t size = 1000000,
+    uint32_t iterations = 100000)
+{
+    output << "=== Scheduler Overhead ParFor (s) ===" << std::endl;
     output << "size: " << size << std::endl;
+    output << "iterations: " << iterations << std::endl;
 
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
     {
-        Stats stats = schedulerOverheadParForPerf(size, iterations, iThread, false);
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = schedulerOverheadParForPerf(taskScheduler, size, iterations);
         output << stats.mean() << ", ";
-
-        iterations += 5;
     }
+
     output << std::endl;
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-    {
-        Stats stats = schedulerOverheadParForPerf(size, iterations, iThread, true);
-        output << stats.mean() << ", ";
-
-        iterations += 5;
-    }
-    output << std::endl;
-
-    //Stats stats = schedulerOverheadParForPerf(size, iterations + 1000, gts::Thread::getHardwareThreadCount());
-    //output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void schedulerOverheadFib(Output& output)
+void schedulerOverheadFib(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t fibN = 30,
+    uint32_t iterations = 100)
 {
-    uint32_t fibN = 30;
-    uint32_t iterations = 100;
-
-    output << "=== SchedulerOverhead Fib ===" << std::endl;
+    output << "=== Scheduler Overhead Fib (s) ===" << std::endl;
     output << "Fib#: " << fibN << std::endl;
+    output << "iterations: " << iterations << std::endl;
 
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
     {
-        Stats stats = schedulerOverheadFibPerf(fibN, iterations, iThread, false);
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = schedulerOverheadFibPerf(taskScheduler, fibN, iterations);
         output << stats.mean() << ", ";
-
-        iterations += 5;
-    }
-    output << std::endl;
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-    {
-        Stats stats = schedulerOverheadFibPerf(fibN, iterations, iThread, false);
-        output << stats.mean() << ", ";
-
-        iterations += 5;
-    }
-    output << std::endl;
-
-    //Stats stats = schedulerOverheadFibPerf(fibN, iterations + 1000, gts::Thread::getHardwareThreadCount());
-    //output << fibN << ", " << stats.mean() << ", " << stats.min() << ", " << stats.max() << ", " << stats.standardDeviation() << std::endl;
-}
-
-//------------------------------------------------------------------------------
-void poorDistribution(Output& output)
-{
-    const uint32_t INIT_ITERS = 100;
-    uint32_t iterations = INIT_ITERS;
-
-    output << "=== PoorDistribution ===" << std::endl;
-
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t taskCount = 1000; taskCount <= 5000; taskCount += 1000)
-    {
-        iterations = INIT_ITERS;
-        output << "#tasks: " << taskCount << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-        {
-            Stats stats = poorDistributionPerf(taskCount, iterations, iThread, false);
-            output << stats.mean() << ", ";
-            iterations += 10;
-        }
-        output << std::endl;
-    }
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t taskCount = 1000; taskCount <= 5000; taskCount += 1000)
-    {
-        iterations = INIT_ITERS;
-        output << "#tasks: " << taskCount << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-        {
-            Stats stats = poorDistributionPerf(taskCount, iterations, iThread, true);
-            output << stats.mean() << ", ";
-            iterations += 10;
-        }
-        output << std::endl;
     }
 
     output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void mandelbrot(Output& output)
+void poorDistribution(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t tasks = 5000,
+    uint32_t iterations = 30)
 {
-    const uint32_t INIT_ITERS = 100;
-    uint32_t iterations = INIT_ITERS;
+    output << "=== Poor Distribution ===" << std::endl;
+    output << "tasks: " << tasks << std::endl;
+    output << "iterations: " << iterations << std::endl;
 
-    output << "=== Mandelbrot ===" << std::endl;
-
-    output << "--- serial ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
     {
-        output << "dim: " << dim << std::endl;
-        Stats stats = mandelbrotPerfSerial(dim, iterations);
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = poorDistributionPerf(taskScheduler, tasks, iterations);
+        output << stats.mean() << ", ";
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void poorSystemDistribution(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t = 0,
+    uint32_t iterations = 40)
+{
+    output << "=== Poor System Distribution (s) ===" << std::endl;
+    output << "iterations: " << iterations << std::endl;
+
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = poorSystemDistributionPerf(workerPool, iterations);
+        output << stats.mean() << ", ";
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void mandelbrot(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t dimensions = 512,
+    uint32_t iterations = 100,
+    bool serial = false)
+{
+    output << "=== Mandelbrot (s) ===" << std::endl;
+    output << "dimensions: " << dimensions << std::endl;
+    output << "iterations: " << iterations << std::endl;
+
+    if(serial)
+    {
+        output << "--- serial ---" << std::endl;
+        Stats stats = mandelbrotPerfSerial(dimensions, iterations);
         output << stats.mean() << std::endl;
     }
-
-    output << "--- parallel ---" << std::endl;
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    else
     {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        output << "--- parallel ---" << std::endl;
+
+        for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
         {
-            Stats stats = mandelbrotPerfParallel(dim, iterations, iThread, false);
+            gts::WorkerPool workerPool;
+            initWorkerPool(workerPool, iThread, false);
+
+            gts::MicroScheduler taskScheduler;
+            taskScheduler.initialize(&workerPool);
+
+            Stats stats = mandelbrotPerfParallel(taskScheduler, dimensions, iterations);
             output << stats.mean() << ", ";
-            iterations += 10;
         }
-        output << std::endl;
     }
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
-    {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-        {
-            Stats stats = mandelbrotPerfParallel(dim, iterations, iThread, true);
-            output << stats.mean() << ", ";
-            iterations += 10;
-        }
-        output << std::endl;
-    }
-
     output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void aoBench(Output& output)
+void aoBench(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t dimensions = 512,
+    uint32_t iterations = 2,
+    bool serial = false)
 {
-    const float INIT_ITERS = 2;
-    const uint32_t NSUBSAMPLES = 2;
+    const uint32_t subSamples = 2;
 
-    float iterations = INIT_ITERS;
+    output << "=== AO Bench (s) ===" << std::endl;
+    output << "dimensions : " << dimensions << std::endl;
+    output << "#subsamples: " << subSamples << std::endl;
+    output << "iterations : " << iterations << std::endl;
 
-    output << "=== AO Bench ===" << std::endl;
-
-    output << "--- serial ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    if(serial)
     {
-        output << "dim: " << dim << std::endl;
-        Stats stats = aoBenchPerfSerial(dim, dim, NSUBSAMPLES, (uint32_t)iterations);
+        output << "--- serial ---" << std::endl;
+        Stats stats = aoBenchPerfSerial(dimensions, dimensions, subSamples, iterations);
         output << stats.mean() << std::endl;
     }
-
-    output << "--- parallel ---" << std::endl;
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    else
     {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        output << "--- parallel ---" << std::endl;
+        for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
         {
-            Stats stats = aoBenchPerfParallel(dim, dim, NSUBSAMPLES, (uint32_t)iterations, iThread, false);
+            gts::WorkerPool workerPool;
+            initWorkerPool(workerPool, iThread, false);
+
+            gts::MicroScheduler taskScheduler;
+            taskScheduler.initialize(&workerPool);
+
+            Stats stats = aoBenchPerfParallel(taskScheduler, dimensions, dimensions, subSamples, iterations);
             output << stats.mean() << ", ";
-            iterations += 0.25f;
         }
-        output << std::endl;
     }
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
-    {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-        {
-            Stats stats = aoBenchPerfParallel(dim, dim, NSUBSAMPLES, (uint32_t)iterations, iThread, true);
-            output << stats.mean() << ", ";
-            iterations += 0.25f;
-        }
-        output << std::endl;
-    }
-
     output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-void matMul(Output& output)
+void matMul(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t dimensions = 1024,
+    uint32_t iterations = 100,
+    bool serial = false,
+    bool affinitize = false)
 {
-    const uint32_t INIT_ITERS = 100;
-    uint32_t iterations = INIT_ITERS;
+    output << "=== Matrix Mul (s) ===" << std::endl;
+    output << "dimensions : " << dimensions << std::endl;
+    output << "iterations : " << iterations << std::endl;
 
-    output << "=== MatMul ===" << std::endl;
-
-    output << "--- serial ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    if(serial)
     {
-        output << "dim: " << dim << std::endl;
-        Stats stats = matMulPefSerial(dim, dim, dim, iterations);
-        output << stats.mean() << ", ";
+        output << "--- serial ---" << std::endl;
+        Stats stats = matMulPefSerial(dimensions, dimensions, dimensions, iterations);
+        output << stats.mean() << std::endl;
     }
-
-    output << "--- parallel ---" << std::endl;
-    output << "--- no affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
+    else
     {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
+        output << "--- parallel ---" << std::endl;
+        for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
         {
-            Stats stats = matMulPefParallel(dim, dim, dim, iterations, iThread, false);
+            gts::WorkerPool workerPool;
+            initWorkerPool(workerPool, iThread, affinitize);
+
+            gts::MicroScheduler taskScheduler;
+            taskScheduler.initialize(&workerPool);
+
+            Stats stats = matMulPefParallel(taskScheduler, dimensions, dimensions, dimensions, iterations);
             output << stats.mean() << ", ";
-            iterations += 10;
         }
-        output << std::endl;
     }
-
-    output << "--- affinity ---" << std::endl;
-
-    for (uint32_t dim = 256; dim <= 1024; dim *= 2)
-    {
-        iterations = INIT_ITERS;
-        output << "dim: " << dim << std::endl;
-        for (uint32_t iThread = 1; iThread <= gts::Thread::getHardwareThreadCount(); ++iThread)
-        {
-            Stats stats = matMulPefParallel(dim, dim, dim, iterations, iThread, true);
-            output << stats.mean() << ", ";
-            iterations += 10;
-        }
-        output << std::endl;
-    }
-
     output << std::endl;
 }
 
 //------------------------------------------------------------------------------
-int main()
+void mpmcQueue(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t numElements = 1024,
+    uint32_t iterations = 100,
+    bool serial = false)
 {
+    output << "=== MPMC Queue push/pop (s) ===" << std::endl;
+    output << "numElements : " << numElements << std::endl;
+    output << "iterations : " << iterations << std::endl;
+
+    startThreadCount = gts::gtsMax(startThreadCount, 2u);
+    endThreadCount = gts::gtsMax(startThreadCount, endThreadCount);
+
+    if(serial)
+    {
+        output << "--- serial ---" << std::endl;
+        Stats stats = mpmcQueuePerfSerial(numElements, iterations);
+        output << stats.mean() << std::endl;
+    }
+    else
+    {
+        output << "--- parallel ---" << std::endl;
+        for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; iThread += 2)
+        {
+            Stats stats = mpmcQueuePerfParallel(iThread, numElements, iterations);
+            output << stats.mean() << ", ";
+        }
+    }
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void homoRandomDagWorkStealing(Output& output, uint32_t iterations = 100)
+{
+    output << "=== Homogeneous Random DAG Work-stealing (s) ===" << std::endl;
+    output << "threads : " << 16 << std::endl;
+    output << "iterations : " << iterations << std::endl;
+
+    GTS_ASSERT(gts::Thread::getHardwareThreadCount() >= 16 && "Machine must have at least 16 cores.");
+
+    Stats stats = homoRandomDagWorkStealing(iterations);
+    output << stats.mean() << ", ";
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void heteroRandomDagWorkStealing(Output& output, uint32_t iterations = 100)
+{
+    output << "=== Heterogeneous Random DAG Work-stealing (s) ===" << std::endl;
+    output << "threads : " << 16 << std::endl;
+    output << "iterations : " << iterations << std::endl;
+
+    GTS_ASSERT(gts::Thread::getHardwareThreadCount() >= 16 && "Machine must have at least 16 cores.");
+
+    Stats stats = heteroRandomDagWorkStealing(iterations, false);
+    output << stats.mean() << ", ";
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void heteroRandomDagCriticallyAware(Output& output, uint32_t iterations = 100)
+{
+    output << "=== Heterogeneous Random DAG Critically Aware (s) ===" << std::endl;
+    output << "threads : " << 16 << std::endl;
+    output << "iterations : " << iterations << std::endl;
+
+    GTS_ASSERT(gts::Thread::getHardwareThreadCount() >= 16 && "Machine must have at least 16 cores.");
+
+    Stats stats = heteroRandomDagCriticallyAware(iterations);
+    output << stats.mean() << ", ";
+    output << std::endl;
+}
+
+constexpr char* TEST_TYPE_SPAWN_TASK        = "spawn_task";
+constexpr char* TEST_TYPE_OVERHEAD          = "empty_for";
+constexpr char* TEST_TYPE_FIBONACCI         = "fibonacci";
+constexpr char* TEST_TYPE_POOR_DIST         = "poor_dist";
+constexpr char* TEST_TYPE_POOR_SYS_DIST     = "poor_sys_dist";
+constexpr char* TEST_TYPE_MANDELBROT        = "mandelbrot";
+constexpr char* TEST_TYPE_AO_BENCH          = "ao_bench";
+constexpr char* TEST_TYPE_MAT_MUL           = "mat_mul";
+constexpr char* TEST_TYPE_MPMC_QUEUE        = "mpmc_queue";
+
+//------------------------------------------------------------------------------
+void runTests(
+    Output& output,
+    std::string const& testType,
+    uint32_t testSize,
+    uint32_t testIterations,
+    uint32_t startThreadCount = 1,
+    uint32_t endThreadCount = gts::Thread::getHardwareThreadCount())
+{
+    if(TEST_TYPE_SPAWN_TASK == testType)
+    {
+        spawnTaskOverhead(output, testIterations);
+    }
+    else if(TEST_TYPE_OVERHEAD == testType)
+    {
+        schedulerOverheadParFor(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_FIBONACCI == testType)
+    {
+        schedulerOverheadFib(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_POOR_DIST == testType)
+    {
+        poorDistribution(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_POOR_SYS_DIST == testType)
+    {
+        poorSystemDistribution(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_MANDELBROT == testType)
+    {
+        mandelbrot(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_AO_BENCH == testType)
+    {
+        aoBench(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_MAT_MUL == testType)
+    {
+        matMul(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+    else if(TEST_TYPE_MPMC_QUEUE == testType)
+    {
+        mpmcQueue(output, startThreadCount, endThreadCount, testSize, testIterations);
+    }
+}
+
+//------------------------------------------------------------------------------
+void printArgRequirements()
+{
+    std::cout << "\nRequired Args:\n[spawn_task|empty_for|fibonacci|poor_dist|poor_sys_dist|mandelbrot|ao_bench|mat_mul] [size] [iterations] [startThreadCount] [endThreadCount]\n\n";
+}
+
+//------------------------------------------------------------------------------
+int main(int argc, char *argv[])
+{
+    gts::analysis::CaptureMask::Type captureMask = gts::analysis::CaptureMask::Type(
+        gts::analysis::CaptureMask::MICRO_SCHEDULER_PROFILE |
+        gts::analysis::CaptureMask::WORKERPOOL_PROFILE | 
+        gts::analysis::CaptureMask::THREAD_PROFILE |
+        gts::analysis::CaptureMask::USER);
+
+    GTS_TRACE_SET_CAPTURE_MASK(captureMask);
+
     Output output("results.txt");
 
-    schedulerOverheadParFor(output);
-    schedulerOverheadFib(output);
-    poorDistribution(output);
-    mandelbrot(output);
-    aoBench(output);
-    matMul(output);
+#ifndef PROFILE
+
+    if (argc > 3)
+    {
+        std::string testType    = argv[1];
+        uint32_t testSize       = atoi(argv[2]);
+        uint32_t testIterations = atoi(argv[3]);
+
+        uint32_t startThreadCount = 0;
+        uint32_t endThreadCount   = 0;
+
+        if (argc > 4)
+        {
+            startThreadCount = atoi(argv[4]);
+            endThreadCount   = atoi(argv[5]);
+        }
+
+        if(startThreadCount == 0)
+        {
+            startThreadCount = 1;
+        }
+        if(endThreadCount == 0)
+        {
+            endThreadCount = gts::Thread::getHardwareThreadCount();
+        }
+
+        runTests(output, testType, testSize, testIterations, startThreadCount, endThreadCount);
+    }
+    else
+    {
+        printArgRequirements();
+
+        uint32_t startThreadCount = 1;
+        uint32_t endThreadCount = gts::Thread::getHardwareThreadCount();
+
+        spawnTaskOverhead(output);
+        schedulerOverheadParFor(output, startThreadCount, endThreadCount);
+        schedulerOverheadFib(output, startThreadCount, endThreadCount);
+        poorDistribution(output, startThreadCount, endThreadCount);
+        poorSystemDistribution(output, startThreadCount, endThreadCount);
+        mandelbrot(output, startThreadCount, endThreadCount);
+        aoBench(output, startThreadCount, endThreadCount);
+        matMul(output, startThreadCount, endThreadCount);
+        mpmcQueue(output, startThreadCount, endThreadCount);
+    }
+
+#else
+
+    GTS_UNREFERENCED_PARAM(argc);
+    GTS_UNREFERENCED_PARAM(argv);
+
+    //volatile float warmup = 42.f;
+    //for (size_t ii = 0; ii < UINT32_MAX >> 4; ++ii)
+    //{
+    //    warmup = sin(warmup);
+    //}
+
+    //spawnTaskOverhead(output);
+    //schedulerOverheadParFor(output, 6, 6, 100000, 500);
+    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000);
+    //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 1000);
+    //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount());
+
+    //matMul(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 100, false, false);
+
+    //aoBench(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 1024, 10);
+
+    //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
+
+    //homoRandomDagWorkStealing(output, 10);
+    heteroRandomDagCriticallyAware(output, 10);
+
+#endif
 
     return 0;
 }

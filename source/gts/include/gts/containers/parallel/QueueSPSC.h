@@ -21,7 +21,7 @@
  ******************************************************************************/
 #pragma once
 
-#include <algorithm>
+#include <list>
 
 #include "gts/platform/Machine.h"
 #include "gts/platform/Assert.h"
@@ -30,7 +30,6 @@
 #include "gts/platform/Thread.h"
 #include "gts/containers/Vector.h"
 #include "gts/containers/AlignedAllocator.h"
-#include "gts/containers/parallel/QueueSkeleton.h"
 
 #ifdef GTS_MSVC
 #pragma warning( push )
@@ -39,61 +38,86 @@
 
 namespace gts {
 
+/** 
+ * @addtogroup Containers
+ * @{
+ */
+
+/** 
+ * @addtogroup ParallelContainers
+ * @{
+ */
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A unbound, wait-free single-producer single-consumer queue.
+ *  A single-producer, single-consumer queue. Properties:
+    - Wait-free.
+    - Unbound.
+    - Linearizable.
  * @tparam T
  *  The type stored in the container.
- * @tparam TStorage
- *  The storage backing for the container. Must be a random access container,
- *  such as std::vector or std::deque.
  * @tparam TAllocator
  *  The allocator used by the storage backing.
  */
 template<
     typename T,
-    template <typename, typename> class TStorage = gts::Vector,
-    typename TAllocator = gts::AlignedAllocator<T, GTS_NO_SHARING_CACHE_LINE_SIZE>>
-class QueueSPSC
+    typename TAllocator = gts::AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>
+class QueueSPSC : private TAllocator
 {
 public:
 
-    using interal_queue   = QueueSkeleton<T, TStorage, TAllocator>;
-
-    using value_type      = typename interal_queue::value_type;
-    using size_type       = typename interal_queue::size_type;
-    using index_size_type = typename interal_queue::index_size_type;
-    using allocator_type  = typename interal_queue::allocator_type;
-    using storage_type    = typename interal_queue::storage_type;
+    using value_type     = T;
+    using size_type      = size_t;
+    using allocator_type = TAllocator;
 
 public: // STRUCTORS
 
+    /**
+     * Constructs an empty container with the given 'allocator'.
+     * @remark
+     *  Thread-safe.
+     */
     explicit QueueSPSC(allocator_type const& allocator = allocator_type());
+
+    /**
+     * Destructs the container. The destructors of the elements are called and the
+     * used storage is deallocated.
+     * @remark
+     *  Not thread-safe.
+     */
     ~QueueSPSC();
 
     /**
-     * Copy constructor.
-     * @remark Not thread-safe.
-     */
+    * Copy constructor. Constructs the container with the copy of the contents
+    * of 'other'.
+    * @remark
+    *  Not thread-safe.
+    */
     QueueSPSC(QueueSPSC const& other);
     
     /**
-     * Move constructor.
-     * @remark Not thread-safe.
+     * Move constructor. Constructs the container with the contents of other
+     * using move semantics. After the move, other is invalid.
+     * @remark
+     *  Not thread-safe.
      */
     QueueSPSC(QueueSPSC&& other);
 
     /**
-     * Copy assignment.
-     * @remark Not thread-safe.
+     * Copy assignment operator. Replaces the contents with a copy of the
+     * contents of 'other'.
+     * @remark
+     *  Not thread-safe.
      */
     QueueSPSC& operator=(QueueSPSC const& other);
 
     /**
-     * Move assignment.
-     * @remark Not thread-safe.
+     * Move assignment operator. Replaces the contents with those of other using
+     * move semantics. After the move, other is invalid.
+     * @remark
+     *  Not thread-safe.
      */
     QueueSPSC& operator=(QueueSPSC&& other);
 
@@ -101,51 +125,122 @@ public: // ACCESSORS
 
     /**
      * @return True of the queue is empty, false otherwise.
+     * @remark Not thread-safe. 
      */
     bool empty() const;
 
     /**
      * @return The number of elements in the queue.
+     * @remark Not thread-safe.
      */
     size_type size() const;
 
     /**
      * @return The capacity of the queue.
+     * @remark Not thread-safe.
      */
     size_type capacity() const;
+
+    /**
+     * @return This queue's allocator.
+     * @remark Thread-safe.
+     */
+    allocator_type get_allocator() const;
 
 public: // MUTATORS
 
     /**
+     * Increases the capacity of the queue. Does nothing if 'sizePow2' < capacity.
+     * @remark Not thread-safe.
+     */
+    void reserve(size_type sizePow2);
+
+    /**
      * Removes all elements from the queue.
+     * @remark Not thread-safe.
      */
     void clear();
 
     /**
-     * A multi-producer-safe push operation.
+     * Copies 'val' to the back of the queue.
+     * @return True if the push, false otherwise.
+     * @remark Single producer thread-safe.
      */
     bool tryPush(const value_type& val);
 
     /**
-     * A multi-producer-safe push operation.
+     * Moves 'val' to the back of the queue.
+     * @return True if the push, false otherwise.
+     * @remark Single producer thread-safe.
      */
     bool tryPush(value_type&& val);
 
     /**
-     * A multi-consumer-safe pop operation.
+     * Pops an element from the queue and copies it into 'out'.
      * @return True if the pop succeeded, false otherwise.
+     * @remark Single consumer thread-safe.
      */
     bool tryPop(value_type& out);
 
 private:
 
-    interal_queue m_queue;
-};
+    template<typename... TArgs>
+    bool _insert(TArgs&&... args);
 
-#include "QueueSPSC.inl"
+    void _cleanup();
+
+    void _deepCopy(QueueSPSC const& src);
+
+    GTS_NO_INLINE bool _grow(size_type size, size_type front, size_type back);
+
+    //! The maximum capacity is half the range of the index type, such
+    //! that when it wraps around, it will be zero at index zero. This
+    //! prevents the dual state of full and empty.
+    static constexpr size_type MAX_CAPACITY = numericLimits<size_type>::max() / 2;
+
+    static constexpr size_type MIN_CAPACITY = 2;
+
+    struct RingBuffer
+    {
+        //! An array of pointers into the data backing array.
+        value_type** ppBuff = nullptr;
+
+        //! The size of buff - 1.
+        size_type mask = 0;
+    };
+
+    struct OldBuffers
+    {
+        RingBuffer** ppBuff = nullptr;
+        size_type size = 0;
+    };
+
+    //! The next item to pop.
+    Atomic<size_type> m_front;
+
+    //! The last item index.
+    Atomic<size_type> m_back;
+
+    //! The storage ring buffer.
+    Atomic<RingBuffer*> m_pRingBuffer;
+
+    //! The data backing for m_pRingBuffer.
+    value_type** m_ppDataBackingArray;
+
+    //! The size of m_ppDataBackingArray.
+    size_t m_dataBackingArraySize;
+
+    //! The old RingBuffers from resizes.
+    Atomic<OldBuffers*> m_pOldBuffers;
+};
 
 #ifdef GTS_MSVC
 #pragma warning( pop )
 #endif
+
+/** @} */ // end of ParallelContainers
+/** @} */ // end of Containers
+
+#include "QueueSPSC.inl"
 
 } // namespace gts

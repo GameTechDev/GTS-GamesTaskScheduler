@@ -27,12 +27,30 @@
 
 namespace gts {
 
+/** 
+ * @addtogroup Platform
+ * @{
+ */
+
+/** 
+ * @defgroup Assert Assert
+ *  Assert functionality.
+ * @{
+ */
+
+//! The assert hook type. Consumes a string of error information.
 typedef void (*assertHook)(const char*);
 
-//! Sets the user defined assert hook.
+/**
+ * @brief
+ *  Sets the user defined assert hook.
+ */
 void setAssertHook(assertHook hook);
 
-//! Gets the user defined assert hook;
+/**
+ * @brief
+ *  Gets the user defined assert hook
+ */
 assertHook getAssertHook();
 
 namespace internal {
@@ -48,13 +66,18 @@ GTS_INLINE void _assert(
         assertHook hook = getAssertHook();
         if (hook)
         {
-            static char LOG_BUFFER[2048];
+            constexpr size_t BUFF_SIZE = 2048;
+            static char LOG_BUFFER[BUFF_SIZE];
+        #ifdef GTS_MSVC
             sprintf_s(LOG_BUFFER, "%s, FILE: %s file (%d)", exp, file, line);
+        #else
+            snprintf(LOG_BUFFER, BUFF_SIZE, "%s, FILE: %s file (%d)", exp, file, line);
+        #endif
             hook(LOG_BUFFER);
         }
         else
         {
-            printf("%s, FILE: %s file (%d)", exp, file, line);
+            printf("MISSING ASSERT HOOK!\n");
         }
 
         GTS_DEBUG_BREAK();
@@ -62,15 +85,74 @@ GTS_INLINE void _assert(
 }
 
 } // namespace internal
-} // namespace gts
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+#if defined(GTS_USE_INTERNAL_ASSERTS)
+
+/**
+ * @def GTS_INTERNAL_ASSERT(expr)
+ * @brief
+ *  Causes execution to break when \a expr is false.
+ * @param expression
+ *  The boolean expression.
+ * @remark
+ *  Force enable by defining GTS_USE_INTERNAL_ASSERTS
+ */
+
+#if defined(GTS_HAS_CUSTOM_ASSERT_WRAPPER)
+
+#define GTS_INTERNAL_ASSERT(expr) \
+    GTS_CUSTOM_ASSERT((expr), #expr, __FILE__, __LINE__)
+
+#else
+
+#define GTS_INTERNAL_ASSERT(expr) \
+    gts::internal::_assert((expr), #expr, __FILE__, __LINE__)
+
+#endif // GTS_HAS_CUSTOM_ASSERT_WRAPPER
+
+#else
+
+#define GTS_INTERNAL_ASSERT(expr)
+
+#endif // defined(GTS_USE_INTERNAL_ASSERTS)
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 #if defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
 
-#define GTS_ASSERT(expr)                                                       \
+/**
+ * @def GTS_ASSERT(expr)
+ * @brief
+ *  Causes execution to break when \a expr is false.
+ * @param expression
+ *  The boolean expression.
+ * @remark
+ *  Force enable by defining GTS_USE_ASSERTS
+ */
+
+#if defined(GTS_HAS_CUSTOM_ASSERT_WRAPPER)
+
+#define GTS_ASSERT(expr) \
+    GTS_CUSTOM_ASSERT((expr), #expr, __FILE__, __LINE__)
+
+#else
+
+#define GTS_ASSERT(expr) \
     gts::internal::_assert((expr), #expr, __FILE__, __LINE__)
+
+#endif // GTS_HAS_CUSTOM_ASSERT_WRAPPER
 
 #else
 
 #define GTS_ASSERT(expr)
 
 #endif // defined(GTS_USE_ASSERTS) || !defined(NDEBUG)
+
+/** @} */ // end of Assert
+/** @} */ // end of Platform
+
+} // namespace gts

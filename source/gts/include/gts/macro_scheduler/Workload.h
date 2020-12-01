@@ -22,31 +22,40 @@
 #pragma once
 
 #include <cstdint>
-#include "gts/macro_scheduler/ComputeResourceType.h"
+#include <map>
+
+#include "gts/platform/Machine.h"
 #include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 
 namespace gts {
 
-class Node;
 class ComputeResource;
 class Workload;
+class Node;
 
-using Workload_ComputeRoutine = void(*)(Workload* pThisWorkload, WorkloadContext const& ctx);
+/** 
+ * @addtogroup MacroScheduler
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
  *  A Workload is a base class for describing a task that can be executed by a
- *  specific ComputeResource. Each ComputeResource requires Workload to execute
- *  a Node.
+ *  set of ComputeResource%s.
  */
 class Workload
 {
 public: // STRUCTORS:
 
-    Workload(ComputeResourceType type);
+    friend class Node;
+
+    GTS_INLINE explicit Workload(WorkloadType::Enum type)
+        : m_pMyNode(nullptr)
+        , m_type(type)
+    {}
 
     /**
      * For polymorphic destruction.
@@ -55,16 +64,32 @@ public: // STRUCTORS:
 
 public: // ACCESSORS:
 
-    uint64_t executionCost() const;
-    uint64_t transferCost() const;
+    /**
+     * @returns This Workload's type.
+     */
+    GTS_INLINE WorkloadType::Enum type() const { return m_type; }
 
-    ComputeResourceType type() const;
+    /**
+     * @return The Node this Workload is attached to.
+     */
+    GTS_INLINE Node* myNode() const { return m_pMyNode; }
+
+public: // MUTATORS:
+
+    /**
+     * Executes the Workload in the given context.
+     */
+    virtual void execute(WorkloadContext const& ctx) = 0;
 
 protected:
 
-    uint64_t m_executionCost;
-    uint64_t m_transferCost;
-    ComputeResourceType m_type;
+    //! The Node this Workload is attached to.
+    Node* m_pMyNode;
+
+    //! The Workloads type.
+    WorkloadType::Enum m_type;
 };
+
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

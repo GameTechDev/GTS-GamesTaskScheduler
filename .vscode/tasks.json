@@ -1,0 +1,240 @@
+{
+    "version": "2.0.0",
+    "presentation": {
+        "clear": true
+    },
+    "tasks": [
+        //------------------------------------------------------------------------------
+        // GTS UNIT TESTS:
+        {
+            "type": "shell",
+            "label": "GTS tests clean",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make clean config=debug_x86 && /usr/bin/make clean config=release_x86 && /usr/bin/make clean config=debug_x64 && /usr/bin/make clean config=release_x64",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests debug_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debug_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests release_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=release_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests debug_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debug_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests release_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=release_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests debugwithgtsmalloc_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debugwithgtsmalloc_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests debugwithgtsmalloc_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debugwithgtsmalloc_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests releasewithgtsmalloc_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=releasewithgtsmalloc_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "GTS tests releasewithgtsmalloc_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_unit_tests/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=releasewithgtsmalloc_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        //------------------------------------------------------------------------------
+        // GTS EXAMPLES:
+        {
+            "type": "shell",
+            "label": "Examples clean",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_examples/gmake"
+            },
+            "command": "/usr/bin/make clean config=debug_x86 && /usr/bin/make clean config=release_x86 && /usr/bin/make clean config=debug_x64 && /usr/bin/make clean config=release_x64",
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "Examples debug_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_examples/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debug_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "Examples release_x86",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_examples/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=release_x86"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "Examples debug_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_examples/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=debug_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        },
+        {
+            "type": "shell",
+            "label": "Examples release_x64",
+            "options": {
+                "cwd": "${workspaceFolder}/_build/gts_examples/gmake"
+            },
+            "command": "/usr/bin/make",
+            "args": [
+                "-f",
+                "Makefile",
+                "config=release_x64"
+            ],
+            "problemMatcher": [
+                "$gcc"
+            ],
+            "group": "build"
+        }
+    ]
+}

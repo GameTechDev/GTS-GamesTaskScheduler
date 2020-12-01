@@ -21,37 +21,33 @@
  ******************************************************************************/
 #pragma once
 
-#include "gts/containers/parallel/DistributedSlabAllocatorBucketed.h"
+#include "gts/containers/parallel/QueueMPMC.h"
+#include "gts/containers/parallel/QueueMPSC.h"
 
 #include "gts/micro_scheduler/Task.h"
-#include "WorkStealingDeque.h"
-#include "AffinityQueue.h"
-#include "WorkSharingQueue.h"
+#include "WorkStealingDeque_ChaseLev.h"
+#include "TerminationBackoff.h"
 
 namespace gts {
 
-class Schedule;
+class LocalScheduler;
 class MicroScheduler;
 
-class TaskDeque : public WorkStealingDeque<gts::Vector, gts::AlignedAllocator<Task*, GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
-class TaskQueue : public gts::WorkSharingQueue<Task*, gts::Vector, gts::AlignedAllocator<Task*, GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
-class AffinityTaskQueue : public gts::AffinityQueue<Task*, gts::Vector, gts::AlignedAllocator<Task*, GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
+class TaskDeque : public WorkStealingDeque {};
+class TaskQueue : public QueueMPMC<Task*, UnfairSpinMutex<>, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
+class AffinityTaskQueue : public QueueMPSC<Task*, UnfairSpinMutex<>, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
 
-class TaskAllocator : public gts::DistributedSlabAllocatorBucketed
+class TerminationBackoff : public TerminationBackoffAdaptive
 {
 public:
-    explicit GTS_INLINE TaskAllocator(uint32_t accessorThreadCount)
-    {
-        bool result = init(accessorThreadCount, GTS_NO_SHARING_CACHE_LINE_SIZE);
-        GTS_ASSERT(result);
-        GTS_UNREFERENCED_PARAM(result);
-    }
+    explicit GTS_INLINE TerminationBackoff(uint32_t minFailThreshold) : TerminationBackoffAdaptive(minFailThreshold) {}
 };
 
-using AlignedAllocTaskAllocator = gts::AlignedAllocator<TaskDeque, GTS_NO_SHARING_CACHE_LINE_SIZE>;
-using PriorityTaskDeque = gts::Vector<TaskDeque, AlignedAllocTaskAllocator>;
+using PriorityTaskDeque         = Vector<TaskDeque, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>;
+using PriorityAffinityTaskQueue = Vector<AffinityTaskQueue, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>;
+using PriorityTaskQueue         = Vector<TaskQueue, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>;
 
-class ScheduleVector : public gts::Vector<Schedule, gts::AlignedAllocator<Schedule, GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
-class MicroSchedulerVector : public gts::Vector<MicroScheduler, gts::AlignedAllocator<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
+class ScheduleVector : public Vector<LocalScheduler, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
+class MicroSchedulerVector : public Vector<MicroScheduler, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>> {};
 
 } // namespace gts

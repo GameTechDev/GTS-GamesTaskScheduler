@@ -23,10 +23,20 @@
 
 #include "gts/platform/Assert.h"
 #include "gts/micro_scheduler/MicroScheduler.h"
-#include "gts/micro_scheduler/patterns/BlockedRange1d.h"
+#include "gts/micro_scheduler/patterns/Range1d.h"
 #include "gts/micro_scheduler/patterns/Partitioners.h"
 
 namespace gts {
+
+/** 
+ * @addtogroup MicroScheduler
+ * @{
+ */
+
+/** 
+ * @addtogroup ParallelPatterns
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -63,10 +73,10 @@ public:
      * @param identityValue
      *  An identity value for the join function.
      * @param partitioner
-     *  The partitioner object that determines how work is subdivided during
+     *  The partitioner object that determines when work is subdivided during
      *  scheduling.
      * @param userData
-     *  Optional data to be used in func.
+     *  Optional data to be used in the passed in functions.
      * @return
      *  The combined result.
      */
@@ -75,23 +85,23 @@ public:
         typename TResultValue,
         typename TMapReduceFunc,
         typename TJoinFunc,
-        typename TPartition = AdaptivePartitioner
+        typename TPartitioner = AdaptivePartitioner
     >
     GTS_INLINE TResultValue operator()(
-        TRange range,
+        TRange const& range,
         TMapReduceFunc mapReduceFunc,
         TJoinFunc joinFunc,
         TResultValue identityValue,
-        TPartition partitioner = AdaptivePartitioner(),
+        TPartitioner partitioner = AdaptivePartitioner(),
         void* userData = nullptr)
     {
         GTS_ASSERT(m_taskScheduler.isRunning());
 
-        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount(), gts::Thread::getHardwareThreadCount());
+        partitioner.template initialize<TRange>((uint16_t)m_taskScheduler.workerCount());
 
         TResultValue result = identityValue;
 
-        Task* pTask = m_taskScheduler.allocateTask<DivideAndConquerTask<TRange, TResultValue, TMapReduceFunc, TJoinFunc, TPartition>>(
+        Task* pTask = m_taskScheduler.allocateTask<ParallelReduceTask<TRange, TResultValue, TMapReduceFunc, TJoinFunc, TPartitioner>>(
             mapReduceFunc, joinFunc, userData, &result, range, partitioner, m_priority);
 
         m_taskScheduler.spawnTaskAndWait(pTask);
@@ -116,65 +126,78 @@ private:
         typename TResultValue,
         typename TJoinFunc
         >
-    class TheftObserverAndJoinTask
+    class TheftObserverAndJoinTask : public Task
     {
     public:
 
         //----------------------------------------------------------------------
         GTS_INLINE TheftObserverAndJoinTask(
             TJoinFunc& joinFunc,
-            TResultValue leftValue,
-            TResultValue rightValue,
-            TResultValue* pAcculumation)
+            TResultValue* pAcculumation,
+            uint8_t numPredecessors)
             : m_joinFunc(joinFunc)
-            , m_leftValue(leftValue)
-            , m_rightValue(rightValue)
             , m_pAcculumation(pAcculumation)
             , m_childTaskStolen(false)
-        {}
+            , m_numPredecessors(numPredecessors)
+        {
+            GTS_ASSERT(numPredecessors <= MAX_PREDECESSORS);
+
+            for (int ii = 0; ii < m_numPredecessors; ++ii)
+            {
+                m_prececessorValues[ii] = TResultValue();
+            }
+        }
 
         //----------------------------------------------------------------------
-        static GTS_INLINE Task* taskFunc(Task* pThisTask, TaskContext const& ctx)
+        GTS_INLINE virtual Task* execute(TaskContext const& ctx) final
         {
-            TheftObserverAndJoinTask* pData= (TheftObserverAndJoinTask*)pThisTask->getData();
-            *pData->m_pAcculumation = pData->m_joinFunc(
-                pData->m_leftValue,
-                pData->m_rightValue,
-                nullptr,
-                ctx);
+            for (int ii = 0; ii < m_numPredecessors; ++ii)
+            {
+                *m_pAcculumation = m_joinFunc(
+                    *m_pAcculumation,
+                    m_prececessorValues[ii],
+                    nullptr,
+                    ctx);
+            }
             return nullptr;
         }
 
+        enum { MAX_PREDECESSORS = TRange::split_result::MAX_RANGES + 1 };
+
         TJoinFunc&        m_joinFunc;
-        TResultValue      m_leftValue;
-        TResultValue      m_rightValue;
+        TResultValue      m_prececessorValues[MAX_PREDECESSORS];
         TResultValue*     m_pAcculumation;
         gts::Atomic<bool> m_childTaskStolen;
+        uint8_t           m_numPredecessors;
     };
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
+    /**
+     * @details
+     *  Derivative of TBB parallel_reduce. https://github.com/intel/tbb
+     */
     template<
         typename TRange,
         typename TResultValue,
         typename TMapReduceFunc,
         typename TJoinFunc,
-        typename TPartition
+        typename TPartitioner
         >
-    class DivideAndConquerTask
+    class ParallelReduceTask : public Task
     {
     public:
 
-        using ObserverTaskType = TheftObserverAndJoinTask<TRange, TResultValue, TJoinFunc>;
+        using observer_task_type = TheftObserverAndJoinTask<TRange, TResultValue, TJoinFunc>;
 
         //----------------------------------------------------------------------
-        DivideAndConquerTask(
+        ParallelReduceTask(
             TMapReduceFunc& mapReduceFunc,
             TJoinFunc& joinFunc,
             void* userData,
             TResultValue* pAcculumation,
             TRange const& range,
-            TPartition partitioner,
+            TPartitioner partitioner,
             uint32_t priority)
 
             : m_reduceRangeFunc(mapReduceFunc)
@@ -184,87 +207,144 @@ private:
             , m_range(range)
             , m_priority(priority)
             , m_partitioner(partitioner)
-        {}
+        {
+            GTS_ASSERT(!m_range.empty());
+        }
 
         //----------------------------------------------------------------------
-        DivideAndConquerTask(DivideAndConquerTask const&) = default;
+        ParallelReduceTask(ParallelReduceTask& parent, TRange& range, TResultValue* pAcculumation)
+            : m_reduceRangeFunc(parent.m_reduceRangeFunc)
+            , m_joinFunc(parent.m_joinFunc)
+            , m_userData(parent.m_userData)
+            , m_pAcculumation(pAcculumation)
+            , m_range(range)
+            , m_priority(parent.m_priority)
+            , m_partitioner(parent.m_partitioner, 0, TRange())
+        {
+            GTS_ASSERT(!m_range.empty());
+        }
 
         //----------------------------------------------------------------------
-        DivideAndConquerTask& operator=(DivideAndConquerTask const& other)
+        ParallelReduceTask(ParallelReduceTask& parent, TRange const& range, uint16_t depth, TResultValue* pAcculumation)
+            : m_reduceRangeFunc(parent.m_reduceRangeFunc)
+            , m_joinFunc(parent.m_joinFunc)
+            , m_userData(parent.m_userData)
+            , m_pAcculumation(pAcculumation)
+            , m_range(range)
+            , m_priority(parent.m_priority)
+            , m_partitioner(parent.m_partitioner, depth, TRange())
+        {
+            GTS_ASSERT(!m_range.empty());
+        }
+
+        //----------------------------------------------------------------------
+        ~ParallelReduceTask() {}
+
+        //----------------------------------------------------------------------
+        ParallelReduceTask(ParallelReduceTask const&) = default;
+
+        //----------------------------------------------------------------------
+        ParallelReduceTask& operator=(ParallelReduceTask const& other)
         {
             if (this != &other)
             {
-                m_reduceRangeFunc         = other.m_reduceRangeFunc;
-                m_joinFunc                = other.m_joinFunc;
-                m_userData                = other.m_userData;
-                m_range                   = other.m_range;
-                m_priority                = other.m_priority;
-                m_partitioner             = other.m_partitioner;
+                m_reduceRangeFunc = other.m_reduceRangeFunc;
+                m_joinFunc        = other.m_joinFunc;
+                m_userData        = other.m_userData;
+                m_range           = other.m_range;
+                m_priority        = other.m_priority;
+                m_partitioner     = other.m_partitioner;
             }
 
             return *this;
         }
 
         //----------------------------------------------------------------------
-        void offerRange(Task* pThisTask, TaskContext const& ctx, TRange range)
+        void initialOffer(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            offerRange(pThisTask, ctx, range, 0);
+            m_partitioner.initialOffer(ctx, this, range, splitter);
         }
 
         //----------------------------------------------------------------------
-        void offerRange(Task* pThisTask, TaskContext const& ctx, TRange range, uint8_t depth)
+        void offerRange(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            Task* pContinuation = ctx.pMicroScheduler->allocateTaskRaw(ObserverTaskType::taskFunc, sizeof(ObserverTaskType));
-            ObserverTaskType* pContinuationData = pContinuation->emplaceData<ObserverTaskType>(
-                m_joinFunc, TResultValue(), TResultValue(), m_pAcculumation);
+            // Split the range.
+            typename TRange::split_result splits;
+            range.split(splits, splitter);
+
+            // Allocate the continuation.
+            observer_task_type* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>(
+                m_joinFunc, m_pAcculumation, uint8_t(splits.size + 1));
+
+            pContinuation->addRef(splits.size + 1, gts::memory_order::relaxed);
+            setContinuationTask(pContinuation);
+
+            // Add the splits as siblings.
+            for (int iSibling = 0; iSibling < splits.size; ++iSibling)
+            {
+                Task* pSibling = ctx.pMicroScheduler->allocateTask<ParallelReduceTask>(
+                    *this, splits.ranges[iSibling], pContinuation->m_prececessorValues + iSibling);
+
+                pContinuation->addChildTaskWithoutRef(pSibling);
+                ctx.pMicroScheduler->spawnTask(pSibling);
+            }
+
+            // This task becomes a sibling.
+            pContinuation->addChildTaskWithoutRef(this);
+            m_pAcculumation = pContinuation->m_prececessorValues + splits.size;
+
+            m_partitioner.template split<TRange>();
+        }
+
+        //----------------------------------------------------------------------
+        void offerRange(TaskContext const& ctx, TRange const& range, uint16_t depth = 0)
+        {
+            GTS_ASSERT(!range.empty());
+
+            observer_task_type* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>(
+                m_joinFunc, m_pAcculumation, uint8_t(2));
             pContinuation->addRef(2, gts::memory_order::relaxed);
 
-            pThisTask->setContinuationTask(pContinuation);
+            setContinuationTask(pContinuation);
 
-            Task* pRightChild = ctx.pMicroScheduler->allocateTask<DivideAndConquerTask>(
-                m_reduceRangeFunc,
-                m_joinFunc,
-                m_userData,
-                &pContinuationData->m_rightValue,
-                range,
-                m_partitioner.split(depth),
-                m_priority);
+            Task* pRightChild = ctx.pMicroScheduler->allocateTask<ParallelReduceTask>(
+                *this, range, depth, pContinuation->m_prececessorValues);
 
             pContinuation->addChildTaskWithoutRef(pRightChild);
             ctx.pMicroScheduler->spawnTask(pRightChild);
 
             // This task becomes the left task.
-            pContinuation->addChildTaskWithoutRef(pThisTask);
-            m_pAcculumation = &pContinuationData->m_leftValue;
+            pContinuation->addChildTaskWithoutRef(this);
+            m_pAcculumation = pContinuation->m_prececessorValues + 1;
+
+            m_partitioner.template split<TRange>();
         }
 
         //----------------------------------------------------------------------
-        void run(TaskContext const& ctx, TRange range)
+        void run(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const&)
         {
-            // map/reduce its range
-            *m_pAcculumation = m_reduceRangeFunc(range, m_userData, ctx);
+            TResultValue reduction = m_reduceRangeFunc(range, m_userData, ctx);
+
+            // The Adaptive partitioner may call run on several subranges. We
+            // join these here.
+            *m_pAcculumation = m_joinFunc(
+                *m_pAcculumation,
+                reduction,
+                nullptr,
+                ctx);
         }
 
         //----------------------------------------------------------------------
-        TRange& range()
+        virtual Task* execute(TaskContext const& ctx) final
         {
-            return m_range;
+            m_partitioner.template adjustIfStolen<observer_task_type, TRange>(this);
+            return m_partitioner.execute(ctx, this, m_range);
         }
 
         //----------------------------------------------------------------------
-        TPartition& partitioner()
+        void balanceAndExecute(TaskContext const& ctx, TPartitioner& partitioner, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            return m_partitioner;
-        }
-
-        //----------------------------------------------------------------------
-        static GTS_INLINE Task* taskFunc(Task* pThisTask, TaskContext const& ctx)
-        {
-            DivideAndConquerTask* pThisReduceTask = (DivideAndConquerTask*)pThisTask->getData();
-            pThisReduceTask->partitioner().template adjustIfStolen<ObserverTaskType>(pThisTask);
-            Task* pBypassTask = pThisReduceTask->partitioner().template execute<ObserverTaskType>(pThisTask, ctx, pThisReduceTask, pThisReduceTask->range());
-
-            return pBypassTask;
+            partitioner.template balanceAndExecute<observer_task_type>(ctx, this, range, splitter);
         }
 
     private:
@@ -275,8 +355,11 @@ private:
         TResultValue*   m_pAcculumation;
         TRange          m_range;
         uint32_t        m_priority;
-        TPartition      m_partitioner;
+        TPartitioner    m_partitioner;
     };
 };
+
+/** @} */ // end of ParallelPatterns
+/** @} */ // end of MicroScheduler
 
 } // namespace gts

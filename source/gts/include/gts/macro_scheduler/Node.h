@@ -22,11 +22,11 @@
 #pragma once
 
 #include <utility>
+#include <unordered_map>
 
 #include "gts/platform/Atomic.h"
 #include "gts/platform/Thread.h"
 #include "gts/containers/Vector.h"
-#include "gts/macro_scheduler/ComputeResourceType.h"
 #include "gts/macro_scheduler/MacroScheduler.h"
 #include "gts/macro_scheduler/Workload.h"
 
@@ -34,188 +34,339 @@ namespace gts {
 
 class Workload;
 
+/** 
+ * @addtogroup MacroScheduler
+ * @{
+ */
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A Node represents a task in a generalized task DAG. It contains Workloads
+ *  A Node represents a task in a generalized task DAG. It contains Workload%s
  *  that are scheduled onto a ComputeResource by a MacroScheduler.
  */
 class Node
 {
 public: // STRUCTORS:
 
+    enum { NODE_NAME_MAX = 64 };
+
     Node(MacroScheduler* pMyScheduler);
     ~Node();
 
-public: // ACCESSORS
+public: // ACCESSORS:
 
     /**
      * @return The Workload associated with 'type' or nullptr is it does not exist.
+     * @remark Not thread-safe.
      */ 
-    Workload* findWorkload(ComputeResourceType type) const;
-
-    /**
-     * @return The execution priority of this Node.
-     */ 
-    uint32_t priority() const;
+    Workload* findWorkload(WorkloadType::Enum type) const;
 
     /**
      * @return The number of predecessors Nodes that must complete before this
-     * Node can execute.
+     *  Node can execute.
      */ 
     Atomic<uint32_t> const& currPredecessorCount() const;
 
     /**
      * @return The number of predecessors Nodes this Node starts with.
      */ 
-    uint32_t const& initPredecessorCount() const;
+    uint32_t initPredecessorCount() const;
+
+    /**
+     * @return The predecessor nodes of this Node.
+     */ 
+    GTS_INLINE Vector<Node*> const& predecessors() const
+    {
+        return m_predecessors;
+    }
 
     /**
      * @return The successor nodes of this Node.
      */ 
-    Vector<Node*> const children() const;
-
-public: // MUTATORS
-
-    /**
-     * Allocates a new TWorkload object of the specified size and adds it to
-     * the Node. Useful if you are not ready to set the task data on Workload.
-     * @param computeFunc
-     *  The function the Workload will execute.
-     * @param dataSize
-     *  The size of the Workload data region.
-     * @return
-     *  The allocated Workload or nullptr if the allocation failed.
-     */
-    template<typename TWorkload>
-    GTS_INLINE TWorkload* setEmptyWorkload(
-        Workload_ComputeRoutine computeFunc,
-        uint32_t dataSize = GTS_NO_SHARING_CACHE_LINE_SIZE)
+    GTS_INLINE Vector<Node*> const& successors() const
     {
-        m_pMyScheduler->_deleteWorkload(m_workloadsByType[(size_t)TWorkload::type()]);
-
-        void* pBuffer = m_pMyScheduler->_allocateWorkload(
-            sizeof(TWorkload) + dataSize, 
-            alignof(TWorkload));
-
-        TWorkload* pWorkload = new (pBuffer) TWorkload(this, computeFunc);
-        m_workloadsByType[(size_t)TWorkload::type()] = pWorkload;
-        return pWorkload;
+        return m_successors;
     }
 
     /**
-     * Allocates a new TWorkload object and emplaces the TData object.
-     * TData must have a static function computeFunc.
-     * @param args
-     *  The constructor arguments for TData.
-     * @return
-     *  The allocated Task or nullptr if the allocation failed.
+     * @return True if pChild is a child of this Node.
      */
-    template<
-        typename TWorkload,
-        typename TData,
-        void (*TaskFunc)(Workload*, WorkloadContext const&) = TData::computeFunc,
-        typename... TArgs>
-    GTS_INLINE TWorkload* setWorkload(TArgs&&... args)
+    bool isChild(Node* pChild) const;
+
+    /**
+     * @return The MacroScheduler that created this Node.
+     */ 
+    GTS_INLINE MacroScheduler* myScheduler() { return m_pMyScheduler; }
+
+    /**
+     * @return The Schedule that this Node currently belongs to. nullptr if not
+     *  scheduled.
+     */ 
+    GTS_INLINE Schedule* currentSchedule() { return m_pSchedule; }
+
+    /**
+     * @return The ID of the ComputeResource that must execute this Node.
+     */
+    GTS_INLINE ComputeResourceId affinity() const { return m_affinity; }
+
+    /**
+     * @return The rank of this Node.
+     */
+    GTS_INLINE const char* name() const { return m_name; }
+
+    /**
+     * @return The rank of this Node.
+     */
+    GTS_INLINE Atomic<uint64_t> const& rank() const { return m_rank;  }
+
+    /**
+     * @return The rank of this Node.
+     */
+    GTS_INLINE uint64_t executionCost() const { return m_executionCost; }
+
+    /**
+     * @return True if the Node must be executed in isolation.
+     */
+    //GTS_INLINE bool requiresIsolation() const { return m_isIsolated; }
+
+public: // MUTATORS:
+
+    /**
+     * @brief
+     *  Resets all Nodes in the graph.
+     * @remark Not thread-safe.
+     */ 
+    static void resetGraph(Node* pSource);
+
+    /**
+     * @return The predecessor nodes of this Node.
+     */ 
+    GTS_INLINE Vector<Node*>& predecessors()
     {
-        m_pMyScheduler->_deleteWorkload(m_workloadsByType[(size_t)TWorkload::type()]);
-
-        void* pBuffer = m_pMyScheduler->_allocateWorkload(
-            sizeof(TWorkload) + sizeof(TData),
-            alignof(TWorkload));
-
-        TWorkload* pWorkload = new (pBuffer) TWorkload(this, TData::computeFunc);
-
-        if (pWorkload != nullptr)
-        {
-            pWorkload->template emplaceData<TData>(std::forward<TArgs>(args)...);
-        }
-        m_workloadsByType[(size_t)TWorkload::type()] = pWorkload;
-        return pWorkload;
+        return m_predecessors;
     }
 
     /**
-     * Allocates a new TWorkload object and emplaces the function/lambda data.
-     * @param func
-     *   A function that takes args as arguments.
+     * @return The successor nodes of this Node.
+     */ 
+    GTS_INLINE Vector<Node*>& successors()
+    {
+        return m_successors;
+    }
+
+    /**
+     * @brief
+     *  Allocates a new Workload object of type TWorkload.
      * @param args
-     *  The arguments for func.
+     *  The arguments for the TWorkload constructor.
      * @return
      *  The allocated TWorkload or nullptr if the allocation failed.
+     * @remark Not thread-safe.
      */
-    template<typename TWorkload, typename TFunc, typename... TArgs>
-    GTS_INLINE TWorkload* setWorkload(TFunc&& func, TArgs&&... args)
+    template<typename TWorkload, typename... TArgs>
+    GTS_INLINE TWorkload* addWorkload(TArgs&&... args)
     {
-        m_pMyScheduler->_deleteWorkload(m_workloadsByType[(size_t)TWorkload::type()]);
-
-        void* pBuffer = m_pMyScheduler->_allocateWorkload(
-            sizeof(TWorkload) +
-                sizeof(std::decay_t<TFunc>) +
-                sizeof(std::tuple<std::decay_t<TArgs>...>),
-            alignof(TWorkload));
-
-        TWorkload* pWorkload = new (pBuffer) TWorkload(
-            this,
-            std::forward<TFunc>(func),
-            std::forward<TArgs>(args)...);
-
-        m_workloadsByType[(size_t)TWorkload::type()] = pWorkload;
+        TWorkload* pWorkload = new (m_pMyScheduler->_allocateWorkload(sizeof(TWorkload))) TWorkload(std::forward<TArgs>(args)...);
+        if (!pWorkload)
+        {
+            GTS_ASSERT(0);
+            return nullptr;
+        }
+        GTS_ASSERT(m_workloadsByType[pWorkload->type()] == nullptr);
+        m_workloadsByType[pWorkload->type()] = pWorkload;
+        pWorkload->m_pMyNode = this;
         return pWorkload;
     }
 
     /**
-     * Set this Node's execution priority. 0 is the lowest.
+     * @brief
+     *  Allocates a new Workload object of type TLambdaWorkload.
+     * @param args
+     *  The arguments for the TLambdaWorkload constructor.
+     * @return
+     *  The allocated TLambdaWorkload or nullptr if the allocation failed.
+     * @remark Not thread-safe.
      */
-    void setPriority(uint32_t priority);
+    template<typename TLambdaWorkload, typename TFunc, typename... TArgs>
+    GTS_INLINE TLambdaWorkload* addWorkload(TFunc&& func, TArgs&&... args)
+    {
+        // Size of TLambdaWorkload plus space for the lambda.
+        constexpr size_t size = sizeof(TLambdaWorkload) + sizeof(std::tuple<TFunc, TArgs...>);
+
+        TLambdaWorkload* pWorkload = new (m_pMyScheduler->_allocateWorkload(size))
+            TLambdaWorkload(std::forward<TFunc>(func), std::forward<TArgs>(args)...);
+
+        if (!pWorkload)
+        {
+            GTS_ASSERT(0);
+            return nullptr;
+        }
+        GTS_ASSERT(m_workloadsByType[pWorkload->type()] == nullptr);
+        m_workloadsByType[pWorkload->type()] = pWorkload;
+        pWorkload->m_pMyNode = this;
+        return pWorkload;
+    }
 
     /**
-     * Reset the state of this Node another execution.
+     * @brief
+     *  Removed a workload by its WorkloadType.
+     * @remark Not thread-safe.
+     */
+    void removeWorkload(WorkloadType::Enum type);
+
+    /**
+     * @brief Reset the state of this Node for another execution.
      */
     void reset();
 
     /**
-     * Add the child Node 'pNode'.
+     * @brief 
+     *  Add the sucessor Node 'pNode'.
      * @remark Thread-safe if:
      *  (1) The DAG this Node belongs is not executing, OR
-     *  (2) pNode is being added to this Node from this Node's executing Workload.
+     *  (2) pNode is being added to this Node during this Node's executing Workload.
      */
-    void addChild(Node* pNode);
+    void addSuccessor(Node* pNode);
 
     /**
-     * Remove the child Node 'pNode'.
+     * @brief 
+     *  Remove the sucessor Node 'pNode'.
      * @remark Thread-safe if:
      *  (1) The DAG this Node belongs is not executing, OR
-     *  (2) pNode is being removed from this Node from this Node's executing Workload.
+     *  (2) pNode is being removed from this Node during this Node's executing Workload.
      */
-    void removeChild(Node* pNode);
+    void removeSuccessor(Node* pNode);
 
     /**
-     * Remove a predecessor and check if the Node is ready to run.
-     * @return True of the Node's predecessor count is zero.
+     * @brief Set the name of this Node.
      */
-    bool finishPredecessor();
+    void setName(const char* format, ...);
+
+    /**
+     * @return The rank of this Node.
+     */
+    GTS_INLINE Atomic<uint64_t>& rank() { return m_rank;  }
+
+    /**
+     * @brief
+     *  Sets the ID of the ComputeResource that must execute this Node.
+     * @remark Not thread-safe.
+     */
+    GTS_INLINE void setAffinity(ComputeResourceId affinity) { m_affinity = affinity; }
+
+    /**
+     * @brief
+     *  Specifies the ComputeResource that must execute this Workload.
+     */
+    //GTS_INLINE void setRequiresIsolation(bool requiresIsolation) { m_isIsolated = requiresIsolation; }
+
+public: // INTERNAL USE
+
+    /**
+     * @brief
+     *  Remove a predecessor reference and check if the Node is ready to run.
+     * @return True of the Node's predecessor count is zero and ready to run.
+     * @remark Internal use only.
+     * @remark Thread-safe.
+     */
+    GTS_INLINE bool _removePredecessorRefAndReturnReady()
+    {
+        uint32_t prevCount = m_currPredecessorCount.fetch_sub(1, memory_order::acq_rel);
+        GTS_ASSERT(prevCount != 0);
+        return prevCount - 1 == 0;
+    }
+
+    /**
+     * @brief
+     *  Mark one predecessor as complete.
+     * @remark Internal use only.
+     * @remark Thread-safe.
+     */
+    GTS_INLINE void _markPredecessorComplete()
+    {
+        uint32_t prevCount = m_predecessorCompleteCount.fetch_sub(1, memory_order::acq_rel);
+        GTS_UNREFERENCED_PARAM(prevCount);
+        GTS_ASSERT(prevCount != 0);
+    }
+
+    /**
+     * @brief
+     *  Waits for all predecessors to tally their completion.
+     * @remark The wait should happen rarely.
+     * @remark Internal use only.
+     * @remark Thread-safe.
+     */ 
+    GTS_INLINE void _waitUntilComplete() const
+    {
+        while(m_predecessorCompleteCount.load(memory_order::acquire) != 0)
+        {
+            GTS_PAUSE();
+        }
+    }
+
+    /**
+     * @brief
+     *  Sets this Node's current Schedule.
+     * @remark Internal use only.
+     */
+    GTS_INLINE void _setCurrentSchedule(Schedule* pSchedule)
+    {
+        m_pSchedule = pSchedule;
+    }
+
+    /**
+     * @brief
+     *  Sets the execution cost of this Node.
+     * @remark Internal use only.
+     * @remark Not thread-safe.
+     */
+    GTS_INLINE void _setExecutionCost(uint64_t exeCost) { m_executionCost = exeCost; }
 
 private:
 
+    friend class CriticiallyAware_Schedule;
+
+    //! The Schedule this node belongs to.
     MacroScheduler* m_pMyScheduler;
-    // The Workloads for the ComputeResources this Node can be scheduled on.
-    Workload* m_workloadsByType[(uint32_t)ComputeResourceType::COUNT];
-    // The successor nodes of this Node.
-    Vector<Node*> m_children;
-    // A spin mutex for shared access to this Node.
-    mutable UnfairSpinMutex m_accessorMutex;
-    // The priority of this Node.
-    uint32_t m_priority;
-    // The number of nodes that must complete before this Node can execute.
+
+    //! The Schedule this node belongs to.
+    Schedule* m_pSchedule;
+
+    //! The Workloads for the ComputeResources this Node can be scheduled on.
+    Workload* m_workloadsByType[WorkloadType::COUNT];
+
+    //! The predecessors nodes of this Node.
+    Vector<Node*> m_predecessors;
+
+    //! The successor nodes of this Node.
+    Vector<Node*> m_successors;
+
+    //! The priority rank of this Node.
+    Atomic<uint64_t> m_rank;
+
+    //! The cost of executing this Node.
+    uint64_t m_executionCost;
+
+    //! The number of predecessor nodes that must complete before this Node can be considered complete.
+    Atomic<uint32_t> m_predecessorCompleteCount;
+
+    //! The number of predecessor that must complete before this Node can execute.
     Atomic<uint32_t> m_currPredecessorCount;
-    // The number of predecessors this Node started with. Used for resetting
-    // persistent DAGs.
+
+    //! The number of predecessors this Node started with. Used for resetting persistent DAGs.
     uint32_t m_initPredecessorCount;
 
-    // TODO:
-    // The requested compute resource workload to use.
-    // uint32_t m_computeResourceRequestId;
+    //! The ID of the ComputeResource that must execute this Node.
+    ComputeResourceId m_affinity;
+
+    char m_name[NODE_NAME_MAX];
+
+    //! Flag true if the Node must be executed in isolation.
+    //bool m_isIsolated;
 };
+
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

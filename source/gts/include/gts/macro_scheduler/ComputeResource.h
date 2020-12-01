@@ -23,19 +23,26 @@
 
 #include <cstdint>
 
-#include "gts/macro_scheduler/ComputeResourceType.h"
+#include "gts/platform/Machine.h"
+#include "gts/containers/parallel/QueueMPSC.h"
+#include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 namespace gts {
 
 class Node;
-class ISchedule;
+class Schedule;
+class Workload;
+
+/** 
+ * @addtogroup MacroScheduler
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A ComputeResource represents a compute resource that can execute a Workload
- *  in a Node.
+ *  A ComputeResource represents a entity that can execute a Workload in a Node.
  */
 class ComputeResource
 {
@@ -54,29 +61,79 @@ public: // STRUCTORS:
 public: // ACCESORS:
 
     /**
-     * Executes a 'pNode'.
+     * @returns This ComputeResource's type.
      */
-    virtual ComputeResourceType type() const = 0;
+    virtual ComputeResourceType::Enum type() const = 0;
 
     /**
-     * @returns This ComputeResource's uinque id.
+     * @returns True if this ComputeResource can execute the specified Node.
      */
-    inline uint32_t resourceId() const { return m_id; }
+    virtual bool canExecute(Node* pNode) const = 0;
+
+    /**
+     * @returns The normalization factor applied to execution times produced by
+     *  this compute resource.
+     */
+    GTS_INLINE double executionNormalizationFactor() const { return m_exeWeight; }
+
+    /**
+     * @returns This ComputeResource's unique id.
+     */
+    GTS_INLINE ComputeResourceId id() const { return m_id; }
 
 public: // MUTATORS:
 
     /**
-     * Executes a 'pSchedule'.
+     * @brief
+     *  Sets the normalization factor applied to each Nodes execution time. This
+     *  factor normalizes all execution times into a single ComputeResrouce's
+     *  execution space.
+     * @todo Have the MicroScheduler set this during initialization instead of the user.
      */
-    virtual void execute(ISchedule* pSchedule) = 0;
+    void setExecutionNormalizationFactor(double exeWeight) { GTS_ASSERT(exeWeight != 0); m_exeWeight = exeWeight; }
+
+    /**
+     * Process pSchedule until it is complete. If 'canBlock' is true,
+     * this ComputeResouces can use the calling thread; if false, it
+     * must fork its own thread.
+     * @returns True if a node was processed.
+     */
+    virtual bool process(Schedule* pSchedule, bool canBlock) = 0;
+
+    /**
+     * Notify this ComputeResrouce of work available.
+     */
+    virtual void notify(Schedule* pSchedule) = 0;
+
+    /**
+     * Register a Schedule with this ComputeResrouce.
+     */
+    virtual void registerSchedule(Schedule*) {};
+
+    /**
+     * Unregister a Schedule from this ComputeResrouce.
+     */
+    virtual void unregisterSchedule(Schedule*) {};
+
+protected:
+
+    //! Nodes that require this ComputeResource. They are send from other
+    //! ComputeResouce while processing a Schedule. These Node must be processed
+    //! first when looking for work.
+    QueueMPSC<Node*> m_affinityQueue;
 
 private:
 
     //! The next ID to assign to a ComputeResource object.
-    static uint32_t s_nextId;
+    static ComputeResourceId s_nextId;
+
+    //! The normalization weight for execution times produces by this ComputeResource.
+    double m_exeWeight;
 
     //! This ComputeResource's Type.
-    uint32_t m_id;
+    ComputeResourceId m_id;
 };
+
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

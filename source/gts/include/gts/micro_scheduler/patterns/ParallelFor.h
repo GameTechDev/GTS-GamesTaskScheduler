@@ -24,9 +24,19 @@
 #include "gts/platform/Assert.h"
 #include "gts/micro_scheduler/MicroScheduler.h"
 #include "gts/micro_scheduler/patterns/Partitioners.h"
-#include "gts/micro_scheduler/patterns/BlockedRange1d.h"
+#include "gts/micro_scheduler/patterns/Range1d.h"
 
 namespace gts {
+
+/** 
+ * @addtogroup MicroScheduler
+ * @{
+ */
+
+/** 
+ * @addtogroup ParallelPatterns
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,99 +58,82 @@ public:
     {}
 
     /**
-     * Applies the given function 'func' to the specified iteration iteration 'range'.
-     *
-     * @example
-     *  parallelFor<AdaptivePartitioner>(BlockedRange1D<int>(0, 1024, 16),
-     *      [](BlockedRange1D<int>& r, void* data, TaskContext const& ctx)
-     *      {
-     *          or(auto ii = r.begin(); ii < r.end(); ++ii) { ... }
-     *      },
-     *      AdaptivePartitioner(),
-     *      pMyData);
+     * @brief
+     *  Applies the given function 'func' to the specified iteration 'range'.
+     * @param range
+     *  An iteration range.
+     * @param func
+     *  The function to apply to each element of range. Signature:
+     * @code
+     *  void(*)(TRange& range, void* pUserData, TaskContext const&);
+     * @endcode
+     * @param partitioner
+     *  The partitioner object that determines when work is subdivided during
+     *  scheduling.
+     * @param pUserData
+     *  Optional user data that will be passed into func.
+     * @param block
+     *  Flag true to block until all ParallelFor tasks complete
      */
-    template<typename TPartitioner, typename TRange, typename TFunc>
+    template<
+        typename TPartitioner,
+        typename TRange,
+        typename TFunc
+    >
     GTS_INLINE void operator()(
         TRange const& range,
         TFunc func,
         TPartitioner partitioner,
-        void* userData)
+        void* pUserData, 
+        bool block = true)
     {
         GTS_ASSERT(m_taskScheduler.isRunning());
 
-        partitioner.setWorkerCount((uint8_t)m_taskScheduler.workerCount(), (uint8_t)gts::Thread::getHardwareThreadCount());
+        uint32_t workerCount = m_taskScheduler.workerCount();
+        partitioner.template initialize<TRange>((uint16_t)workerCount);
 
-        Task* pTask = m_taskScheduler.allocateTask<DivideAndConquerTask<TFunc, TRange, TPartitioner>>(
-            func, userData, range, partitioner, m_priority);
+        Task* pTask = m_taskScheduler.allocateTask<ParallelForTask<TFunc, TRange, TPartitioner>>(
+            func, pUserData, range, partitioner, m_priority);
 
-        m_taskScheduler.spawnTaskAndWait(pTask, m_priority);
+        if (block)
+        {
+            m_taskScheduler.spawnTaskAndWait(pTask, m_priority);
+        }
+        else
+        {
+            m_taskScheduler.spawnTask(pTask, m_priority);
+        }
     }
 
-// BLOCKEDRANGE CONVENIENCE FUNCTIONS:
+// 1D CONVENIENCE FUNCTIONS: 
 
     /**
-     * Applies the given function 'func' to the specified iteration iteration 'range'.
-     *
-     * @example
-     *  parallelFor<AdaptivePartitioner>(BlockedRange1D<int>(0, 1024, 16),
-     *      [](BlockedRange1D<int>& r, void* data, TaskContext const& ctx)
-     *      {
-     *          for(auto ii = r.begin(); ii < r.end(); ++ii) { ... }
-     *      });
-     *  parallelFor(BlockedRange1D<int>(0, 1024, 16), [](BlockedRange1D<int>& r, void* data, TaskContext const& ctx) {...}).
+     * @brief
+     *  Applies the given function 'func' to the specified 1D iteration
+     *  range [begin, end). Always uses an AdaptivePartitioner with
+     *  a minimum block size of 1.
+     * @param func
+     *  The function to apply to each element of range. Signature:
+     * @code
+     *  void(*)(TIter iter, void* pUserData, TaskContext const&);
+     * @endcode
      */
-    template<typename TPartitioner = AdaptivePartitioner, typename TRange, typename TFunc>
-    GTS_INLINE void operator()(TRange const& range, TFunc func)
-    {
-        AdaptivePartitioner partitioner;
-        this->operator()(range, func, partitioner, nullptr);
-    }
-
-// 1D CONVENIENCE FUNCTIONS:
-
-    /**
-     * Applies the given function 'func' to the specified 1D iteration
-     * range [begin, end). Always uses an AdaptivePartitioner with
-     * a minimum block size of 1.
-     *
-     * @example
-     *  parallelFor(0, 1024, [](int i) {...}).
-     */
-    template<typename TIter, typename TFunc>
-    GTS_INLINE void operator()(
-        TIter begin,
-        TIter end,
-        TFunc func)
-    {
-        AdaptivePartitioner partitioner;
-        BlockedRange1d<TIter> range(begin, end, 1);
-        IterationFunc1d<TFunc, BlockedRange1d<TIter>> iterFunc(func);
-
-        this->operator()(range, iterFunc, partitioner, nullptr);
-    }
-
-    /**
-     * Applies the given function 'func' to the specified 1D iteration
-     * range [begin, end) and constrains range subdivisions to minBlockSize.
-     *
-     * @example
-     *  parallelFor<AdaptivePartitioner>(0, 1024, [](int i) {...}, 16).
-     *  parallelFor(0, 1024, [](int i) {...}, 16).
-     */
-    template<typename TPartitioner = AdaptivePartitioner, typename TIter, typename TFunc>
+    template<
+        typename TIter,
+        typename TFunc,
+        typename TPartitioner = AdaptivePartitioner
+    >
     GTS_INLINE void operator()(
         TIter begin,
         TIter end,
         TFunc func,
-        uint32_t minBlockSize)
+        TPartitioner partitioner = TPartitioner())
     {
-        TPartitioner partitioner;
-        BlockedRange1d<TIter> range(begin, end, minBlockSize);
-        IterationFunc1d<TFunc, BlockedRange1d<TIter>> iterFunc(func);
+        Range1d<TIter> range(begin, end, 1);
+        IterationFunc1d<TFunc, Range1d<TIter>> iterFunc(func);
 
         this->operator()(range, iterFunc, partitioner, nullptr);
     }
-
 
 private:
 
@@ -151,7 +144,7 @@ private:
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    class TheftObserverTask
+    class TheftObserverTask : public Task
     {
     public:
 
@@ -161,7 +154,7 @@ private:
         {}
 
         //----------------------------------------------------------------------
-        static GTS_INLINE Task* taskFunc(Task*, TaskContext const&)
+        GTS_INLINE virtual Task* execute(TaskContext const&) final
         {
             return nullptr;
         }
@@ -184,6 +177,7 @@ private:
         //----------------------------------------------------------------------
         GTS_INLINE void operator()(TRange& r, void*, TaskContext const&)
         {
+            GTS_SIM_TRACE_MARKER(gts::sim_trace::MARKER_KERNEL_PAR_FOR);
             for (auto ii = r.begin(); ii != r.end(); ++ii)
             {
                 m_userFunc(ii);
@@ -195,108 +189,145 @@ private:
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    template<typename TFunc, typename TRange, typename TPartition>
-    class DivideAndConquerTask
+    /**
+     * @details
+     *  Derivative of TBB parallel_for. https://github.com/intel/tbb
+     */
+    template<typename TFunc, typename TRange, typename TPartitioner>
+    class ParallelForTask : public Task
     {
     public:
 
+        using observer_task_type = TheftObserverTask;
+
         //----------------------------------------------------------------------
-        DivideAndConquerTask(
+        ParallelForTask(
             TFunc& func,
             void* userData,
             TRange const& range,
-            TPartition partitioner,
+            TPartitioner partitioner,
             uint32_t priority)
 
             : m_func(func)
-            , m_userData(userData)
+            , m_pUserData(userData)
             , m_range(range)
             , m_priority(priority)
             , m_partitioner(partitioner)
         {}
 
         //----------------------------------------------------------------------
-        DivideAndConquerTask(DivideAndConquerTask const&) = default;
+        ParallelForTask(ParallelForTask& parent, TRange& range)
+            : m_func(parent.m_func)
+            , m_pUserData(parent.m_pUserData)
+            , m_range(range)
+            , m_priority(parent.m_priority)
+            , m_partitioner(parent.m_partitioner, 0, TRange())
+        {}
 
         //----------------------------------------------------------------------
-        DivideAndConquerTask& operator=(DivideAndConquerTask const& other)
+        ParallelForTask(ParallelForTask& parent, TRange const& range, uint16_t depth)
+            : m_func(parent.m_func)
+            , m_pUserData(parent.m_pUserData)
+            , m_range(range)
+            , m_priority(parent.m_priority)
+            , m_partitioner(parent.m_partitioner, depth, TRange())
+        {}
+
+        //----------------------------------------------------------------------
+        ParallelForTask(ParallelForTask const&) = default;
+
+        //----------------------------------------------------------------------
+        ParallelForTask& operator=(ParallelForTask const& other) = default;
+
+        //----------------------------------------------------------------------
+        void initialOffer(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            if (this != &other)
+            m_partitioner.initialOffer(ctx, this, range, splitter);
+        }
+
+        //----------------------------------------------------------------------
+        void offerRange(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const& splitter)
+        {
+            // Split the range.
+            typename TRange::split_result splits;
+            range.split(splits, splitter);
+
+            // Allocate the continuation.
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>();
+            pContinuation->addRef(splits.size + 1, gts::memory_order::relaxed);
+            setContinuationTask(pContinuation);
+
+            // Add the splits as siblings.
+            for (int iSibling = 0; iSibling < splits.size; ++iSibling)
             {
-                m_func                  = other.m_func;
-                m_userData              = other.m_userData;
-                m_range                 = other.m_range;
-                m_priority              = other.m_priority;
-                m_partitioner           = other.m_partitioner;
+                Task* pSibling = ctx.pMicroScheduler->allocateTask<ParallelForTask>(
+                    *this, splits.ranges[iSibling]);
+
+                pContinuation->addChildTaskWithoutRef(pSibling);
+                ctx.pMicroScheduler->spawnTask(pSibling);
             }
 
-            return *this;
+            // This task becomes a sibling.
+            pContinuation->addChildTaskWithoutRef(this);
+
+            m_partitioner.template split<TRange>();
         }
 
         //----------------------------------------------------------------------
-        void offerRange(Task* pThisTask, TaskContext const& ctx, TRange range)
+        void offerRange(TaskContext const& ctx, TRange& range, uint16_t depth = 0)
         {
-            offerRange(pThisTask, ctx, range, 0);
-        }
+            GTS_ASSERT(!range.empty() && "Bug in partitioner!");
 
-        //----------------------------------------------------------------------
-        void offerRange(Task* pThisTask, TaskContext const& ctx, TRange range, uint8_t depth)
-        {
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask<TheftObserverTask>();
+            // Allocate the continuation.
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>();
             pContinuation->addRef(2, gts::memory_order::relaxed);
+            setContinuationTask(pContinuation);
 
-            pThisTask->setContinuationTask(pContinuation);
+            // The split is the right sibling.
+            Task* pSibling = ctx.pMicroScheduler->allocateTask<ParallelForTask>(*this, range, depth);
+            pContinuation->addChildTaskWithoutRef(pSibling);
+            ctx.pMicroScheduler->spawnTask(pSibling);
 
-            Task* pRightChild = ctx.pMicroScheduler->allocateTask<DivideAndConquerTask>(
-                m_func,
-                m_userData,
-                range,
-                m_partitioner.split(depth),
-                m_priority);
+            // This task becomes a sibling.
+            pContinuation->addChildTaskWithoutRef(this);
 
-            pContinuation->addChildTaskWithoutRef(pRightChild);
-            ctx.pMicroScheduler->spawnTask(pRightChild);
+            m_partitioner.template split<TRange>();
+        }
 
-            // This task becomes the left task.
-            pContinuation->addChildTaskWithoutRef(pThisTask);
+
+        //----------------------------------------------------------------------
+        void run(TaskContext const& ctx, TRange& range, typename TPartitioner::splitter_type const&)
+        {
+            GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::RoyalBlue2, "ParallelFor::run");
+            m_func(range, m_pUserData, ctx);
         }
 
         //----------------------------------------------------------------------
-        void run(TaskContext const& ctx, TRange range)
+        Task* execute(TaskContext const& ctx)
         {
-            m_func(range, m_userData, ctx);
+            GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::RoyalBlue1, isStolen() ? "S" : "P");
+
+            m_partitioner.template adjustIfStolen<observer_task_type, TRange>(this);
+            return m_partitioner.execute(ctx, this, m_range);
         }
 
         //----------------------------------------------------------------------
-        TRange& range()
+        void balanceAndExecute(TaskContext const& ctx, TPartitioner& partitioner, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            return m_range;
-        }
-
-        //----------------------------------------------------------------------
-        TPartition& partitioner()
-        {
-            return m_partitioner;
-        }
-
-        //----------------------------------------------------------------------
-        static GTS_INLINE Task* taskFunc(Task* pThisTask, TaskContext const& ctx)
-        {
-            DivideAndConquerTask* pThisForTask = (DivideAndConquerTask*)pThisTask->getData();
-            pThisForTask->partitioner().template adjustIfStolen<TheftObserverTask>(pThisTask);
-            Task* pBypassTask = pThisForTask->partitioner().template execute<TheftObserverTask>(pThisTask, ctx, pThisForTask, pThisForTask->range());
-
-            return pBypassTask;
+            partitioner.template balanceAndExecute<observer_task_type>(ctx, this, range, splitter);
         }
 
     private:
 
-        TFunc&      m_func;
-        void*       m_userData;
-        TRange      m_range;
-        uint32_t    m_priority;
-        TPartition  m_partitioner;
+        TFunc&        m_func;
+        void*         m_pUserData;
+        TRange        m_range;
+        uint32_t      m_priority;
+        TPartitioner  m_partitioner;
     };
 };
+
+/** @} */ // end of ParallelPatterns
+/** @} */ // end of MicroScheduler
 
 } // namespace gts

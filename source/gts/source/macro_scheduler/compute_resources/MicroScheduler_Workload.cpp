@@ -21,79 +21,59 @@
  ******************************************************************************/
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
 
+#include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
+#include "gts/macro_scheduler/Schedule.h"
+
 namespace gts {
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// MicroScheduler_Task:
 
 //------------------------------------------------------------------------------
 MicroScheduler_Task::MicroScheduler_Task(
-    Workload_ComputeRoutine cpuComputeRoutine,
-    MicroScheduler_Workload* pMyWorkload,
-    uint64_t* pExecutionCost)
-    : m_cpuComputeRoutine(cpuComputeRoutine)
-    , m_pMyWorkload(pMyWorkload)
-    , m_pExecutionCost(pExecutionCost)
+    MicroScheduler_Workload* pThisWorkload,
+    WorkloadContext workloadContext)
+    : m_pThisWorkload(pThisWorkload)
+    , m_workloadContext(workloadContext)
 {}
 
 //------------------------------------------------------------------------------
-Task* MicroScheduler_Task::taskFunc(Task* pThisTask, TaskContext const& ctx)
+Task* MicroScheduler_Task::execute(TaskContext const& ctx)
 {
-    GTS_ASSERT(pThisTask != nullptr);
-        
-    // Unpack the data.
-    MicroScheduler_Task* pNodeTask = (MicroScheduler_Task*)pThisTask->getData();
-        
-    pNodeTask->_executeTask();
-    pNodeTask->m_pMyWorkload->_spawnReadyChildren(pNodeTask->m_pMyWorkload->node(), pThisTask, ctx);
-        
-    return nullptr;
-}
+    m_pThisWorkload->m_executionContext = ctx;
+    m_workloadContext.pExtra = ctx.pMicroScheduler;
 
-//------------------------------------------------------------------------------
-void MicroScheduler_Task::_executeTask()
-{
-    // Execute this node's work.
-    uint64_t exeCost = GTS_RDTSC();
-    m_cpuComputeRoutine(m_pMyWorkload, WorkloadContext{});
-    *m_pExecutionCost = GTS_RDTSC() - exeCost;
-}
+    uint64_t start = GTS_RDTSC();
 
-//------------------------------------------------------------------------------
-void MicroScheduler_Workload::_spawnReadyChildren(Node* pThisNode, Task* pThisTask, TaskContext const& ctx)
-{
-    GTS_ASSERT(pThisNode != nullptr);
-        
-    Vector<Node*> const& children = pThisNode->children();
-        
-    // Assume all children are ready. We will adjust this later.
-    pThisTask->addRef((int32_t)children.size(), gts::memory_order::relaxed);
-        
-    // Count the actual number of spawned children.
-    int32_t spawnedChildCount = 0;
+    m_pThisWorkload->execute(m_workloadContext);
 
-    // TODO: parallel-for?
-    for (size_t ii = 0; ii < children.size(); ++ii)
+    uint64_t end = GTS_RDTSC();
+
+    uint64_t cost;
+    if (end > start)
     {
-        Node* pChildNode = children[ii];
-        
-        // If the Node is ready, add it to the list.
-        if (pChildNode->finishPredecessor())
+        cost = uint64_t(double(end - start) / m_workloadContext.pComputeResource->executionNormalizationFactor());
+    }
+    else
+    {
+        cost = m_pThisWorkload->myNode()->executionCost();
+
+        if (cost == 0)
         {
-            ++spawnedChildCount;
-        
-            MicroScheduler_Workload* pWorkload = (MicroScheduler_Workload*)pChildNode->findWorkload(ComputeResourceType::CPU_MicroScheduler);
-            GTS_ASSERT(pWorkload != nullptr);
-            Task* pTask = pWorkload->_buildTask(ctx.pMicroScheduler);
-        
-            // Add and queue the task.
-            pThisTask->addChildTaskWithoutRef(pTask);
-            ctx.pMicroScheduler->spawnTask(pTask);
+            // Use GTS_CONTEXT_SWITCH_CYCLES if the previous cost is zero.
+            cost = uint64_t(double(GTS_CONTEXT_SWITCH_CYCLES) / m_workloadContext.pComputeResource->executionNormalizationFactor());
         }
     }
-        
-    // Adjust our assumed ready child count to the actual count.
-    pThisTask->removeRef((int32_t)children.size() - spawnedChildCount, gts::memory_order::seq_cst);
-        
-    // Wait for all the children to finish.
-    pThisTask->waitForChildren(ctx);
+
+#if 1
+    m_pThisWorkload->myNode()->_setExecutionCost(cost);
+    m_workloadContext.pSchedule->observeExecutionCost(m_workloadContext.pComputeResource->id(), cost);
+#endif
+
+    static_cast<MicroScheduler_ComputeResource*>(m_workloadContext.pComputeResource)->spawnReadyChildren(m_workloadContext, this);
+
+    return nullptr;
 }
 
 } // namespace gts

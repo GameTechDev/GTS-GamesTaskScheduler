@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['kdrange2d_274',['KdRange2d',['../classgts_1_1_kd_range2d.html',1,'gts::KdRange2d&lt; XIterType, YIterType &gt;'],['../classgts_1_1_kd_range2d.html#aa7ecd4946e2d691af5d20b046a3f807e',1,'gts::KdRange2d::KdRange2d()']]],
-  ['kdrange3d_275',['KdRange3d',['../classgts_1_1_kd_range3d.html',1,'gts::KdRange3d&lt; XIterType, YIterType, ZIterType &gt;'],['../classgts_1_1_kd_range3d.html#a0884812dfc15c82b09dae3bab96b0461',1,'gts::KdRange3d::KdRange3d()']]],
-  ['keyvalue_276',['KeyValue',['../structgts_1_1_key_value.html',1,'gts']]]
+  ['kdrange2d_289',['KdRange2d',['../classgts_1_1_kd_range2d.html',1,'gts::KdRange2d&lt; TIterType &gt;'],['../classgts_1_1_kd_range2d.html#a84729e9d10993cd5acf1948ba2ac39cc',1,'gts::KdRange2d::KdRange2d()']]],
+  ['kdrange3d_290',['KdRange3d',['../classgts_1_1_kd_range3d.html',1,'gts::KdRange3d&lt; TIterType &gt;'],['../classgts_1_1_kd_range3d.html#ace6ea0d8a43d326c2a18c51b4410f93a',1,'gts::KdRange3d::KdRange3d()']]],
+  ['keyvalue_291',['KeyValue',['../structgts_1_1_key_value.html',1,'gts']]],
+  ['keyvalue_3c_20key_5ftype_2c_20mapped_5ftype_20_3e_292',['KeyValue&lt; key_type, mapped_type &gt;',['../structgts_1_1_key_value.html',1,'gts']]]
 ];

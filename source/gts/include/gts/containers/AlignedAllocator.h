@@ -1,4 +1,4 @@
-/*******************************************************************************
+ /*******************************************************************************
  * Copyright 2019 Intel Corporation
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -7,10 +7,10 @@
  * to use, copy, modify, merge, publish, distribute, sublicense, and / or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions :
- * 
+ *
  * The above copyright notice and this permission notice shall be included in
  * all copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.IN NO EVENT SHALL THE
@@ -21,150 +21,142 @@
  ******************************************************************************/
 #pragma once
 
-#include <stdexcept>
-#include <new>
+#include <memory>
 
-#include "gts/platform/Machine.h"
+#include "gts/platform/Assert.h"
 #include "gts/platform/Memory.h"
+#include "gts/platform/Utils.h"
 
 namespace gts {
+
+/**
+ * @addtogroup Containers
+ * @{
+ */
+
+/**
+ * @addtogroup Allocators
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  STL allocator for aligned data.
- *
- * @details
- *  Modified from:
- *  <http://blogs.msdn.com/b/vcblog/archive/2008/08/28/the-mallocator.aspx>
+ *  An aligned allocator for GTS containers.
  */
-template <typename T, size_t ALIGNMENT>
+template <size_t ALIGNMENT>
 class AlignedAllocator
 {
-public: // TYPES:
-
-    // The following will be the same for all allocators.
-    typedef T* pointer;
-    typedef const T* const_pointer;
-    typedef T& reference;
-    typedef const T& const_reference;
-    typedef T value_type;
-    typedef size_t size_type;
-    typedef ptrdiff_t difference_type;
-
-    // The following must be the same for all allocators.
-    template <typename U>
-    struct rebind
-    {
-        typedef AlignedAllocator<U, ALIGNMENT> other;
-    };
+    static_assert(ALIGNMENT >= sizeof(uintptr_t), "ALIGNMENT to small");
+    static_assert(isPow2(ALIGNMENT), "ALIGNMENT must be a power of 2.");
 
 public: // STRUCTORS:
 
-    AlignedAllocator() = default;
+    AlignedAllocator()                        = default;
     AlignedAllocator(const AlignedAllocator&) = default;
-    ~AlignedAllocator() = default;
+    ~AlignedAllocator()                       = default;
+
 
     //--------------------------------------------------------------------------
-    template <typename U> explicit AlignedAllocator(const AlignedAllocator<U, ALIGNMENT>&)
-    {}
-
-public: // ACCESSORS:
-
-    //--------------------------------------------------------------------------
-    T* address(T& r) const
-    {
-        return &r;
-    }
-
-    //--------------------------------------------------------------------------
-    const T* address(const T& s) const
-    {
-        return &s;
-    }
-
-    //--------------------------------------------------------------------------
+    template<typename T>
     size_t max_size() const
     {
-        // The following has been carefully written to be independent of
-        // the definition of size_t and to avoid signed/unsigned warnings.
-        return (static_cast<size_t>(0) - static_cast<size_t>(1)) / sizeof(T);
+        return SIZE_MAX / sizeof(T);
     }
 
     //--------------------------------------------------------------------------
-    bool operator!=(const AlignedAllocator& other) const
+    template<typename T, typename... TArgs>
+    void construct(T* ptr, TArgs&&... args)
     {
-        return !(*this == other);
+        void* const pv = static_cast<void*>(ptr);
+        new (pv) T(std::forward<TArgs>(args)...);
     }
 
     //--------------------------------------------------------------------------
-    void construct(T* const p, const T& t) const
+    template<typename T>
+    void destroy(T* const ptr)
     {
-        void * const pv = static_cast<void *>(p);
-
-        new (pv) T(t);
+        ptr->~T();
     }
 
     //--------------------------------------------------------------------------
-    void destroy(T* const p) const
-    {
-        GTS_UNREFERENCED_PARAM(p);
-        p->~T();
-    }
-
-    //--------------------------------------------------------------------------
-    bool operator==(const AlignedAllocator&) const
-    {
-        // Returns true if and only if storage allocated from *this
-        // can be deallocated from other, and vice versa.
-        // Always returns true for stateless allocators.
-        return true;
-    }
-
-    //--------------------------------------------------------------------------
-    T* allocate(const size_t n) const
+    template<typename T>
+    T* allocate(const size_t n, size_t align = ALIGNMENT) const
     {
         if (n == 0)
         {
             return nullptr;
         }
 
-        // All allocators should contain an integer overflow check.
-        // The Standardization Committee recommends that std::length_error
-        // be thrown in the case of integer overflow.
-        if (n > max_size())
+        if (n > max_size<T>())
         {
-            throw std::length_error("AlignedAllocator<T>::allocate() - Integer overflow.");
+            GTS_ASSERT(0 && "Integer overflow.");
+            return nullptr;
         }
 
-        void * const pv = hooks::getAlignedAllocHook()(n * sizeof(T), ALIGNMENT);
-
-        // Allocators should throw std::bad_alloc in the case of memory allocation failure.
+        void * const pv = GTS_ALIGNED_MALLOC(n * sizeof(T), align);
         if (pv == nullptr)
         {
-            throw std::bad_alloc();
+            GTS_ASSERT(0 && "Failed Allocation.");
+            return nullptr;
         }
 
         return static_cast<T *>(pv);
     }
 
     //--------------------------------------------------------------------------
-    void deallocate(T* const p, const size_t) const
+    template<typename T>
+    void deallocate(T* const ptr, size_t) const
     {
-        hooks::getAlignedFreeHook()(p);
+        if(ptr)
+        {
+            GTS_ALIGNED_FREE(ptr);
+        }
     }
 
     //--------------------------------------------------------------------------
-    template <typename U>
-    T  allocate(const size_t n, const U* /* const hint */) const
+    template<typename T, typename... TArgs>
+    T* new_object(TArgs&&... args)
     {
-        return allocate(n);
+        T* ptr = allocate<T>(1);
+        construct(ptr, std::forward<TArgs>(args)...);
+        return ptr;
     }
 
-private:
+    //--------------------------------------------------------------------------
+    template<typename T>
+    void delete_object(T* ptr)
+    {
+        destroy(ptr);
+        deallocate(ptr, sizeof(T));
+    }
 
-    AlignedAllocator& operator=(const AlignedAllocator&) = delete;
+    //--------------------------------------------------------------------------
+    template<typename T>
+    T* vector_new_object(size_t count)
+    {
+        T* ptr = allocate<T>(count);
+        for (size_t ii = 0; ii < count; ++ii)
+        {
+            construct(ptr + ii);
+        }
+        return ptr;
+    }
+
+    //--------------------------------------------------------------------------
+    template<typename T>
+    void vector_delete_object(T* ptr, size_t count)
+    {
+        for (size_t ii = 0; ii < count; ++ii)
+        {
+            destroy(ptr + ii);
+        }
+        deallocate(ptr, sizeof(T) * count);
+    }
 };
+
+/** @} */ // end of Allocators
+/** @} */ // end of Containers
 
 } // namespace gts

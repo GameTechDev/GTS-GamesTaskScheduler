@@ -1,0 +1,29 @@
+{
+    "configurations": [
+        {
+            "name": "x86",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/source/gts/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x86"
+        },
+        {
+            "name": "x64",
+            "includePath": [
+                "${workspaceFolder}",
+                "${workspaceFolder}/source/gts/include"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang",
+            "cStandard": "c11",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "clang-x64"
+        }
+    ],
+    "version": 4
+}

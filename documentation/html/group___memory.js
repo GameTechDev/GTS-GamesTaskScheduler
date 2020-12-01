@@ -6,6 +6,6 @@ var group___memory =
     [ "alignedVectorNew", "group___memory.html#ga4ea3fd7f54664623b91a953dcbbbc5e2", null ],
     [ "unalignedDelete", "group___memory.html#ga1cab36c81a199d28196bbb4af9e7ca3f", null ],
     [ "unalignedNew", "group___memory.html#ga6811948817f2e831a18707c85a7396ef", null ],
-    [ "unalignedVectorDelete", "group___memory.html#ga73f9b99363e51794189fa7877c27e88e", null ],
-    [ "unalignedVectorNew", "group___memory.html#ga72ab9c6a4463b38a0c2b9aacb080d1a9", null ]
+    [ "unalignedVectorDelete", "group___memory.html#ga12499e966a1f20ca1f01ac07059b9697", null ],
+    [ "unalignedVectorNew", "group___memory.html#gae67b70265c52b57a21d674bc03f58660", null ]
 ];

@@ -19,42 +19,20 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  ******************************************************************************/
-#include <atomic>
 #include <chrono>
+
+#include "gts_perf/Mandelbrot.h"
 
 #include "gts_perf/PerfTests.h"
 
 #include <gts/micro_scheduler/WorkerPool.h>
 #include <gts/micro_scheduler/MicroScheduler.h>
 #include <gts/micro_scheduler/patterns/ParallelFor.h>
-#include <gts/micro_scheduler/patterns/BlockedRange1d.h>
-#include <gts/micro_scheduler/patterns/BlockedRange2d.h>
+#include <gts/micro_scheduler/patterns/Range1d.h>
+
+using namespace mandelbrot;
 
 static const int MAX_DEPTH = 128;
-
-//------------------------------------------------------------------------------
-/**
- * Calculates the Mandelbrot set value for the specified imaginary coordinate.
- */
-static int mandelbrot(float c_re, float c_im, uint32_t count)
-{
-    float z_re = c_re, z_im = c_im;
-    uint32_t i;
-    for (i = 0; i < count; ++i)
-    {
-        if (z_re * z_re + z_im * z_im > 4.f)
-        {
-            break;
-        }
-
-        float new_re = z_re*z_re - z_im*z_im;
-        float new_im = 2.f * z_re * z_im;
-        z_re = c_re + new_re;
-        z_im = c_im + new_im;
-    }
-
-    return i;
-}
 
 //------------------------------------------------------------------------------
 /**
@@ -100,7 +78,7 @@ Stats mandelbrotPerfSerial(uint32_t dimensions, uint32_t iterations)
 
                 uint32_t index = (r * dimensions + c);
 
-                mandelOut[index] = mandelbrot(x, y, MAX_DEPTH);
+                mandelOut[index] = calcMandelbrot(x, y, MAX_DEPTH);
             }
         }
 
@@ -115,44 +93,9 @@ Stats mandelbrotPerfSerial(uint32_t dimensions, uint32_t iterations)
 }
 
 //------------------------------------------------------------------------------
-Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t threadCount, bool affinitize)
+Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimensions, uint32_t iterations)
 {
     Stats stats(iterations);
-
-    gts::WorkerPool workerPool;
-    if (affinitize)
-    {
-        gts::WorkerPoolDesc desc;
-
-        gts::CpuTopology topology;
-        gts::Thread::getCpuTopology(topology);
-
-        gts::Vector<uintptr_t> affinityMasks;
-
-        for (size_t iThread = 0, threadsPerCore = topology.coreInfo[0].logicalAffinityMasks.size(); iThread < threadsPerCore; ++iThread)
-        {
-            for (auto& core : topology.coreInfo)
-            {
-                affinityMasks.push_back(core.logicalAffinityMasks[iThread]);
-            }
-        }
-
-        for (uint32_t ii = 0; ii < threadCount; ++ii)
-        {
-            gts::WorkerThreadDesc d;
-            d.affinityMask = affinityMasks[ii];
-            desc.workerDescs.push_back(d);
-        }
-
-        workerPool.initialize(desc);
-    }
-    else
-    {
-        workerPool.initialize(threadCount);
-    }
-
-    gts::MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
 
     gts::ParallelFor parallelFor(taskScheduler);
 
@@ -167,6 +110,8 @@ Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t 
     // Do test.
     for (uint32_t ii = 0; ii < iterations; ++ii)
     {
+        GTS_TRACE_FRAME_MARK(gts::analysis::CaptureMask::ALL);
+
         auto start = std::chrono::high_resolution_clock::now();
 
         MandelbrotUniformData taskData;
@@ -180,9 +125,11 @@ Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t 
 
 
         parallelFor(
-            gts::BlockedRange1d<uint32_t>(0, dimensions, 1),
-            [](gts::BlockedRange1d<uint32_t>& range, void* param, gts::TaskContext const&)
+            gts::Range1d<uint32_t>(0, dimensions, 16),
+            [](gts::Range1d<uint32_t>& range, void* param, gts::TaskContext const&)
         {
+            GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Mandelbrot Task", range.size());
+
             MandelbrotUniformData& data = *(MandelbrotUniformData*)param;
 
             for (uint32_t r = range.begin(); r != range.end(); ++r)
@@ -194,11 +141,11 @@ Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t 
 
                     uint32_t index = (r * csize + c);
 
-                    (*data.output)[index] = mandelbrot(x, y, data.maxDepth);
+                    (*data.output)[index] = calcMandelbrot(x, y, data.maxDepth);
                 }
             }
         },
-        gts::AdaptivePartitioner(),
+        gts::SimplePartitioner(),
         &taskData);
 
         auto end = std::chrono::high_resolution_clock::now();
@@ -206,8 +153,6 @@ Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t 
         std::chrono::duration<double> diff = end - start;
         stats.addDataPoint(diff.count());
     }
-
-    taskScheduler.shutdown();
 
     return stats;
 }

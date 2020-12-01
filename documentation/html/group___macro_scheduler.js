@@ -1,13 +1,19 @@
 var group___macro_scheduler =
 [
+    [ "ComputeResources", "group___compute_resources.html", "group___compute_resources" ],
     [ "Implementations", "group___implementations.html", "group___implementations" ],
     [ "ComputeResource", "classgts_1_1_compute_resource.html", [
       [ "ComputeResource", "classgts_1_1_compute_resource.html#a40b803210da9f936f801de62d7f6c9fb", null ],
       [ "~ComputeResource", "classgts_1_1_compute_resource.html#a33d324b85528a8b524346c9f88dcada2", null ],
+      [ "canExecute", "classgts_1_1_compute_resource.html#a2ae70f6a7fbf5722b0208502c618f1fd", null ],
+      [ "executionNormalizationFactor", "classgts_1_1_compute_resource.html#aea948c07c426eec38c13c9e6883aa6cd", null ],
       [ "id", "classgts_1_1_compute_resource.html#a5d56f614be362e2f63179adbb0038f78", null ],
-      [ "process", "classgts_1_1_compute_resource.html#a445bacaf391c6388e78b651055c6f057", null ],
-      [ "receiveAffinitizeNode", "classgts_1_1_compute_resource.html#a96a6f8dd3d76a6932e9935956dd3c14c", null ],
+      [ "notify", "classgts_1_1_compute_resource.html#a01e63bafe97f26edbb3e9db5eaba4617", null ],
+      [ "process", "classgts_1_1_compute_resource.html#a717a408cec18a48081be628e3d4e9510", null ],
+      [ "registerSchedule", "classgts_1_1_compute_resource.html#a35b92f8ea90c17753f6be050642a939d", null ],
+      [ "setExecutionNormalizationFactor", "classgts_1_1_compute_resource.html#a5c8623395ee90b6343e12eed289e3597", null ],
       [ "type", "classgts_1_1_compute_resource.html#a67b777e0bf94636d77cded402a32666b", null ],
+      [ "unregisterSchedule", "classgts_1_1_compute_resource.html#a828cd4a8c11a6055052ac691f4deb00d", null ],
       [ "m_affinityQueue", "classgts_1_1_compute_resource.html#a652afbf8512695be7e6ce2dbb942eb61", null ]
     ] ],
     [ "MacroScheduler", "classgts_1_1_macro_scheduler.html", [
@@ -19,9 +25,9 @@ var group___macro_scheduler =
       [ "buildSchedule", "classgts_1_1_macro_scheduler.html#a674d8bde40dd9b40652028facb9eb797", null ],
       [ "computeResources", "classgts_1_1_macro_scheduler.html#a8822478e3a255da7d3f13b3eb50bf7dc", null ],
       [ "destroyNode", "classgts_1_1_macro_scheduler.html#abf287c3c45901e67738e369d0dce0be5", null ],
-      [ "executeSchedule", "classgts_1_1_macro_scheduler.html#ab08462eae1949fed2aa6fdc973638438", null ],
+      [ "executeSchedule", "classgts_1_1_macro_scheduler.html#a7d019b812d2e938c63d1b45912921ead", null ],
       [ "findComputeResource", "classgts_1_1_macro_scheduler.html#aedb95d1cc4dfff1001ab6e6f9eab310f", null ],
-      [ "freeSchedule", "classgts_1_1_macro_scheduler.html#a7ffe0c5d6d65396f9c617e0fe0e41d4d", null ],
+      [ "freeSchedule", "classgts_1_1_macro_scheduler.html#aadbc1a42a642c85650be7e19c25ff36d", null ],
       [ "init", "classgts_1_1_macro_scheduler.html#a9bd283ec7970ba5789e497474ad9450d", null ],
       [ "Node", "classgts_1_1_macro_scheduler.html#a6db9d28bd448a131448276ee03de1e6d", null ],
       [ "m_computeResources", "classgts_1_1_macro_scheduler.html#af9a05cdf5fb14b54f2d747c076842ace", null ]
@@ -31,7 +37,9 @@ var group___macro_scheduler =
     ] ],
     [ "WorkloadContext", "structgts_1_1_workload_context.html", [
       [ "pComputeResource", "structgts_1_1_workload_context.html#a2562bb1560dbefc7cb99da89a358c664", null ],
-      [ "pMacroScheduler", "structgts_1_1_workload_context.html#aa156ea1389100135341f3fd0b1eb2662", null ]
+      [ "pExtra", "structgts_1_1_workload_context.html#a7d90cd9fbcb8719cd756e67b5c57dab5", null ],
+      [ "pNode", "structgts_1_1_workload_context.html#a9a14c5cff7f3309ba5b77998e06b70e4", null ],
+      [ "pSchedule", "structgts_1_1_workload_context.html#aabf060c970aeff49e43c4ba820eb2101", null ]
     ] ],
     [ "WorkloadType", "structgts_1_1_workload_type.html", [
       [ "Enum", "structgts_1_1_workload_type.html#a6918bae22f2942631bd82477df4a0824", [
@@ -49,33 +57,55 @@ var group___macro_scheduler =
       ] ]
     ] ],
     [ "Node", "classgts_1_1_node.html", [
+      [ "NODE_NAME_MAX", "classgts_1_1_node.html#a0669477c8b55449da3de086ab845a2ccafe3683b75d8c786d60a65c50d1401e73", null ],
       [ "Node", "classgts_1_1_node.html#afb24eabe6049df08ea657f6b31b0fbc8", null ],
       [ "~Node", "classgts_1_1_node.html#a1bca8078bc0053973b524e34367ee368", null ],
-      [ "addChild", "classgts_1_1_node.html#a4dbe6b4d44d3f6e4cba64884460e51d5", null ],
+      [ "_markPredecessorComplete", "classgts_1_1_node.html#a68ff5bdf8613d9eb8229c78f1a5a4f47", null ],
+      [ "_removePredecessorRefAndReturnReady", "classgts_1_1_node.html#a66b4dda92fe2fb32a72dded726a06822", null ],
+      [ "_setCurrentSchedule", "classgts_1_1_node.html#a1fd403947bb64fc4ac47c93a5213a767", null ],
+      [ "_setExecutionCost", "classgts_1_1_node.html#ac60d774c9bd7f6729c8a80c0b0da8eba", null ],
+      [ "_waitUntilComplete", "classgts_1_1_node.html#a8fcab4eb72895d4f34e1a20ae5084c00", null ],
+      [ "addSuccessor", "classgts_1_1_node.html#ac93329e6cbdc2653caae0bdf58b058f1", null ],
       [ "addWorkload", "classgts_1_1_node.html#a92129bb0b83a49fab31cc805011e0255", null ],
       [ "addWorkload", "classgts_1_1_node.html#a770f3ee8fb009da42ab53199c10b564c", null ],
-      [ "adjustPredecessor", "classgts_1_1_node.html#a76d78175d334c485425337fdffb6ec74", null ],
       [ "affinity", "classgts_1_1_node.html#a4eee8bea1057e8bff2e005b0db3962ee", null ],
-      [ "children", "classgts_1_1_node.html#a403a96cda909811b2f21ab2adb60c1de", null ],
-      [ "currentSchedule", "classgts_1_1_node.html#a9c443d8e2cee3c8f4f9e15d05a7dd6a3", null ],
+      [ "currentSchedule", "classgts_1_1_node.html#a0257a0644cd0204b8fe6661ffafa267b", null ],
       [ "currPredecessorCount", "classgts_1_1_node.html#a7dcbd42d602bbc1b4bd375f91121461f", null ],
+      [ "executionCost", "classgts_1_1_node.html#a25939d07dff80ebb5298f8497103900d", null ],
       [ "findWorkload", "classgts_1_1_node.html#a65f9e8e2972d90d048b44674352726ad", null ],
-      [ "initPredecessorCount", "classgts_1_1_node.html#a25be4a144badeae9d9dff5ff209bea96", null ],
-      [ "myScheduler", "classgts_1_1_node.html#a9e01ef4f3f99f88f567e13546bba36bb", null ],
-      [ "removeChild", "classgts_1_1_node.html#a5e0070ae3aa11437fb1f0c0c1d108b3f", null ],
+      [ "initPredecessorCount", "classgts_1_1_node.html#a7de9106a4258581edcc972f578191aac", null ],
+      [ "isChild", "classgts_1_1_node.html#a5ac6d2c10b931daf85e821b50a981c62", null ],
+      [ "myScheduler", "classgts_1_1_node.html#a3f0a70dfa8b1988c6f40165460b7687a", null ],
+      [ "name", "classgts_1_1_node.html#a3e14ecac5aafe9359e36062114380a63", null ],
+      [ "predecessors", "classgts_1_1_node.html#aa1b8bb590077ae0980f8a7c359b78d7f", null ],
+      [ "predecessors", "classgts_1_1_node.html#ab3097f6a71b14ef01340f5e16f743096", null ],
+      [ "rank", "classgts_1_1_node.html#a838cf31c9e790087a1bd81b02ba18fb1", null ],
+      [ "rank", "classgts_1_1_node.html#a3d39c3a314a918ecf88165c3ff82daed", null ],
+      [ "removeSuccessor", "classgts_1_1_node.html#a1eb009ab34e9aa934e70259dbfe730ff", null ],
       [ "removeWorkload", "classgts_1_1_node.html#ad6e42cca701ec09c27c9e406ff06a61f", null ],
       [ "reset", "classgts_1_1_node.html#af828b1dfa968b9ec76cf10fbb90b5101", null ],
-      [ "setAffinity", "classgts_1_1_node.html#a0fe9cf64290ca909ef760b6b7f194e15", null ]
+      [ "setAffinity", "classgts_1_1_node.html#a0fe9cf64290ca909ef760b6b7f194e15", null ],
+      [ "setName", "classgts_1_1_node.html#abce8722f94e1a205e1a217fae0295a3c", null ],
+      [ "successors", "classgts_1_1_node.html#a3be0839685559d76f6e4cbc41d738a97", null ],
+      [ "successors", "classgts_1_1_node.html#ae1a92d56771c484c8bd2dc6ab5555a5e", null ],
+      [ "CriticiallyAware_Schedule", "classgts_1_1_node.html#a75e316cb69361e5a349b232261b40b76", null ]
     ] ],
     [ "Schedule", "classgts_1_1_schedule.html", [
       [ "Schedule", "classgts_1_1_schedule.html#ab21810671cbe406a7360a0337ac5cd29", null ],
       [ "~Schedule", "classgts_1_1_schedule.html#a61d2b030155ac7c34aab5ad37da81506", null ],
-      [ "getFinalNode", "classgts_1_1_schedule.html#ab3ce8c5991b3ffc8ab97fbe9319371ee", null ],
+      [ "addRef", "classgts_1_1_schedule.html#a0a9a1ef56a61c88ca90bbef8bce4d228", null ],
       [ "getScheduler", "classgts_1_1_schedule.html#a0b31b184b8e9eaa977b44606a2f87d0b", null ],
       [ "insertReadyNode", "classgts_1_1_schedule.html#ad0748af2ae74f9a04559ee313eeb77fd", null ],
       [ "isDone", "classgts_1_1_schedule.html#aae879f95dc566b71ac3cd5eb163caed2", null ],
-      [ "popNextNode", "classgts_1_1_schedule.html#a7cb5e2664859c24eed445a95163ae6f1", null ],
+      [ "observeExecutionCost", "classgts_1_1_schedule.html#a1418b4a4c118b2bf777153c974650cb8", null ],
+      [ "popNextNode", "classgts_1_1_schedule.html#a7dea7fc117ac3a98b960860433bdab0e", null ],
+      [ "refCount", "classgts_1_1_schedule.html#a81ae8006f9cee4ba0b58ac02b5e4bfe8", null ],
+      [ "removeRef", "classgts_1_1_schedule.html#a5efa78c14d009f474ae059ef1df4fe68", null ],
       [ "tryMarkDone", "classgts_1_1_schedule.html#a3234d66557efcb4ffdac4c7b9e4ed353", null ]
+    ] ],
+    [ "ProtectedSchedule", "classgts_1_1_protected_schedule.html", [
+      [ "getAccessor", "classgts_1_1_protected_schedule.html#a1c3a7653145697c7c97dc07c3139aa68", null ],
+      [ "getDeletor", "classgts_1_1_protected_schedule.html#ae216a079d9f0464a61676048669abe10", null ]
     ] ],
     [ "Workload", "classgts_1_1_workload.html", [
       [ "Workload", "classgts_1_1_workload.html#a8ee907fa2229b8487d8315fb1bb535ec", null ],

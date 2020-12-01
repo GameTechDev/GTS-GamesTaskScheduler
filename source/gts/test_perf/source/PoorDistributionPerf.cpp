@@ -28,85 +28,52 @@
 #include <gts/micro_scheduler/MicroScheduler.h>
 
 //------------------------------------------------------------------------------
-// A small, dummy compute workload.
-gts::Task* poorDistributionTask(gts::Task*, gts::TaskContext const&)
-{
-    volatile float sum = 0.f;
-    for (volatile uint32_t ii = 0; ii < 1000; ++ii)
-    {
-        sum += ii * ii;
-    }
-    return nullptr;
-}
-
-//------------------------------------------------------------------------------
 /**
  * Test the scenario where single tasks are submitted from a single thread,
  * which causes worst case load balancing for the scheduler.
  */
-Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t threadCount, bool affinitize)
+Stats poorDistributionPerf(gts::MicroScheduler& taskScheduler, uint32_t taskCount, uint32_t iterations)
 {
     Stats stats(iterations);
-
-    gts::WorkerPool workerPool;
-    if (affinitize)
-    {
-        gts::WorkerPoolDesc desc;
-
-        gts::CpuTopology topology;
-        gts::Thread::getCpuTopology(topology);
-
-        gts::Vector<uintptr_t> affinityMasks;
-
-        for (size_t iThread = 0, threadsPerCore = topology.coreInfo[0].logicalAffinityMasks.size(); iThread < threadsPerCore; ++iThread)
-        {
-            for (auto& core : topology.coreInfo)
-            {
-                affinityMasks.push_back(core.logicalAffinityMasks[iThread]);
-            }
-        }
-
-        for (uint32_t ii = 0; ii < threadCount; ++ii)
-        {
-            gts::WorkerThreadDesc d;
-            d.affinityMask = affinityMasks[ii];
-            desc.workerDescs.push_back(d);
-        }
-
-        workerPool.initialize(desc);
-    }
-    else
-    {
-        workerPool.initialize(threadCount);
-    }
-
-    gts::MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
 
     // Do test.
     for (uint32_t ii = 0; ii < iterations; ++ii)
     {
+        GTS_TRACE_FRAME_MARK(gts::analysis::CaptureMask::ALL);
+
         auto start = std::chrono::high_resolution_clock::now();
 
-        gts::Task* pRootTask = taskScheduler.allocateTaskRaw([](gts::Task*, gts::TaskContext const&)->gts::Task* { return nullptr; });
-        pRootTask->addRef(taskCount);
+        gts::Task* pRootTask = taskScheduler.allocateTask<gts::EmptyTask>();
+        pRootTask->addRef(taskCount + 1);
 
         for (uint32_t t = 0; t < taskCount; ++t)
         {
-            gts::Task* pChildTask = taskScheduler.allocateTaskRaw(poorDistributionTask);
+            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
+
+            gts::Task* pChildTask = taskScheduler.allocateTask([](gts::TaskContext const&)->gts::Task*
+            {
+                GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
+
+                volatile float val = 0.f;
+                for (volatile uint32_t ii = 0; ii < 10000; ++ii)
+                {
+                    val = sinf(val);
+                }
+                return nullptr;
+            });
+
             pRootTask->addChildTaskWithoutRef(pChildTask);
-            taskScheduler.queueTask(pChildTask);
+            taskScheduler.spawnTask(pChildTask);
         }
 
-        taskScheduler.spawnTaskAndWait(pRootTask);
+        pRootTask->waitForAll();
+        taskScheduler.destoryTask(pRootTask);
 
         auto end = std::chrono::high_resolution_clock::now();
 
         std::chrono::duration<double> diff = end - start;
         stats.addDataPoint(diff.count());
     }
-
-    taskScheduler.shutdown();
 
     return stats;
 }

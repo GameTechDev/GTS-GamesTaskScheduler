@@ -24,64 +24,108 @@
 #include <type_traits>
 #include <tuple>
 
-#include "gts/analysis/Instrumenter.h"
+#include "gts/analysis/Trace.h"
 #include "gts/platform/Assert.h"
 #include "gts/platform/Utils.h"
 #include "gts/platform/Atomic.h"
+#include "gts/micro_scheduler/MicroSchedulerTypes.h"
 
-namespace gts
-{
+namespace gts {
+
+/** 
+ * @addtogroup MicroScheduler
+ * @{
+ */
 
 struct TaskContext;
 class Task;
 class MicroScheduler;
-class Schedule;
+class LocalScheduler;
+class Worker;
 
-/**
- * The task function signature.
- * @param pThisTask
- *  The Task currently being executed.
- * @param taskContext
- *  The context in which the task is being executed.
- * @return
- *  A optional Task to be executed immediately upon returning.
- */
-using TaskRoutine = gts::Task* (*)(Task* pThisTask, TaskContext const& taskContext);
+constexpr uint32_t ANY_WORKER = UNKNOWN_UID;
 
 #ifdef GTS_MSVC
 #pragma warning(push)
 #pragma warning(disable : 4324) // alignment padding warning
 #endif
 
+namespace internal {
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  The task type to be executed by MicroScheduler.
+ *  The header for each Task that contains common bookkeeping data.
  */
-class GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) Task
+struct GTS_ALIGN(GTS_CACHE_LINE_SIZE) TaskHeader
 {
-public: // CREATORS:
+    // Gets the Task suffix.
+    GTS_INLINE Task* _task()
+    {
+        return (Task*)(this + 1);
+    }
 
-    /**
-     * Construct an empty Task. Needed for some container classes.
-     */
-    GTS_INLINE Task();
+    enum ExecutionStates
+    {   
+        // Allocated or recycled.
+        ALLOCATED,
+        // In the ready pool.
+        READY,
+        // A scheduled task. It will be destroyed on completion.
+        EXECUTING,
+        // A task on the free list.
+        FREED
+    };
 
-    /**
-     * Construct an Task from a TaskRoutine
-     */
-    GTS_INLINE explicit Task(TaskRoutine taskRountine);
+    enum Flags
+    {
+        TASK_HAS_DATA_SUFFIX = 1 << 0,
+        TASK_IS_CONTINUATION = 1 << 1,
+        TASK_IS_STOLEN       = 1 << 2,
+        TASK_IS_WAITER       = 1 << 3,
+        TASK_IS_SMALL        = 1 << 4,
+    };
 
-    /**
-     * Copy constructor needed for STL containers. Do not use!
-     */
-    GTS_INLINE Task(Task const&);
+    Task*            pParent           = nullptr;
+    Atomic<Task*>    pListNext         = { nullptr };
+    LocalScheduler*  pMyLocalScheduler = nullptr;
+    Worker*          pMyWorker         = nullptr;
+#ifdef GTS_USE_TASK_NAME
+    const char*      pName             = nullptr;
+#endif
+    Atomic<int32_t>  refCount          = { 1 };
+    uint32_t         affinity          = ANY_WORKER;
+    uint32_t         executionState    = ALLOCATED;
+    uint32_t         flags             = 0;
+};
 
-    /**
-     * Execute the task routine.
-     */
-    GTS_INLINE Task* execute(Task* thisTask, TaskContext const& taskContext);
+} // namespace internal
+
+#ifdef GTS_MSVC
+#pragma warning(pop)
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  A Task payload that embeds TFunc and TArgs into the Task's data. It makes
+ *  it easy to construct a Task from a lambda or a function plus arguments
+ *  similar to std::thread.
+ * @details
+ *  Derivative of TBB Task. https://github.com/intel/tbb
+ */
+class Task
+{
+    friend class MicroScheduler;
+    friend class LocalScheduler;
+    friend class Worker;
+
+public: // INTERFACE:
+
+    virtual ~Task() {}
+    virtual Task* execute(TaskContext const& ctx) = 0;
 
 public: // MUTATORS:
 
@@ -106,38 +150,33 @@ public: // MUTATORS:
     GTS_INLINE void setContinuationTask(Task* pContinuation);
 
     /**
-     * Marks this task to be recycled as a child of pParent.
+     * Marks the task to be reused after it has finished executing. Makes the
+     * Task look like it was just allocated. If the task is not added into
+     * a task graph with addChild* or setContinuation or returned as a bypass
+     * Task, it will be spawned.
      */
-    GTS_INLINE void recyleAsChildOf(Task* pParent);
+    GTS_INLINE void recycle();
 
     /**
      * Waits for all this Task's children to complete before continuing. While
      * waiting, this task will execute other available work.
+     * @remark
+     *  Requires and extra reference be added for the wait. The wait is 
+     *  considered complete when this task's reference count == 2. The reference
+     *  count will be set to 1 once the wait completes.
      */
-    void waitForChildren(TaskContext const& ctx);
+    void waitForAll();
 
     /**
-     * Manually destroy this task that are never executed. Useful for dummy tasks.
+     * Executes pChild immediately and then waits for all this Task's children 
+     * to complete before continuing. While waiting, this task will execute
+     * other available work.
+     * @remark
+     *  Requires and extra reference be added for the wait. The wait is 
+     *  considered complete when this task's reference count == 2. The reference
+     *  count will be set to 1 once the wait completes.
      */
-    void destroy(TaskContext const& ctx);
-
-    /**
-     * Emplaces the data into the task.
-     */
-    template<typename T, typename... TArgs>
-    GTS_INLINE T* emplaceData(TArgs&&... args);
-
-    /**
-     * Copies the data into the task.
-     */
-    template<typename T>
-    GTS_INLINE T* setData(T const& data);
-
-    /**
-     * Copies a data pointer into the task.
-     */
-    template<typename T>
-    GTS_INLINE T* setData(T* data);
+    void spawnAndWaitForAll(Task* pChild);
 
     /**
      * Force the task to run on a specific Worker thread.
@@ -159,27 +198,22 @@ public: // MUTATORS:
      */
     GTS_INLINE void setRef(int32_t count, gts::memory_order order = gts::memory_order::seq_cst);
 
+    /**
+     * Sets the name of the task.
+     */
+    GTS_INLINE void setName(const char* name);
+
 public: // ACCCESSORS:
 
     /**
-     * @return the current reference count.
+     * @return The current reference count.
      */
     GTS_INLINE int32_t refCount(gts::memory_order order = gts::memory_order::acquire) const;
 
     /**
-     * @return the current Worker affinity.
+     * @return The current Worker affinity.
      */
     GTS_INLINE uint32_t getAffinity() const;
-
-    /**
-     * @return the const user data from the task.
-     */
-    GTS_INLINE void const* getData() const;
-
-    /**
-     * @return the user data from the task.
-     */
-    GTS_INLINE void* getData();
 
     /**
      * @return True if stolen.
@@ -192,58 +226,95 @@ public: // ACCCESSORS:
     GTS_INLINE Task* parent();
 
     /**
-     * @return This task's isolation tag.
+     * @return The name of the task.
      */
-    GTS_INLINE uintptr_t isolationTag() const;
+    GTS_INLINE const char* name() const;
+
+private:
+
+    // Gets this Task's TaskHeader object.
+    GTS_INLINE internal::TaskHeader& header() const
+    {
+        return *(reinterpret_cast<internal::TaskHeader*>(const_cast<Task*>(this)) + -1);
+    }
+};
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  A Task payload that embeds a function pointer and data argument into the
+ *  the Task's data.
+ */
+class CStyleTask : public Task
+{
+public: // STRUCTORS:
+
+    using TaskRoutine = Task* (*)(void* pData, TaskContext const& taskContext);
+
+    /**
+     * Construct an empty Task. Needed for some container classes.
+     */
+    GTS_INLINE CStyleTask();
+
+    /**
+     * Construct an Task from a TaskRoutine and data pointer
+     */
+    template<typename TData>
+    GTS_INLINE explicit CStyleTask(TaskRoutine taskRountine, TData* pData = nullptr);
+
+    /**
+     * Copy constructor needed for STL containers. Do not use!
+     */
+    GTS_INLINE CStyleTask(CStyleTask const&);
+
+    GTS_INLINE virtual ~CStyleTask();
+
+public: // MUTATORS:
+
+    GTS_INLINE virtual Task* execute(TaskContext const& ctx) final;
+
+    /**
+     * Copies a data pointer into the task.
+     */
+    template<typename TData>
+    GTS_INLINE TData* setData(TData* data);
+
+public: // ACCCESSORS:
+
+    /**
+     * @return the const user data from the task.
+     */
+    GTS_INLINE void const* getData() const;
+
+    /**
+     * @return the user data from the task.
+     */
+    GTS_INLINE void* getData();
 
 private: // HELPERS:
 
-    GTS_INLINE void*       _dataSuffix();
-    GTS_INLINE void const* _dataSuffix() const;
+    template<typename TData>
+    GTS_INLINE void _resetDataDestructor();
 
-private: // DATA:
-
-    friend class MicroScheduler;
-    friend class Schedule;
+private:
 
     using DataDestructor = void(*)(void* pData);
 
     static void emptyDataDestructor(void*)
     {}
 
-    template<typename T>
+    template<typename TData>
     static void dataDestructor(void* pData)
     {
         GTS_UNREFERENCED_PARAM(pData);
-        reinterpret_cast<T*>(pData)->~T();
+        reinterpret_cast<TData*>(pData)->~TData();
     }
 
-    enum States
-    {
-        TASK_HAS_DATA_SUFFIX = 0x01,
-        TASK_IS_EXECUTING    = 0x02,
-        TASK_IS_WAITING      = 0x04,
-        TASK_IS_CONTINUATION = 0x08,
-        TASK_IS_STOLEN       = 0x10,
-        TASK_IS_QUEUED       = 0x20,
-        RECYLE               = 0x40
-    };
-
-    TaskRoutine          m_fcnTaskRoutine;
-    DataDestructor       m_fcnDataDestructor;
-    Task*                m_pParent;
-    MicroScheduler*      m_pMyScheduler;
-    uintptr_t            m_isolationTag;
-    uint32_t             m_affinity;
-    gts::Atomic<int32_t> m_refCount;
-    uint32_t             m_state;
-
-    // vvvvvvvvv TASK DATA IS STORED AS A SUFFIX vvvvvvvvvvvvvvvvvv
+    TaskRoutine m_fcnTaskRoutine;
+    DataDestructor m_fcnDataDestructor;
+    void* m_pData;
 };
-
-#ifdef GTS_MSVC
-#pragma warning(pop)
-#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -254,23 +325,43 @@ private: // DATA:
 *  similar to std::thread.
 */
 template<typename TFunc, typename...TArgs>
-class LambdaTaskWrapper
+class LambdaTaskWrapper : public Task
 {
     using FucnArgsTupleType = typename std::tuple<std::decay_t<TFunc>, std::decay_t<TArgs>... >;
 
     template<size_t... Idxs>
-    GTS_INLINE Task* _invoke(std::integer_sequence<size_t, Idxs...>, Task* pThisTask, TaskContext const& ctx);
+    GTS_INLINE Task* _invoke(std::integer_sequence<size_t, Idxs...>, TaskContext const& ctx);
 
-public:
+public: // STRUCTORS:
 
     GTS_INLINE LambdaTaskWrapper(TFunc&& func, TArgs&&...args);
 
-    GTS_INLINE static gts::Task* taskFunc(gts::Task* pThisTask, gts::TaskContext const& ctx);
+public: // MUTATORS:
+
+    GTS_INLINE virtual Task* execute(TaskContext const& ctx) final;
 
 private:
 
     FucnArgsTupleType m_tuple;
 };
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  A empty Task that can be used as dummy or placeholder.
+ */
+class EmptyTask : public Task
+{
+public: // MUTATORS:
+
+    GTS_INLINE virtual Task* execute(TaskContext const&) final
+    {
+        return nullptr;
+    }
+};
+
+/** @} */ // end of MicroScheduler
 
 #include "gts/micro_scheduler/Task.inl"
 

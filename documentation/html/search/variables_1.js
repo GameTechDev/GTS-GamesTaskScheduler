@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['buff_954',['buff',['../group___logging.html#ga232bf5f2845c781ade6b663cc502f3aa',1,'gts::analysis::ConcurrentLoggerEvent::buff()'],['../group___logging.html#gaca26c4477c28fab31dfb47ca2017d88b',1,'gts::analysis::ConcurrentLoggerEvent::@0::buff()']]]
+  ['buff_1028',['buff',['../group___logging.html#gaeae2f6992572071dae2ddc01a2b6b150',1,'gts::analysis::ConcurrentLoggerEvent::buff()'],['../group___logging.html#ga40fcc4270ce86cd5d06e5cd2b9f7fb71',1,'gts::analysis::ConcurrentLoggerEvent::@0::buff()']]]
 ];

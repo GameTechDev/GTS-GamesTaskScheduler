@@ -24,7 +24,7 @@
 bool gotCorrectTid(gts::MicroScheduler* pScheduler)
 {
     pScheduler;
-    return pScheduler->thisWorkerIndex() == 0;
+    return pScheduler->thisWorkerId().localId() == 0;
 }
 
 

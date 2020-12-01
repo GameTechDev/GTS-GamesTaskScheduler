@@ -1,14 +1,13 @@
 var group___logging =
 [
     [ "ConcurrentLoggerEvent", "structgts_1_1analysis_1_1_concurrent_logger_event.html", [
-      [ "buff", "group___logging.html#ga232bf5f2845c781ade6b663cc502f3aa", null ],
+      [ "buff", "group___logging.html#gaeae2f6992572071dae2ddc01a2b6b150", null ],
       [ "isMessageBuffer", "group___logging.html#ga0b486c78b6c00697a12e49a17eb7b4fb", null ],
       [ "message", "group___logging.html#ga3e58caac7a2649b76276ac386551cc09", null ],
       [ "msg", "group___logging.html#ga439ec5b9df9083275b5f300dccd0978a", null ],
       [ "msgAndParams", "group___logging.html#ga4b8546ad6b6c06229c1245de927e121b", null ],
-      [ "param1", "group___logging.html#ga1aa3378ecc8f11f50f59e46a910a0026", null ],
-      [ "param2", "group___logging.html#ga5d20fb98f123a266c0d084d0d937845f", null ],
-      [ "param3", "group___logging.html#gae01ba5c59270909f2f777bced01f0ed2", null ],
+      [ "numParams", "group___logging.html#gac520c9082b1393d011b22eb3de9918ca", null ],
+      [ "params", "group___logging.html#ga6485b4868290240d91b4778c875a6c0a", null ],
       [ "tid", "group___logging.html#ga611f708a1661dee3b9cec479aeb153dd", null ]
     ] ],
     [ "ConcurrentLogger", "classgts_1_1analysis_1_1_concurrent_logger.html", [
@@ -18,6 +17,9 @@ var group___logging =
       [ "getThreadNamesMap", "group___logging.html#ga322d3d178880f2ae6f18d64219be909e", null ],
       [ "lock", "group___logging.html#gaa4a23d8b86b33551e9dc903dfb88eddd", null ],
       [ "logf", "group___logging.html#ga1fad530827314cb95e70b5953cb7f7d9", null ],
+      [ "logp", "group___logging.html#ga04cd0cafe4be5b2c1f15dd222cd81070", null ],
+      [ "logp", "group___logging.html#ga9ce41c41d68dbaa80b564ae0fb5eb210", null ],
+      [ "logp", "group___logging.html#ga2a4d59a2fe126493b5b2333882f56937", null ],
       [ "logp", "group___logging.html#gaff2728d1d018fa938173a58f1922fa08", null ],
       [ "nameThread", "group___logging.html#ga40e63ae3e5cf0ee6ca1485f6acaf5939", null ],
       [ "reset", "group___logging.html#gaaa509d1c0b99b53eb1b9566352c2d24b", null ],
@@ -27,17 +29,20 @@ var group___logging =
     [ "getEvents", "group___logging.html#gae6c156f2e8ee57481ccefcb0d2f9b98b", null ],
     [ "getThreadNamesMap", "group___logging.html#ga322d3d178880f2ae6f18d64219be909e", null ],
     [ "logf", "group___logging.html#ga1fad530827314cb95e70b5953cb7f7d9", null ],
+    [ "logp", "group___logging.html#ga04cd0cafe4be5b2c1f15dd222cd81070", null ],
+    [ "logp", "group___logging.html#ga9ce41c41d68dbaa80b564ae0fb5eb210", null ],
+    [ "logp", "group___logging.html#ga2a4d59a2fe126493b5b2333882f56937", null ],
     [ "logp", "group___logging.html#gaff2728d1d018fa938173a58f1922fa08", null ],
     [ "nameThread", "group___logging.html#ga40e63ae3e5cf0ee6ca1485f6acaf5939", null ],
     [ "printLogToCsvFile", "group___logging.html#ga3ae7d2a6e6f55ce1221b8b404b0791f5", null ],
     [ "printLogToTextFile", "group___logging.html#ga479bcb10ba554331e279928271cd48ce", null ],
     [ "reset", "group___logging.html#gaaa509d1c0b99b53eb1b9566352c2d24b", null ],
     [ "setCaptureMask", "group___logging.html#ga3ac5af49034d4fa77d7625bd6de6c752", null ],
-    [ "buff", "group___logging.html#ga232bf5f2845c781ade6b663cc502f3aa", null ],
-    [ "buff", "group___logging.html#gaca26c4477c28fab31dfb47ca2017d88b", null ],
+    [ "buff", "group___logging.html#gaeae2f6992572071dae2ddc01a2b6b150", null ],
+    [ "buff", "group___logging.html#ga40fcc4270ce86cd5d06e5cd2b9f7fb71", null ],
     [ "isMessageBuffer", "group___logging.html#ga0b486c78b6c00697a12e49a17eb7b4fb", null ],
     [ "message", "group___logging.html#ga3e58caac7a2649b76276ac386551cc09", null ],
-    [ "msgAndParams", "group___logging.html#ga4b8546ad6b6c06229c1245de927e121b", null ],
     [ "msgAndParams", "group___logging.html#gae19e5f739184cb0051ab10c7ff225ae1", null ],
+    [ "msgAndParams", "group___logging.html#ga4b8546ad6b6c06229c1245de927e121b", null ],
     [ "tid", "group___logging.html#ga611f708a1661dee3b9cec479aeb153dd", null ]
 ];

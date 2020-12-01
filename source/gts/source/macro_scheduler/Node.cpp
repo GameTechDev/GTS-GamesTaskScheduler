@@ -21,7 +21,12 @@
  ******************************************************************************/
 #include "gts/macro_scheduler/Node.h"
 
+#include <stdarg.h>
+#include <queue>
+#include <unordered_set>
+
 #include "gts/macro_scheduler/Workload.h"
+#include "gts/macro_scheduler/ComputeResource.h"
 
 namespace gts {
 
@@ -34,11 +39,17 @@ namespace gts {
 //------------------------------------------------------------------------------
 Node::Node(MacroScheduler* pMyScheduler)
     : m_pMyScheduler(pMyScheduler)
-    , m_priority(0)
+    , m_pSchedule(nullptr)
+    , m_rank(0)
+    , m_executionCost(1)
+    , m_predecessorCompleteCount(0)
     , m_currPredecessorCount(0)
     , m_initPredecessorCount(0)
+    , m_affinity(ANY_COMP_RESOURCE)
+    , m_name{0}
+    //, m_isIsolated(false)
 {
-    for (size_t ii = 0; ii < (size_t)ComputeResourceType::COUNT; ++ii)
+    for (size_t ii = 0; ii < WorkloadType::COUNT; ++ii)
     {
         m_workloadsByType[ii] = nullptr;
     }
@@ -47,7 +58,7 @@ Node::Node(MacroScheduler* pMyScheduler)
 //------------------------------------------------------------------------------
 Node::~Node()
 {
-    for (size_t ii = 0; ii < (size_t)ComputeResourceType::COUNT; ++ii)
+    for (size_t ii = 0; ii < WorkloadType::COUNT; ++ii)
     {
         m_pMyScheduler->_freeWorkload(m_workloadsByType[ii]);
     }
@@ -56,91 +67,125 @@ Node::~Node()
 // ACCESSORS:
 
 //------------------------------------------------------------------------------
-Workload* Node::findWorkload(ComputeResourceType type) const
+Workload* Node::findWorkload(WorkloadType::Enum type) const
 {
-    return m_workloadsByType[(size_t)type];
-}
-
-//------------------------------------------------------------------------------
-uint32_t Node::priority() const
-{
-    return m_priority;
+    return m_workloadsByType[type];
 }
 
 //------------------------------------------------------------------------------
 Atomic<uint32_t> const& Node::currPredecessorCount() const
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     return m_currPredecessorCount;
 }
 
 //------------------------------------------------------------------------------
-uint32_t const& Node::initPredecessorCount() const
+uint32_t Node::initPredecessorCount() const
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
     return m_initPredecessorCount;
 }
 
 //------------------------------------------------------------------------------
-Vector<Node*> const Node::children() const
+bool Node::isChild(Node* pChild) const
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
-    return m_children; // return a copy.
+    for (size_t ii = 0; ii < m_successors.size(); ++ii)
+    {
+        if (pChild == m_successors[ii])
+        {
+            return true;
+        }
+    }
+    return false;
 }
 
 // MUTATORS:
 
 //------------------------------------------------------------------------------
-void Node::addChild(Node* pNode)
+void Node::resetGraph(Node* pSource)
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
-    m_children.push_back(pNode);
-    ++pNode->m_initPredecessorCount;
-    pNode->m_currPredecessorCount.fetch_add(1, gts::memory_order::relaxed);
-}
+    std::unordered_set<Node*> visited;
 
-//------------------------------------------------------------------------------
-void Node::removeChild(Node* pNode)
-{
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
-    for (size_t ii = 0, len = m_children.size(); ii < len; ++ii)
+    std::queue<Node*> q;
+    q.push(pSource);
+
+    while(!q.empty())
     {
-        if (pNode == m_children[ii])
+        Node* pCurr = q.front(); q.pop();
+        visited.insert(pCurr);
+        pCurr->reset();
+
+        for(Node* pSucc : pCurr->successors())
         {
-            std::swap(m_children[ii], m_children.back());
-            m_children.pop_back();
-            --pNode->m_initPredecessorCount;
-            pNode->m_currPredecessorCount.fetch_sub(1, gts::memory_order::relaxed);
+            if(visited.find(pSucc) == visited.end())
+            {
+                q.push(pSucc);
+            }
         }
     }
 }
 
 //------------------------------------------------------------------------------
-void Node::setPriority(uint32_t priority)
+void Node::removeWorkload(WorkloadType::Enum type)
 {
-    m_priority = priority;
+    m_pMyScheduler->_freeWorkload(m_workloadsByType[type]);
+    m_workloadsByType[type] = nullptr;
 }
 
 //------------------------------------------------------------------------------
 void Node::reset()
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
-    m_currPredecessorCount.store(m_initPredecessorCount, gts::memory_order::relaxed);
+    m_predecessorCompleteCount.store(m_initPredecessorCount, memory_order::relaxed);
+    m_currPredecessorCount.store(m_initPredecessorCount, memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------
-bool Node::finishPredecessor()
+void Node::addSuccessor(Node* pNode)
 {
-    Lock<UnfairSpinMutex> lock(m_accessorMutex);
-    return(
-        // No Race Case: T0 observes refcount > 1 and completes removeRef(1) before T1
-        // observes refcount. In this case T1 cannot race and it will see
-        // refcount == 1, short circuiting the atomic.
-        m_currPredecessorCount.load(gts::memory_order::acquire) == 1 ||
-        // Race Case: T0 and T1 can both observe refcount > 1, so they must use
-        // removeRef(1) to not race. Since both threads took this path, the thread
-        // that sees refcount == 0 is the winner.
-        m_currPredecessorCount.fetch_sub(1) == 0);
+    m_successors.push_back(pNode);
+    pNode->m_predecessors.push_back(this);
+    ++pNode->m_initPredecessorCount;
+    pNode->m_currPredecessorCount.fetch_add(1, memory_order::acq_rel);
+}
+
+//------------------------------------------------------------------------------
+void Node::removeSuccessor(Node* pNode)
+{
+    for (size_t ii = 0; ii < m_successors.size(); ++ii)
+    {
+        if (pNode == m_successors[ii])
+        {
+            // Remove pNode from this Node's children.
+            std::swap(m_successors[ii], m_successors.back());
+            m_successors.pop_back();
+
+            // Remove this from pNode's predecessor list.
+            for (size_t jj = 0; jj < pNode->m_predecessors.size(); ++jj)
+            {
+                if (this == pNode->m_predecessors[jj])
+                {
+                    std::swap(pNode->m_predecessors[jj], pNode->m_predecessors.back());
+                    pNode->m_predecessors.pop_back();
+                }
+            }
+
+            // Remove pNode from this Node's children.
+            --pNode->m_initPredecessorCount;
+            pNode->m_currPredecessorCount.fetch_sub(1, memory_order::release);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void Node::setName(const char* format, ...)
+{
+    GTS_ASSERT(format);
+    va_list args;
+    va_start(args, format);
+    #if GTS_MSVC
+        vsnprintf_s(m_name, NODE_NAME_MAX, format, args);
+    #elif GTS_LINUX
+        vsnprintf(m_name, NODE_NAME_MAX, format, args);
+    #endif
+    va_end(args);
 }
 
 } // namespace gts

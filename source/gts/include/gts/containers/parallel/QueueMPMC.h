@@ -21,7 +21,13 @@
  ******************************************************************************/
 #pragma once
 
-#include "gts/containers/parallel/QueueSkeleton.h"
+#include "gts/platform/Machine.h"
+#include "gts/platform/Assert.h"
+#include "gts/platform/Utils.h"
+#include "gts/platform/Atomic.h"
+#include "gts/platform/Thread.h"
+#include "gts/analysis/Trace.h"
+#include "gts/containers/AlignedAllocator.h"
 
 #ifdef GTS_MSVC
 #pragma warning( push )
@@ -30,61 +36,259 @@
 
 namespace gts {
 
+/** 
+ * @addtogroup Containers
+ * @{
+ */
+
+/** 
+ * @addtogroup ParallelContainers
+ * @{
+ */
+
+namespace internal {
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A unbound, lock-free multi-producer multi-consumer queue.
+ *  A multi-producer, multi-consumer queue. Properties:
+    - Unbound.
+    - Linearizable.
+    - Contiguous memory.
  * @tparam T
  *  The type stored in the container.
- * @tparam TStorage
- *  The storage backing for the container. Must be a random access container,
- *  such as std::vector or std::deque.
+ * @tparam TMutex
+ *  The mutex type that guards access to the container.
  * @tparam TAllocator
- *  The allocator used by the storage backing.
+ *  The allocator used for T.
+ * @tparam TSize
+ *  The integral type used for the container size.
  */
 template<
     typename T,
-    template <typename, typename> class TStorage = gts::Vector,
-    typename TAllocator = gts::AlignedAllocator<T, GTS_NO_SHARING_CACHE_LINE_SIZE>>
-class QueueMPMC
+    typename TMutex     = UnfairSpinMutex<>,
+    typename TAllocator = AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>
+class TicketQueueMPMC : private TAllocator
 {
 public:
 
-    using interal_queue   = QueueSkeleton<T, TStorage, TAllocator>;
-
-    using value_type      = typename interal_queue::value_type;
-    using size_type       = typename interal_queue::size_type;
-    using index_size_type = typename interal_queue::index_size_type;
-    using allocator_type  = typename interal_queue::allocator_type;
-    using storage_type    = typename interal_queue::storage_type;
+    using value_type     = T;
+    using mutex_type     = TMutex;
+    using size_type      = size_t;
+    using allocator_type = TAllocator;
 
 public: // STRUCTORS
 
-    QueueMPMC(allocator_type const& allocator = allocator_type());
-    ~QueueMPMC();
+    explicit TicketQueueMPMC(size_t numQueues, allocator_type const& allocator = allocator_type());
+    TicketQueueMPMC(size_t numQueues, size_type sizePow2, allocator_type const& allocator = allocator_type());
+    ~TicketQueueMPMC();
 
     /**
      * Copy constructor.
      * @remark Not thread-safe.
      */
-    QueueMPMC(QueueMPMC const& other);
+    TicketQueueMPMC(TicketQueueMPMC const& other);
     
     /**
      * Move constructor.
      * @remark Not thread-safe.
      */
-    QueueMPMC(QueueMPMC&& other);
+    TicketQueueMPMC(TicketQueueMPMC&& other);
 
     /**
      * Copy assignment.
      * @remark Not thread-safe.
      */
-    QueueMPMC& operator=(QueueMPMC const& other);
+    TicketQueueMPMC& operator=(TicketQueueMPMC const& other);
 
     /**
      * Move assignment.
      * @remark Not thread-safe.
+     */
+    TicketQueueMPMC& operator=(TicketQueueMPMC&& other);
+
+public: // ACCESSORS
+
+    /**
+     * @return True of the queue is empty, false otherwise.
+     * @remark Thread-safe. 
+     */
+    bool empty() const;
+
+    /**
+     * @return The number of elements in the queue.
+     * @remark Thread-safe.
+     */
+    size_type size() const;
+
+    /**
+     * @return The capacity of the queue.
+     * @remark Thread-safe, but may return a previous value of capacity.
+     */
+    size_type capacity() const;
+
+    /**
+     * @return This queue's allocator.
+     * @remark Thread-safe.
+     */
+    allocator_type get_allocator() const;
+
+public: // MUTATORS
+
+    /**
+     * Increases the capacity of the queue. Does nothing if 'sizePow2' < capacity.
+     * @remark Thread-safe.
+     */
+    void reserve(size_type sizePow2);
+
+    /**
+     * Removes all elements from the queue.
+     * @remark Thread-safe.
+     */
+    void clear();
+
+    /**
+     * Copies 'val' into the queue.
+     * @return True if the pop push, false otherwise.
+     * @remark Thread-safe.
+     */
+    bool tryPush(size_type ticket, const value_type& val);
+
+    /**
+     * Moves 'val' into the queue.
+     * @return True if the pop push, false otherwise.
+     * @remark Thread-safe.
+     */
+    bool tryPush(size_type ticket, value_type&& val);
+
+    /**
+     * Pops an element from the queue and copies it into 'out'.
+     * @return True if the pop succeeded, false otherwise.
+     * @remark Thread-safe.
+     */
+    bool tryPop(size_type ticket, value_type& out);
+
+private:
+
+    template<typename... TArgs>
+    bool _insert(size_t ticket, TArgs&&... args);
+
+    void _deepCopy(TicketQueueMPMC const& src);
+
+    GTS_NO_INLINE bool _grow(size_type size, size_type front, size_type back);
+
+    //! The maximum capacity is half the range of the index type, such
+    //! that when it wraps around, it will be zero at index zero. This
+    //! prevents the dual state of full and empty.
+    static constexpr size_type MAX_CAPACITY = numericLimits<size_type>::max() / 2;
+
+private:
+
+    //! A mask for an incoming ticket that removes the global index space.
+    const size_type m_ticketMask;
+
+    //! A shift for an incoming ticket that moves it into local index space.
+    const size_type m_ticketShift;
+
+    //! The next item to pop.
+    size_type m_front;
+
+    //! The last item index.
+    size_type m_back;
+
+    //! The mutex guard.
+    mutable mutex_type m_mutex;
+
+    //! The storage ring buffers.
+    value_type* m_pRingBuffer;
+
+    //! The size of m_pRingBuffer - 1.
+    size_type m_mask;
+};
+
+} // namespace internal
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  A multi-producer, multi-consumer queue. Properties:
+    - Unbound.
+    - Distributed to reduce contention.
+ * @tparam T
+ *  The type stored in the container.
+ * @tparam TMutex
+ *  The mutex type that guards access to the container.
+ * @tparam TAllocator
+ *  The allocator type used for the container.
+ * @tparam TSize
+ *  The integral type used for the container size.
+ */
+template<
+    typename T,
+    typename TMutex     = UnfairSpinMutex<>,
+    typename TAllocator = AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>
+class QueueMPMC : private TAllocator
+{
+public:
+
+    using queue_type       = internal::TicketQueueMPMC<T, TMutex, TAllocator>;
+    using value_type       = typename queue_type::value_type;
+    using mutex_type       = typename queue_type::mutex_type;
+    using size_type        = typename queue_type::size_type;
+    using allocator_type   = typename queue_type::allocator_type;
+
+public: // STRUCTORS
+
+    /**
+     * Constructs an empty container with 'numSubQueuesPow2' sub vectors and
+     * with the given 'allocator'.
+     * @remark
+     *  Thread-safe.
+     */
+    explicit QueueMPMC(
+        size_t numSubQueuesPow2 = Thread::getHardwareThreadCount(),
+        allocator_type const& allocator = allocator_type());
+
+    /**
+     * Destructs the container. The destructors of the elements are called and the
+     * used storage is deallocated.
+     * @remark
+     *  Not thread-safe.
+     */
+    ~QueueMPMC();
+
+    /**
+     * Copy constructor. Constructs the container with the copy of the contents
+     * of 'other'.
+     * @remark
+     *  Not thread-safe.
+     */
+    QueueMPMC(QueueMPMC const& other);
+    
+    /**
+     * Move constructor. Constructs the container with the contents of other
+     * using move semantics. After the move, other is invalid.
+     * @remark
+     *  Not thread-safe.
+     */
+    QueueMPMC(QueueMPMC&& other);
+
+    /**
+     * Copy assignment operator. Replaces the contents with a copy of the
+     * contents of 'other'.
+     * @remark
+     *  Not thread-safe.
+     */
+    QueueMPMC& operator=(QueueMPMC const& other);
+
+    /**
+     * Move assignment operator. Replaces the contents with those of other using
+     * move semantics. After the move, other is invalid.
+     * @remark
+     *  Not thread-safe.
      */
     QueueMPMC& operator=(QueueMPMC&& other);
 
@@ -92,64 +296,97 @@ public: // ACCESSORS
 
     /**
      * @return True of the queue is empty, false otherwise.
+     * @remark Not thread-safe. 
      */
     bool empty() const;
 
     /**
      * @return The number of elements in the queue.
+     * @remark Not thread-safe.
      */
     size_type size() const;
 
     /**
      * @return The capacity of the queue.
+     * @remark Not thread-safe.
      */
     size_type capacity() const;
+
+    /**
+     * @return This queue's allocator.
+     * @remark Thread-safe.
+     */
+    allocator_type get_allocator() const;
 
 public: // MUTATORS
 
     /**
+     * Increases the capacity of the queue. Does nothing if 'sizePow2' < capacity.
+     * @remark Not thread-safe.
+     */
+    void reserve(size_type sizePow2);
+
+    /**
      * Removes all elements from the queue.
+     * @remark Not thread-safe.
      */
     void clear();
 
     /**
-     * A multi-producer-safe push operation.
+     * Copies 'val' into the queue.
+     * @return True if the pop push, false otherwise.
+     * @remark Thread-safe.
      */
     bool tryPush(const value_type& val);
 
     /**
-     * A multi-producer-safe push operation.
+     * Moves 'val' into the queue.
+     * @return True if the pop push, false otherwise.
+     * @remark Thread-safe.
      */
     bool tryPush(value_type&& val);
 
     /**
-     * A multi-consumer-safe pop operation.
+     * Pops an element from the queue and copies it into 'out'.
      * @return True if the pop succeeded, false otherwise.
+     * @remark Thread-safe.
      */
     bool tryPop(value_type& out);
 
 private:
 
-    GTS_INLINE bool _grow(size_type size, index_size_type front, index_size_type back);
+    //! The maximum capacity is half the range of the index type, such
+    //! that when it wraps around, it will be zero at index zero. This
+    //! prevents the dual state of full and empty.
+    static constexpr size_type MAX_CAPACITY = numericLimits<size_type>::max() / 2;
 
-    enum : index_size_type
+    size_type index(size_type t)
     {
-        //! The maximum capacity is half the range of the index type, such
-        //! that when it wraps around, it will be zero at index zero. This
-        //! prevents the dual state of full and empty.
-        MAX_CAPACITY = (index_size_type)(UINT32_MAX / 2)
-    };
+        return t & (m_numSubQueues - 1);
+    }
 
 private:
 
-    interal_queue m_queue;
-    UnfairSpinMutex m_accessorMutex;
-};
+    //! The next item to pop.
+    GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) Atomic<size_type> m_front;
 
-#include "QueueMPMC.inl"
+    //! The next item to push.
+    GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) Atomic<size_type> m_back;
+
+    //! Distributed sub queues.
+    queue_type* m_pSubQueues;
+
+    //! The number of distributed sub queues.
+    size_t m_numSubQueues;
+};
 
 #ifdef GTS_MSVC
 #pragma warning( pop )
 #endif
 
+/** @} */ // end of ParallelContainers
+/** @} */ // end of Containers
+
 } // namespace gts
+
+#include "QueueMPMC.inl"

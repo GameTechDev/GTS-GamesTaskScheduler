@@ -21,17 +21,32 @@
  ******************************************************************************/
 #pragma once
 
+#include <gts/micro_scheduler/WorkerPool.h>
+#include <gts/micro_scheduler/MicroScheduler.h>
+
 #include "gts_perf/Stats.h"
 
-Stats schedulerOverheadParForPerf(uint32_t size, uint32_t iterations, uint32_t threadCount, bool affinitize);
-Stats schedulerOverheadFibPerf(uint32_t fibN, uint32_t iterations, uint32_t threadCount, bool affinitize);
-Stats poorDistributionPerf(uint32_t taskCount, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats spawnTaskOverheadWithoutAllocPerf(gts::MicroScheduler& taskScheduler, uint32_t iterations);
+Stats spawnTaskOverheadWithAllocCachingPerf(gts::MicroScheduler& taskScheduler, uint32_t iterations);
+Stats spawnTaskOverheadWithAllocPerf(gts::MicroScheduler& taskScheduler, uint32_t iterations);
+
+Stats schedulerOverheadParForPerf(gts::MicroScheduler& taskScheduler, uint32_t size, uint32_t iterations);
+Stats schedulerOverheadFibPerf(gts::MicroScheduler& taskScheduler, uint32_t fibN, uint32_t iterations);
+Stats poorDistributionPerf(gts::MicroScheduler& taskScheduler, uint32_t taskCount, uint32_t iterations);
+Stats poorSystemDistributionPerf(gts::WorkerPool& workerPool, uint32_t iterations);
 
 Stats mandelbrotPerfSerial(uint32_t dimensions, uint32_t iterations);
-Stats mandelbrotPerfParallel(uint32_t dimensions, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimensions, uint32_t iterations);
 
 Stats aoBenchPerfSerial(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations);
-Stats aoBenchPerfParallel(uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats aoBenchPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t w, uint32_t h, uint32_t nsubsamples, uint32_t iterations);
 
-Stats matMulPefSerial(const uint32_t M, const uint32_t N, const uint32_t K, uint32_t iterations);
-Stats matMulPefParallel(const uint32_t M, const uint32_t N, const uint32_t K, uint32_t iterations, uint32_t threadCount, bool affinitize);
+Stats matMulPefSerial(const size_t M, const size_t N, const size_t K, size_t iterations);
+Stats matMulPefParallel(gts::MicroScheduler& taskScheduler, const size_t M, const size_t N, const size_t K, size_t iterations);
+
+Stats mpmcQueuePerfSerial(const uint32_t itemCount, uint32_t iterations);
+Stats mpmcQueuePerfParallel(const uint32_t threadCount, const uint32_t itemCount, uint32_t iterations);
+
+Stats homoRandomDagWorkStealing(uint32_t iterations);
+Stats heteroRandomDagWorkStealing(uint32_t iterations, bool bidirectionalStealing);
+Stats heteroRandomDagCriticallyAware(uint32_t iterations);

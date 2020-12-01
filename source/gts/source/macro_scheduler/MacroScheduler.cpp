@@ -21,7 +21,8 @@
  ******************************************************************************/
 #include "gts/macro_scheduler/MacroScheduler.h"
 #include "gts/macro_scheduler/Node.h"
-#include "gts/macro_scheduler/ISchedule.h"
+#include "gts/macro_scheduler/Schedule.h"
+#include "gts/macro_scheduler/ComputeResource.h"
 
 namespace gts {
 
@@ -33,32 +34,48 @@ MacroScheduler::MacroScheduler()
 MacroScheduler::~MacroScheduler()
 {}
 
+// ACCESSORS:
+
+//------------------------------------------------------------------------------
+ComputeResource* MacroScheduler::findComputeResource(ComputeResourceId id)
+{
+    for (size_t ii = 0; ii < m_computeResources.size(); ++ii)
+    {
+        if (m_computeResources[ii]->id() == id)
+        {
+            return m_computeResources[ii];
+        }
+    }
+    return nullptr;
+}
+
+//--------------------------------------------------------------------------
+Vector<ComputeResource*> const& MacroScheduler::computeResources() const
+{
+    return m_computeResources;
+}
+
+// MUTATORS:
+
 //--------------------------------------------------------------------------
 Node* MacroScheduler::allocateNode()
 {
     // TODO: parallel allocator if needed.
-    return new Node(this);
+    return alignedNew<Node, GTS_NO_SHARING_CACHE_LINE_SIZE>(this);
 }
 
 //--------------------------------------------------------------------------
 void MacroScheduler::destroyNode(Node* pNode)
 {
     // TODO: parallel allocator if needed.
-    delete pNode;
+    alignedDelete(pNode);
 }
 
 //--------------------------------------------------------------------------
-void MacroScheduler::freeSchedule(ISchedule* pSchedule)
-{
-    delete pSchedule;
-    pSchedule = nullptr;
-}
-
-//--------------------------------------------------------------------------
-void* MacroScheduler::_allocateWorkload(size_t size, size_t alignment)
+void* MacroScheduler::_allocateWorkload(size_t size)
 {
     // TODO: parallel allocator if needed.
-    return GTS_ALIGNED_MALLOC(size, alignment);
+    return GTS_ALIGNED_MALLOC(size, GTS_NO_SHARING_CACHE_LINE_SIZE);
 }
 
 //--------------------------------------------------------------------------

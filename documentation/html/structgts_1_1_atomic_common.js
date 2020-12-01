@@ -3,7 +3,7 @@ var structgts_1_1_atomic_common =
     [ "~AtomicCommon", "structgts_1_1_atomic_common.html#a402efad957c922288ce1635c2ae6f441", null ],
     [ "AtomicCommon", "structgts_1_1_atomic_common.html#a81864218259246fb9ec74315e5f265ea", null ],
     [ "AtomicCommon", "structgts_1_1_atomic_common.html#a653859c52b9034abbbed97b790a9bca1", null ],
-    [ "AtomicCommon", "structgts_1_1_atomic_common.html#a9bf5c9c331acd3cc6a489f31c16b2c64", null ],
+    [ "AtomicCommon", "structgts_1_1_atomic_common.html#abc017e5f1318f6846990158abdddb4a7", null ],
     [ "compare_exchange_strong", "structgts_1_1_atomic_common.html#a769029627cdef726ef929b1ec16d1c6a", null ],
     [ "compare_exchange_weak", "structgts_1_1_atomic_common.html#a70a425adecf101f5d2bf14967fcf3f7d", null ],
     [ "exchange", "structgts_1_1_atomic_common.html#ae6f12abaef0b2594a12a63a63478c697", null ],

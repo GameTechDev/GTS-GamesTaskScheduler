@@ -21,7 +21,13 @@
  ******************************************************************************/
 #include "gts/platform/Assert.h"
 
-static gts::assertHook g_assertHook = nullptr;
+#include "gts/analysis/Trace.h"
+
+static gts::assertHook g_assertHook = [](const char* log)
+{
+    printf("%s", log);
+    GTS_TRACE_DUMP("fail.txt");
+};
 
 namespace gts {
 

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['max_5fsplits_1022',['MAX_SPLITS',['../structgts_1_1_split_result.html#a88623ece4043075bbcefe4d27051af37a197068be37366f4b8bb59dae9ff8e9fc',1,'gts::SplitResult']]]
+  ['opencl_1099',['OpenCL',['../structgts_1_1_workload_type.html#a6918bae22f2942631bd82477df4a0824a584e7f83838669dea49ad4ad49009af4',1,'gts::WorkloadType']]]
 ];

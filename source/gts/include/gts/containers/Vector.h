@@ -21,91 +21,302 @@
  ******************************************************************************/
 #pragma once
 
-#ifndef GTS_USE_CUSTOM_VECTOR
-#include <vector>
-#endif
+#include "gts/platform/Assert.h"
+#include "gts/containers/AlignedAllocator.h"
 
 namespace gts {
+
+/** 
+ * @addtogroup Containers
+ * @{
+ */
+
+/** 
+ * @addtogroup Serial
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A wrapper class for a stl-like vector. Uses the STL by default. Define
- *  GTS_USE_CUSTOM_VECTOR to add your own backend, or replace everything
- *  completely as long as this interface contract remains.
+ *  A re-sizable array-like ADT. A subset of the STL Vector interface.
+ * @tparam T
+ *  The element type stored in the container.
+ * @tparam TAllocator
+ *  The allocator used by the storage backing.
  */
-template<typename T, typename TAlloc = std::allocator<T>>
-class Vector
+template<
+    typename T,
+    typename TAllocator = AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>
+>
+class Vector : private TAllocator
 {
 public:
 
-#ifndef GTS_USE_CUSTOM_VECTOR
-    using iterator               = typename std::vector<T, TAlloc>::iterator;
-    using const_iterator         = typename std::vector<T, TAlloc>::const_iterator;
-    using reverse_iterator       = typename std::vector<T, TAlloc>::reverse_iterator;
-    using const_reverse_iterator = typename std::vector<T, TAlloc>::const_reverse_iterator;
-#else
-    #error "Missing custom Vector iterator."
-#endif
+    using size_type      = size_t;
+    using value_type     = T;
+    using allocator_type = TAllocator;
 
-    Vector() = default;
-    explicit Vector(size_t count, const TAlloc& alloc = TAlloc());
-    Vector(size_t count, T const& fill, const TAlloc& alloc = TAlloc());
+public: // STRUCTORS:
 
-    iterator begin();
-    const_iterator begin() const;
-    const_iterator cbegin() const;
+    /**
+     * @brief
+     *  Destructs the container. The destructors of the elements are called and the
+     *  used storage is deallocated.
+     */
+    ~Vector();
 
-    iterator end();
-    const_iterator end() const;
-    const_iterator cend() const;
+    /**
+     * @brief
+     *  Constructs an empty container with the given 'allocator'.
+     */
+    explicit Vector(const allocator_type& allocator = allocator_type());
 
-    reverse_iterator rbegin();
-    const_reverse_iterator rbegin() const;
-    const_reverse_iterator crbegin() const;
+    /**
+     * @brief
+     *  Constructs the container with 'count' copies of default constructed values.
+     */
+    explicit Vector(size_type count, const allocator_type& allocator = allocator_type());
 
-    reverse_iterator rend();
-    const_reverse_iterator rend() const;
-    const_reverse_iterator crend() const;
+    /**
+     * @brief
+     *  Constructs the container with 'count' copies of elements with value 'fill'.
+     */
+    Vector(size_type count, value_type const& fill, const allocator_type& alloc = allocator_type());
 
-    T& operator[](size_t pos);
-    T const& operator[](size_t pos) const;
+    /**
+     * @brief
+     *  Copy constructor. Constructs the container with the copy of the contents
+     *  of 'other'.
+     */
+    Vector(Vector const& other);
 
-    T& back();
-    T const& back() const;
+    /**
+     * @brief
+     *  Move constructor. Constructs the container with the contents of other
+     *  using move semantics. After the move, other is invalid.
+     */
+    Vector(Vector&& other);
 
-    T& front();
-    T const& front() const;
-    
-    void push_back(T const& val);
-    void push_back(T&& val);
-    void pop_back();
-    void resize(size_t count);
-    void resize(size_t count, T const& val);
-    void reserve(size_t count);
-    void clear();
-    void shrink_to_fit();
-    T* data();
-    T const* data() const;
+    /**
+     * @brief
+     *  Copy assignment operator. Replaces the contents with a copy of the
+     *  contents of 'other'.
+     */
+    Vector& operator=(Vector const& other);
 
+    /**
+     * @brief
+     * Move assignment operator. Replaces the contents with those of other using
+     * move semantics. After the move, other is invalid.
+     */
+    Vector& operator=(Vector&& other);
+
+public: // CAPACITY:
+
+    /**
+     * @brief
+     *  Checks if the contains has no elements.
+     * @returns
+     *  True if empty, false otherwise.
+     */
     bool empty() const;
-    size_t size() const;
+
+    /**
+     * @brief
+     *  Gets the number of elements in the container.
+     * @returns
+     *  The size.
+     */
+    size_type size() const;
+
+    /**
+     * @brief
+     *  Gets the number of elements that can be held in the currently
+     *  allocated storage.
+     * @returns
+     *  The capacity.
+     */
+    size_type capacity() const;
+
+public: // ELEMENT ACCESS:
+
+    /**
+     * @brief
+     *  Gets a pointer to the first element;
+     * @returns
+     *  An element pointer.
+     */
+    value_type const* begin() const;
+
+    /**
+     * @brief
+     *  Gets a pointer to the first element;
+     * @returns
+     *  An element pointer.
+     */
+    value_type* begin();
+
+    /**
+     * @brief
+     *  Gets a pointer to one past the last element;
+     * @returns
+     *  An element pointer.
+     */
+    value_type const* end() const;
+
+    /**
+     * @brief
+     *  Gets a pointer to one past the last element;
+     * @returns
+     *  An element pointer.
+     */
+    value_type* end();
+
+    /**
+     * @brief
+     *  Gets the first element.
+     * @returns
+     *  An element.
+     */
+    value_type const& front() const;
+
+    /**
+     * @brief
+     *  Gets the first element.
+     * @returns
+     *  An element.
+     */
+    value_type& front();
+
+    /**
+     * @brief
+     *  Gets the last element.
+     * @returns
+     *  An element.
+     */
+    value_type const& back() const;
+
+    /**
+     * @brief
+     *  Gets the last element.
+     * @returns
+     *  An element.
+     */
+    value_type& back();
+
+    /**
+     * @brief
+     *  Gets the element at \a pos.
+     * @returns
+     *  An element.
+     */
+    value_type const& operator[](size_type pos) const;
+
+    /**
+     * @brief
+     *  Gets the element at \a pos.
+     * @returns
+     *  An element.
+     */
+    value_type& operator[](size_type pos);
+
+    /**
+     * @brief
+     *  A pointer to the underlying storage array.
+     * @returns
+     *  The storage array.
+     */
+    value_type const* data() const;
+
+    /**
+     * @brief
+     *  A pointer to the underlying storage array.
+     * @returns
+     *  The storage array.
+     */
+    value_type* data();
+
+    /**
+     * @brief
+     *  Get this Vectors allocator.
+     * @returns
+     *  The allocator.
+     */
+    allocator_type get_allocator() const;
+
+public: // MUTATORS:
+
+    /**
+     * Copies 'val' to the end.
+     */
+    void push_back(value_type const& val);
+
+    /**
+     * Moves 'val' to the end.
+     */
+    void push_back(value_type&& val);
+
+    /**
+     * Construct a new element at the end.
+     */
+    template<typename... TArgs>
+    void emplace_back(TArgs&&... args);
+
+    /**
+     * Removes and destroys the element at the end.
+     */
+    void pop_back();
+
+    /**
+     * Resize the vector to have 'count' elements. If count > size(), new
+     * will be default constructed.
+     */
+    void resize(size_type count);
+
+    /**
+     * Resize the vector to have 'count' elements. If count > size(), new
+     * will be constructed with the value of 'fill'.
+     */
+    void resize(size_type count, value_type const& fill);
+
+    /**
+     * Grow the underlying array if count > capacity, otherwise it does nothing.
+     */
+    void reserve(size_type count);
+
+    /**
+     * Resize the array to size().
+     */
+    void shrink_to_fit();
+
+    /**
+     * Removes all elements but does not destroy the underlying array.
+     */
+    void clear();
 
 private:
 
-#ifndef GTS_USE_CUSTOM_VECTOR
-    std::vector<T, TAlloc> m_vec;
-#else
-    #error "Missing custom Vector type."
-#endif
+    template<typename... TArgs>
+    void _init(size_type count, TArgs&&... args);
+    void _grow(size_type capacity);
+    void _shrink(size_type capacity);
+    void _deepCopy(Vector& dst, Vector const& src);
+
+    //! A pointer to the beginning of the storage array.
+    value_type* m_pBegin;
+
+    //! The number of element in the container.
+    size_type m_size;
+
+    //! The size of the storage array.
+    size_type m_capacity;
 };
 
-#ifndef GTS_USE_CUSTOM_VECTOR
-    #include "VectorImpl_STL.inl"
-#else
-    #error "Missing custom vector implementation."
-#endif
+/** @} */ // end of Serial
+/** @} */ // end of Containers
 
+#include "VectorImpl.inl"
 
 } // namespace gts

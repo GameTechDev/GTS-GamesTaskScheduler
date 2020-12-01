@@ -23,23 +23,28 @@
 
 #include <cstdint>
 #include "gts/containers/Vector.h"
-#include "gts/macro_scheduler/ComputeResourceType.h"
 #include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 namespace gts {
 
 class ComputeResource;
-class ISchedule;
+class Schedule;
 class Node;
 class DistributedSlabAllocatorBucketed;
 class MacroScheduler;
+
+/** 
+ * @defgroup MacroScheduler
+ *  Coarse-grained, persistent task scheduling framework.
+ * @{
+ */
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief
- *  A MacroScheduler builds ISchedules for a set of ComputeResources
- *  from a DAG of Nodes.
+ *  A MacroScheduler builds ISchedules for a set of ComputeResource%s
+ *  from a DAG of Node.
  */
 class MacroScheduler
 {
@@ -52,12 +57,26 @@ public: // STRUCTORS:
      */
     virtual ~MacroScheduler();
 
-public: // MUTATORS:
+public: // LIFETIME:
 
     /**
      * Initializes the IMacroScheduler object based on 'desc'.
      */
     virtual bool init(MacroSchedulerDesc const& desc) = 0;
+
+public: // ACCESSORS:
+
+    /**
+     * @return A ComputeResource or nullptr if DNE.
+     */
+    ComputeResource* findComputeResource(ComputeResourceId id);
+
+    /**
+     * @return Get a list of all the ComputeResource.
+     */
+    Vector<ComputeResource*> const& computeResources() const;
+
+public: // MUTATORS:
 
     /**
      * Allocate a Node that can be inserted into a DAG.
@@ -71,39 +90,37 @@ public: // MUTATORS:
     void destroyNode(Node* pNode);
 
     /**
+     * Free an existing Schedule from memory.
+     */
+    virtual void freeSchedule(Schedule* pSchedule) = 0;
+
+    /**
      * Builds a schedule from the specified DAG that begins at 'pStart' and ends
      * at 'pEnd'.
      * @returns
-     *  An ISchedule or nullptr if the DAG is invalid.
+     *  An Schedule or nullptr if the DAG is invalid.
      */
-    virtual ISchedule* buildSchedule(Node* pStart, Node* pEnd) = 0;
+    virtual Schedule* buildSchedule(Node* pStart, Node* pEnd) = 0;
 
     /**
-     * Free an existing ISchedule from memory.
+     * Executes the specified 'pSchedule' and uses the specified ComputeResource
+     * 'id' for the calling thread. Setting 'id' to UNKNOWN_COMP_RESOURCE will
+     * not use the calling thread.
      */
-    void freeSchedule(ISchedule* pSchedule);
-
-    /**
-     * Executes the specified 'pSchedule'.
-     */
-    virtual void executeSchedule(ISchedule* pSchedule) = 0;
+    virtual void executeSchedule(Schedule* pSchedule, ComputeResourceId id) = 0;
 
 protected:
 
     friend class Node;
 
-    template<typename T> 
-    void _deleteWorkload(T* ptr)
-    {
-        if(ptr != nullptr)
-        {
-            ptr->~T();
-        }
-        _freeWorkload(ptr);
-    }
-
-    void* _allocateWorkload(size_t size, size_t alignment);
+    void* _allocateWorkload(size_t size);
     void _freeWorkload(void* ptr);
+
+protected:
+
+    Vector<ComputeResource*> m_computeResources;
 };
+
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

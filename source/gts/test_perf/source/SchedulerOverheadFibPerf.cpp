@@ -29,7 +29,7 @@
 
  //------------------------------------------------------------------------------
  // A task that explicitly represent a join.
-struct ParallelFibContinuationTask
+struct ParallelFibContinuationTask : public gts::Task
 {
     ParallelFibContinuationTask(
         uint32_t l,
@@ -43,16 +43,15 @@ struct ParallelFibContinuationTask
     uint64_t r;
     uint64_t* sum;
 
-    static gts::Task* taskFunc(gts::Task* thisTask, gts::TaskContext const&)
+    gts::Task* execute(gts::TaskContext const&)
     {
-        ParallelFibContinuationTask& data = *(ParallelFibContinuationTask*)thisTask->getData();
-        *(data.sum) = data.l + data.r;
+        *sum = l + r;
         return nullptr;
     }
 };
 
 //------------------------------------------------------------------------------
-struct ParallelFibTask
+struct ParallelFibTask : public gts::Task
 {
     uint32_t fibN;
     uint64_t* sum;
@@ -63,15 +62,9 @@ struct ParallelFibTask
         : fibN(fibN)
         , sum(sum) {}
 
-    static gts::Task* taskFunc(gts::Task* pThisTask, gts::TaskContext const& ctx)
+    gts::Task* execute(gts::TaskContext const& ctx)
     {
-        // Unpack the data.
-        ParallelFibTask& data = *(ParallelFibTask*)pThisTask->getData();
-
-        uint32_t fibN = data.fibN;
-        uint64_t* sum = data.sum;
-
-        if (data.fibN <= 2)
+        if (fibN <= 2)
         {
             *sum = 1;
             return nullptr;
@@ -79,25 +72,24 @@ struct ParallelFibTask
         else
         {
             // Create the continuation task with the join function.
-            gts::Task* pContinuationTask = ctx.pMicroScheduler->allocateTaskRaw(ParallelFibContinuationTask::taskFunc, sizeof(ParallelFibContinuationTask));
-            ParallelFibContinuationTask* pContinuationData = pContinuationTask->emplaceData<ParallelFibContinuationTask>(0, 0, sum);
-            pThisTask->setContinuationTask(pContinuationTask);
+            ParallelFibContinuationTask* pContinuationTask = ctx.pMicroScheduler->allocateTask<ParallelFibContinuationTask>(0, 0, sum);
+            setContinuationTask(pContinuationTask);
             pContinuationTask->addRef(2, gts::memory_order::relaxed);
 
             // Fork f(n-1)
-            gts::Task* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask>(fibN - 1, &pContinuationData->l);
+            ParallelFibTask* pLeftChild = ctx.pMicroScheduler->allocateTask<ParallelFibTask>(fibN - 1, &pContinuationTask->l);
             pContinuationTask->addChildTaskWithoutRef(pLeftChild);
             ctx.pMicroScheduler->spawnTask(pLeftChild);
 
             // Fork/recycle f(n-2)
-
-            pThisTask->recyleAsChildOf(pContinuationTask);
+            recycle();
+            pContinuationTask->addChildTaskWithoutRef(this);
             // Reset the values for the right child.
-            data.fibN -= 2;
-            data.sum = &pContinuationData->r;
+            fibN -= 2;
+            sum = &pContinuationTask->r;
 
             // Now we just bypass with this task!
-            return pThisTask;
+            return this;
         }
     }
 };
@@ -106,48 +98,15 @@ struct ParallelFibTask
 /**
  * Test the overhead of the Micro-scheduler through the low-level interface.
  */
-Stats schedulerOverheadFibPerf(uint32_t fibN, uint32_t iterations, uint32_t threadCount, bool affinitize)
+Stats schedulerOverheadFibPerf(gts::MicroScheduler& taskScheduler, uint32_t fibN, uint32_t iterations)
 {
     Stats stats(iterations);
-
-    gts::WorkerPool workerPool;
-    if (affinitize)
-    {
-        gts::WorkerPoolDesc desc;
-
-        gts::CpuTopology topology;
-        gts::Thread::getCpuTopology(topology);
-
-        gts::Vector<uintptr_t> affinityMasks;
-
-        for (size_t iThread = 0, threadsPerCore = topology.coreInfo[0].logicalAffinityMasks.size(); iThread < threadsPerCore; ++iThread)
-        {
-            for (auto& core : topology.coreInfo)
-            {
-                affinityMasks.push_back(core.logicalAffinityMasks[iThread]);
-            }
-        }
-
-        for (uint32_t ii = 0; ii < threadCount; ++ii)
-        {
-            gts::WorkerThreadDesc d;
-            d.affinityMask = affinityMasks[ii];
-            desc.workerDescs.push_back(d);
-        }
-
-        workerPool.initialize(desc);
-    }
-    else
-    {
-        workerPool.initialize(threadCount);
-    }
-
-    gts::MicroScheduler taskScheduler;
-    taskScheduler.initialize(&workerPool);
 
     // Do test.
     for (uint32_t ii = 0; ii < iterations; ++ii)
     {
+        GTS_TRACE_FRAME_MARK(gts::analysis::CaptureMask::ALL);
+
         auto start = std::chrono::high_resolution_clock::now();
 
         uint64_t fibVal = 0;
@@ -163,8 +122,6 @@ Stats schedulerOverheadFibPerf(uint32_t fibN, uint32_t iterations, uint32_t thre
         std::chrono::duration<double> diff = end - start;
         stats.addDataPoint(diff.count());
     }
-
-    taskScheduler.shutdown();
 
     return stats;
 }

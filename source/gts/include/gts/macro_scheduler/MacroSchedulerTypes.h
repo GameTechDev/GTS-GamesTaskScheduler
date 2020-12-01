@@ -23,12 +23,32 @@
 
 #include <cstdint>
 #include "gts/containers/Vector.h"
-#include "gts/macro_scheduler/ComputeResourceType.h"
+
+#define GTS_GUIDED_WORK_STEALING 0
 
 namespace gts {
 
 class ComputeResource;
 class MacroScheduler;
+class Node;
+class Workload;
+class Schedule;
+class ParallelFor;
+struct WorkloadContext;
+
+/** 
+ * @addtogroup MacroScheduler
+ * @{
+ */
+
+//! The UID type for identifying each instantiated ComputeResouce.
+using ComputeResourceId = uint32_t;
+
+//! The UID of an unknown ComputeResouce.
+constexpr ComputeResourceId UNKNOWN_COMP_RESOURCE = UINT32_MAX;
+
+//! The UID of any ComputeResouce.
+constexpr ComputeResourceId ANY_COMP_RESOURCE = UNKNOWN_COMP_RESOURCE;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -38,8 +58,8 @@ class MacroScheduler;
  */
 struct MacroSchedulerDesc
 {
-    //! The ComputeResource per type that a MacroScheduler will schedule to.
-    gts::Vector<ComputeResource*> computeResourcesByType[(uint32_t)ComputeResourceType::COUNT];
+    //! The ComputeResource that the MacroScheduler can schedule to.
+    gts::Vector<ComputeResource*> computeResources;
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,8 +70,67 @@ struct MacroSchedulerDesc
  */
 struct WorkloadContext
 {
-    MacroScheduler* pMicroScheduler;
-    ComputeResource* pComputeResource;
+    // The Node this workload is belongs to.
+    Node* pNode;
+
+    // The Schedule this workload is executing under.
+    Schedule* pSchedule = nullptr;
+
+    //! The ComputeResource that spawned this Workload. In a work-stealing
+    //! environment, this may not be the ComputeResources executing the 
+    //! workload. Use pExtra to set info about the current ComputeResource.
+    ComputeResource* pComputeResource = nullptr;
+
+    //! A pointer to extra data needed to execute a workload.
+    void* pExtra = nullptr;
 };
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  An enumeration of all supported Workload languages.
+ */
+struct WorkloadType
+{
+    enum Enum : size_t
+    {
+        //! C++ code.
+        CPP,
+        //! OpenCL kernel.
+        OpenCL,
+        //! SYCL code.
+        SYCL,
+        //! ISPC code.
+        ISPC,
+        // -v-v-v-v-v-v- Declare user type below. -v-v-v-v-v-v-
+
+
+        // -v-v-v-v-v-v- Only COUNT can be declared past here. -v-v-v-v-v-v-
+        COUNT
+    };
+};
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief
+ *  An enumeration of all supported ComputeResource%s.
+ */
+struct ComputeResourceType
+{
+    enum Enum : size_t
+    {
+        //! A CPU MicroScheduler.
+        CpuMicroScheduler,
+        // -v-v-v-v-v-v- Declare user type below. -v-v-v-v-v-v-
+
+
+        // -v-v-v-v-v-v- Only COUNT can be declared past here. -v-v-v-v-v-v-
+        COUNT
+    };
+};
+
+/** @} */ // end of MacroScheduler
 
 } // namespace gts

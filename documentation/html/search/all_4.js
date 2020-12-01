@@ -1,15 +1,21 @@
 var searchData=
 [
-  ['efficiencyclass_149',['efficiencyClass',['../structgts_1_1_cpu_core_info.html#af809621edace29c9bd992be024985fb6',1,'gts::CpuCoreInfo']]],
-  ['emplace_5fback_150',['emplace_back',['../classgts_1_1_parallel_vector.html#a6c3b020687cc7fe75b7b9a8ee1a346f6',1,'gts::ParallelVector::emplace_back()'],['../classgts_1_1_vector.html#ac30df387b037c5bd7d6bb925970b7136',1,'gts::Vector::emplace_back()']]],
-  ['empty_151',['empty',['../classgts_1_1_parallel_vector.html#a7869fa41cb1dfcbe669b2be085cdcc60',1,'gts::ParallelVector::empty()'],['../classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html#a8b64a34bd71b0d23db2a131c4243be27',1,'gts::internal::TicketQueueMPMC::empty()'],['../classgts_1_1_queue_m_p_m_c.html#af46ae245221e49edb30bee06cff64abc',1,'gts::QueueMPMC::empty()'],['../classgts_1_1internal_1_1_ticket_queue_m_p_s_c.html#a63c94bd25726d7985f01fbc46662c454',1,'gts::internal::TicketQueueMPSC::empty()'],['../classgts_1_1_queue_m_p_s_c.html#a7e605d40f49a2aaf70d1dc65d2387dfa',1,'gts::QueueMPSC::empty()'],['../classgts_1_1internal_1_1_ticket_queue_s_p_m_c.html#acbc4054879ad2498a54ecdfd90a161f6',1,'gts::internal::TicketQueueSPMC::empty()'],['../classgts_1_1_queue_s_p_m_c.html#a5dc0db2122c6353857eb406491bcf3db',1,'gts::QueueSPMC::empty()'],['../classgts_1_1_queue_s_p_s_c.html#a25e8d9760c4ad5be27f551bedcdc756f',1,'gts::QueueSPSC::empty()'],['../classgts_1_1_vector.html#a0983396770daceb9e95ca795365aa478',1,'gts::Vector::empty()']]],
-  ['emptytask_152',['EmptyTask',['../classgts_1_1_empty_task.html',1,'gts']]],
-  ['end_153',['end',['../classgts_1_1_parallel_hash_table.html#a390a38ff088c4eb8f37ba9834dbd4d6b',1,'gts::ParallelHashTable::end()'],['../classgts_1_1_parallel_vector.html#ac4e40b6feeafcaaa48a660a54e5c5cdf',1,'gts::ParallelVector::end()']]],
-  ['enum_154',['Enum',['../structgts_1_1_workload_type.html#a6918bae22f2942631bd82477df4a0824',1,'gts::WorkloadType::Enum()'],['../structgts_1_1_compute_resource_type.html#a70245fe0b0997528fcda76105aac2539',1,'gts::ComputeResourceType::Enum()']]],
-  ['enumerateworkerids_155',['enumerateWorkerIds',['../classgts_1_1_worker_pool.html#afe02a0830ea14c50f189e2c3d53c207d',1,'gts::WorkerPool']]],
-  ['enumerateworkertids_156',['enumerateWorkerTids',['../classgts_1_1_worker_pool.html#a4c84d7d6e3a62ca88def108d2a8387d2',1,'gts::WorkerPool']]],
-  ['erase_157',['erase',['../classgts_1_1_parallel_hash_table.html#a0f59189ea3b3304e6ce6cf2919bfba7f',1,'gts::ParallelHashTable::erase(key_type const &amp;key)'],['../classgts_1_1_parallel_hash_table.html#a4aff1cbcc8c97f819afc960709e93dca',1,'gts::ParallelHashTable::erase(iterator &amp;iter)']]],
-  ['evensplitter_158',['EvenSplitter',['../structgts_1_1_even_splitter.html',1,'gts']]],
-  ['execute_159',['execute',['../classgts_1_1_dynamic_micro_scheduler_lambda___workload.html#a17a84e645d802440ab8e34cb61c01fcc',1,'gts::DynamicMicroSchedulerLambda_Workload::execute()'],['../classgts_1_1_workload.html#af2a928c1d0d1b0e4b16480245f811bff',1,'gts::Workload::execute()']]],
-  ['executeschedule_160',['executeSchedule',['../classgts_1_1_macro_scheduler.html#ab08462eae1949fed2aa6fdc973638438',1,'gts::MacroScheduler::executeSchedule()'],['../classgts_1_1_dynamic_micro_scheduler___macro_scheduler.html#a3f03f0c02a6aa5fbf10309f58ca4b898',1,'gts::DynamicMicroScheduler_MacroScheduler::executeSchedule()']]]
+  ['dagutils_144',['DagUtils',['../structgts_1_1_dag_utils.html',1,'gts']]],
+  ['data_145',['data',['../classgts_1_1_vector.html#afef4ac06437a7ddd5925d5c7cd41e34f',1,'gts::Vector::data() const'],['../classgts_1_1_vector.html#a0a6793a4a68418fd367ef7b317cf139c',1,'gts::Vector::data()']]],
+  ['deallocate_146',['deallocate',['../classgts_1_1internal_1_1_block_allocator.html#a0960662bfecca96cc7973c3da0568d7d',1,'gts::internal::BlockAllocator::deallocate()'],['../classgts_1_1_binned_allocator.html#adc2795b6e03f6cf26e11395d51b54ab5',1,'gts::BinnedAllocator::deallocate()']]],
+  ['deallocatepage_147',['deallocatePage',['../structgts_1_1_memory_store.html#a92a8392d65ba8e2422962d638c26046b',1,'gts::MemoryStore']]],
+  ['deallocateslab_148',['deallocateSlab',['../structgts_1_1_memory_store.html#a6fbea84c791991d6c1a066845aef188d',1,'gts::MemoryStore']]],
+  ['dependencyarray_149',['DependencyArray',['../classgts_1_1_dependency_array.html',1,'gts']]],
+  ['dependencyarray_3c_20tvalrange_2c_20tdeprange_2c_202_20_3e_150',['DependencyArray&lt; TValRange, TDepRange, 2 &gt;',['../classgts_1_1_dependency_array_3_01_t_val_range_00_01_t_dep_range_00_012_01_4.html',1,'gts']]],
+  ['desc_5fname_5fsize_151',['DESC_NAME_SIZE',['../group___micro_scheduler.html#ga386fcf277d5bc94e3749c040029d2f26',1,'gts']]],
+  ['destorytask_152',['destoryTask',['../classgts_1_1_micro_scheduler.html#ac86bc5fb63f9322033155f8e8f68b366',1,'gts::MicroScheduler']]],
+  ['destroy_153',['destroy',['../classgts_1_1_thread.html#a7536bc6a15a95ed926b38254e40633ed',1,'gts::Thread']]],
+  ['destroynode_154',['destroyNode',['../classgts_1_1_macro_scheduler.html#abf287c3c45901e67738e369d0dce0be5',1,'gts::MacroScheduler']]],
+  ['developer_20guide_155',['Developer Guide',['../developer_guide.html',1,'']]],
+  ['dimensionality_156',['DIMENSIONALITY',['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_011_01_4.html#ab632543fc5451a33a685b5b7d596bc80',1,'gts::SplitResult&lt; TRange, MaxSplits, 1 &gt;::DIMENSIONALITY()'],['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_012_01_4.html#aaf7db90446350c5abcdcbb8cacc19ab9',1,'gts::SplitResult&lt; TRange, MaxSplits, 2 &gt;::DIMENSIONALITY()'],['../structgts_1_1_split_result_3_01_t_range_00_01_max_splits_00_013_01_4.html#a95b90a0c563ff2befda3981077c4abf0',1,'gts::SplitResult&lt; TRange, MaxSplits, 3 &gt;::DIMENSIONALITY()']]],
+  ['dlist_157',['DList',['../classgts_1_1internal_1_1_d_list.html',1,'gts::internal']]],
+  ['dynamicmicroscheduler_158',['DynamicMicroScheduler',['../group___dynamic_micro_scheduler.html',1,'']]],
+  ['dynamicmicroscheduler_5fcomputeresource_159',['DynamicMicroScheduler_ComputeResource',['../classgts_1_1_dynamic_micro_scheduler___compute_resource.html',1,'gts']]],
+  ['dynamicmicroscheduler_5fmacroscheduler_160',['DynamicMicroScheduler_MacroScheduler',['../classgts_1_1_dynamic_micro_scheduler___macro_scheduler.html',1,'gts']]],
+  ['dynamicmicroscheduler_5fschedule_161',['DynamicMicroScheduler_Schedule',['../classgts_1_1_dynamic_micro_scheduler___schedule.html',1,'gts']]]
 ];

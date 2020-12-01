@@ -1,9 +1,11 @@
 var classgts_1_1_dynamic_micro_scheduler___schedule =
 [
     [ "DynamicMicroScheduler_Schedule", "classgts_1_1_dynamic_micro_scheduler___schedule.html#afff5434a14dd5868cdb7e3bbd1adc42e", null ],
-    [ "getFinalNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a139932936a0e48a360702a31334a4e7c", null ],
-    [ "insertReadyNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a3e6121bc6accf75781094574ab9b492f", null ],
+    [ "insertReadyNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a47ac0ba579091f6d12f241f35840a364", null ],
     [ "isDone", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a47e49c54fa8dab78c44615c38c700a38", null ],
-    [ "popNextNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a57adfd95f6f9a5ec35b46b2941fc1b0c", null ],
-    [ "tryMarkDone", "classgts_1_1_dynamic_micro_scheduler___schedule.html#ad911d2df5824a38435475bb3013f9c73", null ]
+    [ "observeExecutionCost", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a8d0cbf69511a3cd68ad28d0aa24b3924", null ],
+    [ "popNextNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a7f0a65e8639c44e17088ca9d01874f92", null ],
+    [ "rankNode", "classgts_1_1_dynamic_micro_scheduler___schedule.html#afd7e06c1d4c419761201c0b96371a7c4", null ],
+    [ "tryMarkDone", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a0385509658146978ef32f20144ef2639", null ],
+    [ "DynamicMicroScheduler_MacroScheduler", "classgts_1_1_dynamic_micro_scheduler___schedule.html#a004465a32878b2b92919b2703127c268", null ]
 ];

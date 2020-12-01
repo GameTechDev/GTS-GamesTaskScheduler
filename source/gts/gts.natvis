@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AutoVisualizer xmlns="http://schemas.microsoft.com/vstudio/debugger/natvis/2010">
+
+    <!-- Task -->
+    <Type Name="gts::Task">
+        <Expand>
+            <Item Name="[header]" ExcludeView="simple">((gts::internal::TaskHeader*)this)[-1]</Item>
+        </Expand>
+    </Type>
+
+    <!-- Vector -->
+    <Type Name="gts::Vector&lt;*&gt;">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <Item Name="[capacity]" ExcludeView="simple">m_capacity</Item>
+            <ArrayItems>
+                <Size>m_size</Size>
+                <ValuePointer>m_pBegin</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- KeyValue -->
+    <Type Name="gts::KeyValue&lt;*&gt;">
+        <DisplayString>{{ key={key} value={value} }}</DisplayString>
+        <Expand>
+            <Item Name="[key]" ExcludeView="simple">key</Item>
+            <Item Name="[value]" ExcludeView="simple">value</Item>
+        </Expand>
+    </Type>
+
+    <!-- Atomic -->
+    <Type Name="gts::Atomic&lt;*&gt;">
+        <DisplayString>{*($T1*)&amp;m_atom}</DisplayString>
+        <Expand>
+            <Item Name="[value]" ExcludeView="simple">*($T1*)&amp;m_atom</Item>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable::Slot -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;::Slot&lt;*&gt;">
+        <DisplayString>{{ keyVal={keyVal} state={state} }}</DisplayString>
+        <Expand>
+            <Item Name="[keyVal]" ExcludeView="simple">keyVal</Item>
+            <Item Name="[state]" ExcludeView="simple">state</Item>
+            <Item Name="[sharedMutex]" ExcludeView="simple">sharedMutex</Item>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable::Table -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;::Table&lt;*&gt;">
+        <DisplayString>{{ capacity={capacity} maxProbe={maxProbe} }}</DisplayString>
+        <Expand>
+            <Item Name="[ppSlots]" ExcludeView="simple">ppSlots</Item>
+            <Item Name="[capacity]" ExcludeView="simple">capacity</Item>
+            <Item Name="[maxProbe]" ExcludeView="simple">maxProbe</Item>
+            <ArrayItems>
+                <Size>capacity</Size>
+                <ValuePointer>ppSlots</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- ParallelHashTable -->
+    <Type Name="gts::ParallelHashTable&lt;*&gt;">
+        <Expand>
+            <Item Name="[capacity]" ExcludeView="simple">(**(table_type**)&amp;m_pTable).capacity</Item>
+            <Item Name="[data backing]" ExcludeView="simple">m_dataBacking</Item>
+            <ArrayItems>
+                <Size>(**(table_type**)&amp;m_pTable).capacity</Size>
+                <ValuePointer>(**(table_type**)&amp;m_pTable).ppSlots</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- ParallelVector -->
+    <Type Name="gts::ParallelVector&lt;*&gt;">
+        <DisplayString>{{ size={m_size} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">m_size</Item>
+            <CustomListItems MaxItemsPerView="4096" ExcludeView="Test">
+                <Variable Name="globalIndex" InitialValue="size_t(0)" />
+                <Variable Name="subVectIndex" InitialValue="size_t(0)" />
+                <Variable Name="localIndex" InitialValue="size_t(0)" />
+                <Variable Name="slabIndex" InitialValue="size_t(0)" />
+                <Variable Name="index" InitialValue="size_t(0)" />
+                <Variable Name="iLog" InitialValue="size_t(0)" />
+                <Variable Name="logBit" InitialValue="size_t(0)" />
+                <Loop>
+                    <Break Condition="globalIndex == *(size_t*)&amp;m_size" />
+                    <Exec>subVectIndex = globalIndex &amp; (m_numVecs - 1)</Exec>
+                    <Exec>localIndex = (globalIndex &amp; m_pVecs[subVectIndex].m_ticketMask) &gt;&gt; m_pVecs[subVectIndex].m_ticketShift</Exec>
+                    <Exec>iLog = 0</Exec>
+                    <Exec>slabIndex = 0</Exec>
+                    <Loop>
+                        <!-- Log2 -->
+                        <Break Condition="iLog == sizeof(size_t) * 8" />
+                        <Exec>logBit = (localIndex &gt;&gt; size_t(iLog)) &amp; size_t(1)</Exec>
+                        <If Condition="logBit == 1">
+                            <Exec>slabIndex = iLog</Exec>
+                        </If>
+                        <Exec>++iLog</Exec>
+                    </Loop>
+                    <Exec>index = localIndex - ((size_t(1) &lt;&lt; slabIndex) &amp; ~size_t(1))</Exec>
+                    <Item>m_pVecs[subVectIndex].m_ppSlabs[slabIndex][index].value,na</Item>
+                    <Exec>++globalIndex</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+    <!-- QueueMPMC -->
+    <Type Name="gts::QueueMPMC&lt;*&gt;">
+        <DisplayString>{{ size={*(size_t*)&amp;m_back - *(size_t*)&amp;m_front} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">*(size_t*)&amp;m_back - *(size_t*)&amp;m_front</Item>
+            <CustomListItems MaxItemsPerView="4096" ExcludeView="Test">
+                <Variable Name="globalIndex" InitialValue="*(size_t*)&amp;m_front" />
+                <Variable Name="subQueueIndex" InitialValue="size_t(0)" />
+                <Variable Name="localIndex" InitialValue="size_t(0)" />
+                <Variable Name="index" InitialValue="size_t(0)" />
+                <Variable Name="ticketShift" InitialValue="size_t(0)" />
+                <Variable Name="iLog" InitialValue="size_t(0)" />
+                <Variable Name="logBit" InitialValue="size_t(0)" />
+                
+                <Loop>
+                    <!-- Log2 -->
+                    <Break Condition="iLog == sizeof(size_t) * 8" />
+                    <Exec>logBit = (m_numSubQueues &gt;&gt; size_t(iLog)) &amp; size_t(1)</Exec>
+                    <If Condition="logBit == 1">
+                        <Exec>ticketShift = iLog</Exec>
+                    </If>
+                    <Exec>++iLog</Exec>
+                </Loop>
+                
+                <Loop>
+                    <Break Condition="globalIndex == *(size_t*)&amp;m_back" />
+                    <Exec>subQueueIndex = globalIndex &amp; (m_numSubQueues - 1)</Exec>
+                    <Exec>localIndex = globalIndex &amp; (~m_numSubQueues + 1)</Exec>
+                    <Exec>localIndex = localIndex &gt;&gt; ticketShift</Exec>
+                    <Item>m_pSubQueues[subQueueIndex].m_pRingBuffer[localIndex &amp; m_pSubQueues[subQueueIndex].m_mask],na</Item>
+                    <Exec>++globalIndex</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+    <!-- QueueMPSC -->
+    <Type Name="gts::QueueMPSC&lt;*&gt;">
+        <DisplayString>{{ size={*(size_t*)&amp;m_back - *(size_t*)&amp;m_front} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">*(size_t*)&amp;m_back - *(size_t*)&amp;m_front</Item>
+            <CustomListItems MaxItemsPerView="4096" ExcludeView="Test">
+                <Variable Name="globalIndex" InitialValue="*(size_t*)&amp;m_front" />
+                <Variable Name="subQueueIndex" InitialValue="size_t(0)" />
+                <Variable Name="localIndex" InitialValue="size_t(0)" />
+                <Variable Name="index" InitialValue="size_t(0)" />
+                <Variable Name="ticketShift" InitialValue="size_t(0)" />
+                <Variable Name="iLog" InitialValue="size_t(0)" />
+                <Variable Name="logBit" InitialValue="size_t(0)" />
+
+                <Loop>
+                    <!-- Log2 -->
+                    <Break Condition="iLog == sizeof(size_t) * 8" />
+                    <Exec>logBit = (m_numSubQueues &gt;&gt; size_t(iLog)) &amp; size_t(1)</Exec>
+                    <If Condition="logBit == 1">
+                        <Exec>ticketShift = iLog</Exec>
+                    </If>
+                    <Exec>++iLog</Exec>
+                </Loop>
+
+                <Loop>
+                    <Break Condition="globalIndex == *(size_t*)&amp;m_back" />
+                    <Exec>subQueueIndex = globalIndex &amp; (m_numSubQueues - 1)</Exec>
+                    <Exec>localIndex = globalIndex &amp; (~m_numSubQueues + 1)</Exec>
+                    <Exec>localIndex = localIndex &gt;&gt; ticketShift</Exec>
+                    <Item>m_pSubQueues[subQueueIndex].m_pRingBuffer[localIndex &amp; m_pSubQueues[subQueueIndex].m_mask],na</Item>
+                    <Exec>++globalIndex</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+    <!-- QueueSPMC -->
+    <Type Name="gts::QueueSPMC&lt;*&gt;">
+        <DisplayString>{{ size={*(size_t*)&amp;m_back - *(size_t*)&amp;m_front} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">*(size_t*)&amp;m_back - *(size_t*)&amp;m_front</Item>
+            <CustomListItems MaxItemsPerView="4096" ExcludeView="Test">
+                <Variable Name="globalIndex" InitialValue="*(size_t*)&amp;m_front" />
+                <Variable Name="subQueueIndex" InitialValue="size_t(0)" />
+                <Variable Name="localIndex" InitialValue="size_t(0)" />
+                <Variable Name="index" InitialValue="size_t(0)" />
+                <Variable Name="ticketShift" InitialValue="size_t(0)" />
+                <Variable Name="iLog" InitialValue="size_t(0)" />
+                <Variable Name="logBit" InitialValue="size_t(0)" />
+
+                <Loop>
+                    <!-- Log2 -->
+                    <Break Condition="iLog == sizeof(size_t) * 8" />
+                    <Exec>logBit = (m_numSubQueues &gt;&gt; size_t(iLog)) &amp; size_t(1)</Exec>
+                    <If Condition="logBit == 1">
+                        <Exec>ticketShift = iLog</Exec>
+                    </If>
+                    <Exec>++iLog</Exec>
+                </Loop>
+
+                <Loop>
+                    <Break Condition="globalIndex == *(size_t*)&amp;m_back" />
+                    <Exec>subQueueIndex = globalIndex &amp; (m_numSubQueues - 1)</Exec>
+                    <Exec>localIndex = globalIndex &amp; (~m_numSubQueues + 1)</Exec>
+                    <Exec>localIndex = localIndex &gt;&gt; ticketShift</Exec>
+                    <Item>m_pSubQueues[subQueueIndex].m_pRingBuffer[localIndex &amp; m_pSubQueues[subQueueIndex].m_mask],na</Item>
+                    <Exec>++globalIndex</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+
+
+    <!-- QueueSPSC -->
+    <Type Name="gts::QueueSPSC&lt;*&gt;">
+        <DisplayString>{{ size={*(size_t*)&amp;m_back - *(size_t*)&amp;m_front} }}</DisplayString>
+        <Expand>
+            <Item Name="[size]" ExcludeView="simple">*(size_t*)&amp;m_back - *(size_t*)&amp;m_front</Item>
+            <CustomListItems MaxItemsPerView="4096" ExcludeView="Test">
+                <Variable Name="globalIndex" InitialValue="*(size_t*)&amp;m_front" />
+                <Variable Name="pBuffer" InitialValue="*(gts::QueueSPSC&lt;$T1,$T2&gt;::RingBuffer**)&amp;m_pRingBuffer" />
+                <Loop>
+                    <Break Condition="globalIndex == *(size_t*)&amp;m_back" />
+                    <Item>*(pBuffer->ppBuff[globalIndex &amp; pBuffer->mask]),na</Item>
+                    <Exec>++globalIndex</Exec>
+                </Loop>
+            </CustomListItems>
+        </Expand>
+    </Type>
+    
+    <!-- CpuCoreInfo -->
+    <Type Name="gts::CpuCoreInfo">
+        <DisplayString>{{ HW threads={hardwareThreadIdCount} efficiency class={efficiencyClass} }}</DisplayString>
+        <Expand>
+            <Item Name="[HW threads]" ExcludeView="simple">hardwareThreadIdCount</Item>
+            <Item Name="[efficiency class]" ExcludeView="simple">efficiencyClass</Item>
+            <ArrayItems>
+                <Size>hardwareThreadIdCount</Size>
+                <ValuePointer>pHardwareThreadIds</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- SocketInfo -->
+    <Type Name="gts::SocketInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- NumaNodeInfo -->
+    <Type Name="gts::NumaNodeInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} node ID={nodeId} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <Item Name="[node ID]" ExcludeView="simple">nodeId</Item>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- ProcessorGroupInfo -->
+    <Type Name="gts::ProcessorGroupInfo">
+        <DisplayString>{{ processors={coreInfoElementCount} group ID={groupId} }}</DisplayString>
+        <Expand>
+            <Item Name="[processors]" ExcludeView="simple">coreInfoElementCount</Item>
+            <Item Name="[group ID]" ExcludeView="simple">groupId</Item>
+            <Synthetic Name="Sockets"></Synthetic>
+            <ArrayItems>
+                <Size>socketInfoElementCount</Size>
+                <ValuePointer>pSocketInfoArray</ValuePointer>
+            </ArrayItems>
+            <Synthetic Name="Numa Nodes"></Synthetic>
+            <ArrayItems>
+                <Size>numaNodeInfoElementCount</Size>
+                <ValuePointer>pNumaInfoArray</ValuePointer>
+            </ArrayItems>
+            <Synthetic Name="Cores"></Synthetic>
+            <ArrayItems>
+                <Size>coreInfoElementCount</Size>
+                <ValuePointer>pCoreInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+    <!-- SystemTopology -->
+    <Type Name="gts::SystemTopology">
+        <DisplayString>{{ groups={groupInfoElementCount} }}</DisplayString>
+        <Expand>
+            <Item Name="[groups]" ExcludeView="simple">groupInfoElementCount</Item>
+            <ArrayItems>
+                <Size>groupInfoElementCount</Size>
+                <ValuePointer>pGroupInfoArray</ValuePointer>
+            </ArrayItems>
+        </Expand>
+    </Type>
+
+</AutoVisualizer>

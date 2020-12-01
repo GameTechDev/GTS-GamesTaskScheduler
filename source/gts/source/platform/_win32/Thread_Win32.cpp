@@ -21,22 +21,15 @@
  ******************************************************************************/
 #include "gts/platform/Thread.h"
 
+#ifdef GTS_WINDOWS
+#ifndef GTS_HAS_CUSTOM_THREAD_WRAPPERS
+
+#include <map>
+
 #include <Windows.h>
 #include <processthreadsapi.h>
 
-namespace gts {
-
-static_assert(sizeof(ThreadHandle)        == sizeof(HANDLE),              "ThreadHandle size mismatch.");
-static_assert(sizeof(MutexHandle)         == sizeof(CRITICAL_SECTION),    "MutexHandle size mismatch.");
-static_assert(sizeof(ConditionVarHandle)  == sizeof(CONDITION_VARIABLE),  "ConditionVarHandle size mismatch.");
-static_assert(sizeof(ThreadId)            == sizeof(DWORD),               "ThreadId size mismatch.");
-
-static_assert(alignof(ThreadHandle)       == alignof(HANDLE),             "ThreadHandle alignment mismatch.");
-static_assert(alignof(MutexHandle)        == alignof(CRITICAL_SECTION),   "MutexHandle alignment mismatch.");
-static_assert(alignof(ConditionVarHandle) == alignof(ConditionVarHandle), "ThreadHandle alignment mismatch.");
-
-//------------------------------------------------------------------------------
-inline HANDLE nativeHandle(ThreadHandle const& h) { return (HANDLE)h; }
+namespace {
 
 // Yuck Windows!
 static const DWORD MS_VC_EXCEPTION = 0x406D1388;
@@ -66,171 +59,528 @@ static void SetThreadName(DWORD dwThreadID, const char* threadName) {
 }
 
 //------------------------------------------------------------------------------
-static uintptr_t setAffinity(HANDLE hThread, uintptr_t mask)
+GTS_INLINE HANDLE nativeHandle(gts::ThreadHandle& h) { return (HANDLE)h; }
+
+
+struct ThreadData
 {
-    return ::SetThreadAffinityMask(hThread, mask);
+    gts::ThreadFunction func;
+    void* pArg;
+};
+
+//------------------------------------------------------------------------------
+DWORD WINAPI Win32ThreadFunc(LPVOID lpThreadParameter)
+{
+    ThreadData* pData = (ThreadData*)lpThreadParameter;
+    pData->func(pData->pArg);
+    GTS_FREE(pData);
+    return 0;
+}
+
+struct InternalCoreInfo
+{
+    uintptr_t processorsBitSet;
+    uint8_t efficiencyClass;
+    bool visited = false;
+};
+
+struct InternalSocketeInfo
+{
+    uintptr_t processorsBitSet;
+};
+
+struct InternalNumaNodeInfo
+{
+    uintptr_t processorsBitSet;
+    uint32_t nodeId;
+};
+
+struct InternalGroupInfo
+{
+    gts::Vector<InternalCoreInfo> coreInfo;
+    gts::Vector<InternalNumaNodeInfo> numaInfo;
+    gts::Vector<InternalSocketeInfo> socketInfo;
+    uintptr_t processorsBitSet;
+    uint32_t groupId;
+};
+
+struct InternalSystemTopology
+{
+    gts::Vector<InternalGroupInfo> groupInfo;
+};
+
+//------------------------------------------------------------------------------
+void getProcInfoBuffer(LOGICAL_PROCESSOR_RELATIONSHIP type, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX* ppBuffer, DWORD* len)
+{
+    bool done = false;
+
+    while (!done)
+    {
+        BOOL result = ::GetLogicalProcessorInformationEx(type, (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)*ppBuffer, len);
+
+        if (result == FALSE)
+        {
+            GTS_ASSERT(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
+
+            if (*ppBuffer)
+            {
+                free(*ppBuffer);
+            }
+
+            *ppBuffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)malloc(*len);
+        }
+        else
+        {
+            done = true;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
-bool setPriority(HANDLE hThread, Thread::PriorityLevel priority)
+size_t countSetBits(uintptr_t bitSet)
 {
-    int translatedPriority = 0;
-
-    switch (priority)
+    size_t count = 0;
+    for(size_t ii = 0; ii < sizeof(KAFFINITY) * 8; ++ii)
     {
-    case Thread::PRIORITY_TIME_CRITICAL:
-        translatedPriority = THREAD_PRIORITY_TIME_CRITICAL;
-        break;
-
-    case Thread::PRIORITY_HIGH:
-        translatedPriority = THREAD_PRIORITY_HIGHEST;
-        break;
-
-    case Thread::PRIORITY_NORMAL:
-        translatedPriority = THREAD_PRIORITY_NORMAL;
-        break;
-
-    case Thread::PRIORITY_LOW:
-        translatedPriority = THREAD_PRIORITY_LOWEST;
-        break;
+        uintptr_t affinity = (uintptr_t(1) << ii) & bitSet;
+        if(affinity != 0)
+        {
+            count++;
+        }
     }
-    return ::SetThreadPriority(hThread, translatedPriority) == TRUE;
+    return count;
 }
+
+//------------------------------------------------------------------------------
+void getGroupInfo(InternalSystemTopology& out)
+{
+    DWORD bufferLen = 0;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pBuffer = NULL;
+    getProcInfoBuffer(RelationGroup, &pBuffer, &bufferLen);
+
+    DWORD bytesVisited = 0;
+    uint8_t* ptr = (uint8_t*)pBuffer;
+
+    do
+    {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pInfo = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+        GTS_ASSERT(pInfo->Relationship == RelationGroup);
+
+        out.groupInfo.resize(pInfo->Group.ActiveGroupCount);
+        for (WORD iGroup = 0; iGroup < pInfo->Group.ActiveGroupCount; ++iGroup)
+        {
+            GTS_ASSERT(sizeof(uintptr_t) * 8 >= pInfo->Group.GroupInfo->MaximumProcessorCount && "Cannot used a 64 HW Thread CPU on a 32-bit machine.");
+            out.groupInfo[iGroup].groupId = iGroup;
+            out.groupInfo[iGroup].processorsBitSet = pInfo->Group.GroupInfo->ActiveProcessorMask;
+        }
+
+        bytesVisited += pInfo->Size;
+        ptr += pInfo->Size;
+
+    } while(bytesVisited < bufferLen);
+
+    free(pBuffer);
+}
+
+//------------------------------------------------------------------------------
+void getCoreInfo(
+    InternalSystemTopology& out,
+    std::map<WORD, std::map<uintptr_t, size_t>>& coreIndexByAffinityByGroup,
+    std::map<WORD, gts::Vector<InternalCoreInfo>>& coreInfoByIndexByGroup)
+{
+    DWORD bufferLen = 0;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pBuffer = NULL;
+    getProcInfoBuffer(RelationProcessorCore, &pBuffer, &bufferLen);
+
+    DWORD bytesVisited = 0;
+    uint8_t* ptr = (uint8_t*)pBuffer;
+
+    do
+    {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pInfo = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+        GTS_ASSERT(pInfo->Relationship == RelationProcessorCore);
+
+        InternalCoreInfo coreInfo;
+        coreInfo.efficiencyClass = pInfo->Processor.EfficiencyClass;
+
+        GTS_ASSERT(pInfo->Processor.GroupCount == 1);
+
+        coreInfo.processorsBitSet = pInfo->Processor.GroupMask[0].Mask;
+        size_t index = coreInfoByIndexByGroup[pInfo->Processor.GroupMask[0].Group].size();
+        coreInfoByIndexByGroup[pInfo->Processor.GroupMask[0].Group].push_back(coreInfo);
+
+        for(size_t ii = 0; ii < sizeof(KAFFINITY) * 8; ++ii)
+        {
+            uintptr_t affinity = (uintptr_t(1) << ii) & pInfo->Processor.GroupMask[0].Mask;
+            if(affinity != 0)
+            {
+                coreIndexByAffinityByGroup[pInfo->Processor.GroupMask[0].Group][affinity] = index;
+            }
+        }
+
+        bytesVisited += pInfo->Size;
+        ptr += pInfo->Size;
+
+    } while(bytesVisited < bufferLen);
+
+    // Map core info to groups.
+    for (size_t iGroup = 0; iGroup < out.groupInfo.size(); ++iGroup)
+    {
+        auto& coreInfos = coreInfoByIndexByGroup[(WORD)iGroup];
+        for (size_t ii = 0; ii < coreInfos.size(); ++ii)
+        {
+            out.groupInfo[iGroup].coreInfo.push_back(coreInfos[ii]);
+        }
+    }
+
+    free(pBuffer);
+}
+
+//------------------------------------------------------------------------------
+void getNumaInfo(InternalSystemTopology& out)
+{
+    std::map<size_t, gts::Vector<InternalNumaNodeInfo>> numaInfoMap;
+
+    DWORD bufferLen = 0;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pBuffer = NULL;
+    getProcInfoBuffer(RelationNumaNode, &pBuffer, &bufferLen);
+
+    DWORD bytesVisited = 0;
+    uint8_t* ptr = (uint8_t*)pBuffer;
+
+    do
+    {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pInfo = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+        GTS_ASSERT(pInfo->Relationship == RelationNumaNode);
+
+        InternalNumaNodeInfo numaInfo;
+        numaInfo.nodeId = pInfo->NumaNode.NodeNumber;
+        numaInfo.processorsBitSet = pInfo->NumaNode.GroupMask.Mask;
+        numaInfoMap[pInfo->NumaNode.GroupMask.Group].push_back(numaInfo);
+
+        bytesVisited += pInfo->Size;
+        ptr += pInfo->Size;
+
+    } while(bytesVisited < bufferLen);
+
+    for (size_t iGroup = 0; iGroup < out.groupInfo.size(); ++iGroup)
+    {
+        auto& numaInfos = numaInfoMap[iGroup];
+        for (size_t ii = 0; ii < numaInfos.size(); ++ii)
+        {
+            out.groupInfo[iGroup].numaInfo.push_back(numaInfos[ii]);
+        }
+    }
+
+    free(pBuffer);
+}
+
+//------------------------------------------------------------------------------
+void getSocketInfo(InternalSystemTopology& out)
+{
+    std::map<WORD, gts::Vector<InternalSocketeInfo>> socketInfoMap;
+
+    DWORD bufferLen = 0;
+    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pBuffer = NULL;
+    getProcInfoBuffer(RelationProcessorPackage, &pBuffer, &bufferLen);
+
+    DWORD bytesVisited = 0;
+    uint8_t* ptr = (uint8_t*)pBuffer;
+
+    do
+    {
+        PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX pInfo = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)ptr;
+        GTS_ASSERT(pInfo->Relationship == RelationProcessorPackage);
+
+        InternalSocketeInfo socketInfo;
+
+        for (WORD iGroup = 0; iGroup < pInfo->Processor.GroupCount; ++iGroup)
+        {
+            socketInfo.processorsBitSet = pInfo->Processor.GroupMask[iGroup].Mask;
+            socketInfoMap[pInfo->Processor.GroupMask[iGroup].Group].push_back(socketInfo);
+        }
+
+        bytesVisited += pInfo->Size;
+        ptr += pInfo->Size;
+
+    } while(bytesVisited < bufferLen);
+
+    for (size_t iGroup = 0; iGroup < out.groupInfo.size(); ++iGroup)
+    {
+        auto& socketInfos = socketInfoMap[(WORD)iGroup];
+        for (size_t ii = 0; ii < socketInfos.size(); ++ii)
+        {
+            out.groupInfo[iGroup].socketInfo.push_back(socketInfos[ii]);
+        }
+    }
+
+    free(pBuffer);
+}
+
+} // namespace
+
+#endif // GTS_HAS_CUSTOM_THREAD_WRAPPERS
+
+namespace gts {
+namespace internal {
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // Thread:
 
-//------------------------------------------------------------------------------
-Thread::Thread()
-{
-    m_handle = NULL;
-}
+#ifndef GTS_HAS_CUSTOM_THREAD_WRAPPERS
+
+static_assert(sizeof(ThreadHandle)  == sizeof(HANDLE), "ThreadHandle& size mismatch.");
+static_assert(sizeof(ThreadId)      == sizeof(DWORD), "ThreadId size mismatch.");
+static_assert(alignof(ThreadHandle) == alignof(HANDLE), "ThreadHandle& alignment mismatch.");
 
 //------------------------------------------------------------------------------
-Thread::~Thread()
+bool Thread::createThread(ThreadHandle& handle, ThreadId&, ThreadFunction function, void* pArg, size_t stackSize)
 {
-    destroy();
-}
-
-//------------------------------------------------------------------------------
-bool Thread::start(ThreadFunction function, void* pArg)
-{
-    if (nativeHandle(m_handle) != NULL)
+    if (nativeHandle(handle) != NULL)
     {
         GTS_ASSERT(0);
         return false;
     }
 
-    m_handle = ::CreateThread(NULL, 0, function, pArg, 0, NULL);
-    GTS_ASSERT(m_handle != NULL);
-    return m_handle != NULL;
+    ThreadData* pThreadData = (ThreadData*)GTS_MALLOC(sizeof(ThreadData));
+    pThreadData->func = function;
+    pThreadData->pArg = pArg;
+
+    handle = ::CreateThread(NULL, stackSize, Win32ThreadFunc, pThreadData, 0, NULL);
+    GTS_ASSERT(handle != NULL);
+    return handle != NULL;
 }
 
 //------------------------------------------------------------------------------
-bool Thread::join()
+bool Thread::join(ThreadHandle& handle)
 {
-    GTS_ASSERT(nativeHandle(m_handle) != NULL);
-    return ::WaitForSingleObject(nativeHandle(m_handle), INFINITE) != WAIT_FAILED;
+    GTS_ASSERT(nativeHandle(handle) != NULL);
+    return ::WaitForSingleObject(nativeHandle(handle), INFINITE) != WAIT_FAILED;
 }
 
 //------------------------------------------------------------------------------
-bool Thread::destroy()
+bool Thread::destroy(ThreadHandle& handle)
 {
     BOOL result = true;
-    if (nativeHandle(m_handle) != NULL)
+    if (nativeHandle(handle) != NULL)
     {
-        result = ::CloseHandle(nativeHandle(m_handle));
+        result = ::CloseHandle(nativeHandle(handle));
         GTS_ASSERT(result != 0);
-        m_handle = nullptr;
+        handle = nullptr;
     }
     return true;
 }
 
 //------------------------------------------------------------------------------
-ThreadId Thread::getId() const
+bool Thread::setGroupAffinity(ThreadHandle& handle, size_t groupId, AffinitySet const& affinity)
 {
-    GTS_ASSERT(nativeHandle(m_handle) != NULL);
-    return ::GetThreadId(nativeHandle(m_handle));
-}
+    InternalSystemTopology topo;
+    getGroupInfo(topo);
 
-//------------------------------------------------------------------------------
-uintptr_t Thread::setAffinity(uintptr_t mask)
-{
-    return gts::setAffinity(nativeHandle(m_handle), mask);
-}
-
-//------------------------------------------------------------------------------
-bool Thread::setPriority(PriorityLevel priority)
-{
-    GTS_ASSERT(nativeHandle(m_handle) != NULL);
-    return gts::setPriority(nativeHandle(m_handle), priority);
-}
-
-//------------------------------------------------------------------------------
-void Thread::setName(const char* name)
-{
-    SetThreadName(getId(), name);
-}
-
-//------------------------------------------------------------------------------
-void Thread::getCpuTopology(CpuTopology& out)
-{
-    out.coreInfo.clear();
-
-    BOOL done = FALSE;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION buffer = NULL;
-    PSYSTEM_LOGICAL_PROCESSOR_INFORMATION ptr = NULL;
-    DWORD returnLength = 0;
-
-    while (!done)
+    if (groupId > topo.groupInfo.size())
     {
-        const DWORD rc = ::GetLogicalProcessorInformation(buffer, &returnLength);
+        GTS_ASSERT(0 && "Unknown group ID.");
+        return false;
+    }
 
-        if (FALSE == rc)
+    uintptr_t affinityMask = *(uintptr_t*)&affinity;
+
+    if (affinityMask > topo.groupInfo[groupId].processorsBitSet)
+    {
+        if (affinityMask == GTS_THREAD_AFFINITY_ALL)
         {
-            GTS_ASSERT(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
-
-            if (buffer)
-            {
-                free(buffer);
-            }
-
-            buffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION)malloc(returnLength);
+            affinityMask = topo.groupInfo[groupId].processorsBitSet;
         }
         else
         {
-            done = TRUE;
+            GTS_ASSERT(0 && "Unknown affinity mask.");
+            return false;
         }
     }
 
-    DWORD byteOffset = 0;
-    ptr = buffer;
+    GROUP_AFFINITY groupAffinity = {0};
+    groupAffinity.Mask = affinityMask;
+    groupAffinity.Group = (WORD)groupId;
+    BOOL result = ::SetThreadGroupAffinity(nativeHandle(handle), &groupAffinity, NULL);
+    GTS_ASSERT(result != 0);
+    return result != 0;
+}
 
-    while ((ptr != NULL) && (byteOffset + sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION) <= returnLength))
+//------------------------------------------------------------------------------
+bool Thread::setPriority(ThreadId&, int32_t priority)
+{
+    HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, ::GetCurrentThreadId());
+    DWORD err = GetLastError(); err;
+    GTS_ASSERT(hThread != NULL);
+    BOOL result = ::SetThreadPriority(hThread, priority);
+    GTS_ASSERT(result != 0);
+    CloseHandle(hThread);
+    return result;
+}
+
+//------------------------------------------------------------------------------
+void Thread::setThisThreadName(const char* name)
+{
+    SetThreadName(GetCurrentThreadId(), name);
+}
+
+//------------------------------------------------------------------------------
+void Thread::getSytemTopology(SystemTopology& out)
+{
+    std::map<WORD, std::map<uintptr_t, size_t>> coreIndexByAffinityByGroup;
+    std::map<WORD, Vector<InternalCoreInfo>> coreInfoByGroup;
+    InternalSystemTopology topo;
+    getGroupInfo(topo);
+    getCoreInfo(topo, coreIndexByAffinityByGroup, coreInfoByGroup);
+    getNumaInfo(topo);
+    getSocketInfo(topo);
+
+    out.pGroupInfoArray = new ProcessorGroupInfo[topo.groupInfo.size()];
+    out.groupInfoElementCount = topo.groupInfo.size();
+
+    ProcessorGroupInfo* pGroupInfo = out.pGroupInfoArray;
+    for (WORD iGroup = 0; iGroup < (WORD)topo.groupInfo.size(); ++iGroup)
     {
-        if (ptr->Relationship == RelationProcessorCore)
+        auto& group  = topo.groupInfo[iGroup];
+        auto& oGroup = pGroupInfo[iGroup];
+
+        size_t numGroupProcs  = countSetBits(group.processorsBitSet);
+        oGroup.pCoreInfoArray = new CpuCoreInfo[numGroupProcs];
+        oGroup.groupId        = group.groupId;
+
         {
-            gts::Vector<uintptr_t> affinityMasks;
-            for (size_t ii = 0; ii < sizeof(ULONG_PTR) * 8; ++ii)
+            size_t numCores = 0;
+
+            for(size_t iCoreBit = 0, coreIdx = 0; iCoreBit < sizeof(KAFFINITY) * 8; ++iCoreBit)
             {
-                ULONG_PTR bit = 1;
-                ULONG_PTR mask = bit << ii;
-                if (mask & ptr->ProcessorMask)
+                uintptr_t affinity = (uintptr_t(1) << iCoreBit) & group.processorsBitSet;
+                if(affinity != 0)
                 {
-                    affinityMasks.push_back(mask);
+                    InternalCoreInfo& coreInfo = coreInfoByGroup[iGroup][coreIndexByAffinityByGroup[iGroup][affinity]];
+                    if (coreInfo.visited)
+                    {
+                        continue;
+                    }
+                    coreInfo.visited                = true;
+                    CpuCoreInfo& oCoreInfo          = oGroup.pCoreInfoArray[coreIdx++];
+                    oCoreInfo.efficiencyClass       = coreInfo.efficiencyClass;
+                    size_t numHwThreads             = countSetBits(coreInfo.processorsBitSet);
+                    oCoreInfo.hardwareThreadIdCount = numHwThreads;
+                    oCoreInfo.pHardwareThreadIds    = new uint32_t[numHwThreads];
+                    for (uint32_t iThreadBit = 0, threadIdx = 0; iThreadBit < sizeof(KAFFINITY) * 8; ++iThreadBit)
+                    {
+                        affinity = (uintptr_t(1) << iThreadBit) & coreInfo.processorsBitSet;
+                        if(affinity != 0)
+                        {
+                            oCoreInfo.pHardwareThreadIds[threadIdx++] = iThreadBit;
+                        }
+                    }
+                    numCores++;
                 }
             }
-            affinityMasks.shrink_to_fit();
-            out.coreInfo.push_back(CpuCoreInfo{ affinityMasks });
-        }
-        byteOffset += sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
-        ptr++;
-    }
 
-    if (buffer)
-    {
-        free(buffer);
+            oGroup.coreInfoElementCount = numCores;
+        }
+
+        for (size_t ii = 0; ii < coreInfoByGroup[iGroup].size(); ++ii)
+        {
+            coreInfoByGroup[iGroup][ii].visited = false;
+        }
+
+        oGroup.pNumaInfoArray = new NumaNodeInfo[group.numaInfo.size()];
+        oGroup.numaNodeInfoElementCount = group.numaInfo.size();
+
+        for (size_t iNuma = 0; iNuma < group.numaInfo.size(); ++iNuma)
+        {
+            auto& numaInfo   = group.numaInfo[iNuma];
+            auto& oNumaInfo  = oGroup.pNumaInfoArray[iNuma];
+            oNumaInfo.nodeId = numaInfo.nodeId;
+
+            size_t numNumaProcs      = countSetBits(numaInfo.processorsBitSet);
+            oNumaInfo.pCoreInfoArray = new CpuCoreInfo[numNumaProcs];
+            oNumaInfo.nodeId         = numaInfo.nodeId;
+
+            size_t numCores = 0;
+
+            for(size_t iCoreBit = 0, coreIdx = 0; iCoreBit < sizeof(KAFFINITY) * 8; ++iCoreBit)
+            {
+                uintptr_t affinity = (uintptr_t(1) << iCoreBit) & numaInfo.processorsBitSet;
+                if(affinity != 0)
+                {
+                    InternalCoreInfo& coreInfo = coreInfoByGroup[iGroup][coreIndexByAffinityByGroup[iGroup][affinity]];
+                    if (coreInfo.visited)
+                    {
+                        continue;
+                    }
+                    coreInfo.visited                = true;
+                    CpuCoreInfo& oCoreInfo          = oNumaInfo.pCoreInfoArray[coreIdx++];
+                    oCoreInfo.efficiencyClass       = coreInfo.efficiencyClass;
+                    size_t numHwThreads             = countSetBits(coreInfo.processorsBitSet);
+                    oCoreInfo.hardwareThreadIdCount = numHwThreads;
+                    oCoreInfo.pHardwareThreadIds    = new uint32_t[numHwThreads];
+                    for (uint32_t iThreadBit = 0, threadIdx = 0; iThreadBit < sizeof(KAFFINITY) * 8; ++iThreadBit)
+                    {
+                        affinity = (uintptr_t(1) << iThreadBit) & coreInfo.processorsBitSet;
+                        if(affinity != 0)
+                        {
+                            oCoreInfo.pHardwareThreadIds[threadIdx++] = iThreadBit;
+                        }
+                    }
+                    numCores++;
+                }
+            }
+            oNumaInfo.coreInfoElementCount = numCores;
+        }
+
+        for (size_t ii = 0; ii < coreInfoByGroup[iGroup].size(); ++ii)
+        {
+            coreInfoByGroup[iGroup][ii].visited = false;
+        }
+
+
+        oGroup.pSocketInfoArray = new SocketInfo[group.socketInfo.size()];
+        oGroup.socketInfoElementCount = group.socketInfo.size();
+
+        for (size_t iSocket = 0; iSocket < group.socketInfo.size(); ++iSocket)
+        {
+            auto& socketInfo  = group.socketInfo[iSocket];
+            auto& oSocketInfo = oGroup.pSocketInfoArray[iSocket];
+
+            size_t numSocketProcs      = countSetBits(socketInfo.processorsBitSet);
+            oSocketInfo.pCoreInfoArray = new CpuCoreInfo[numSocketProcs];
+
+            size_t numCores = 0;
+
+            for(size_t iCoreBit = 0, coreIdx = 0; iCoreBit < sizeof(KAFFINITY) * 8; ++iCoreBit)
+            {
+                uintptr_t affinity = (uintptr_t(1) << iCoreBit) & socketInfo.processorsBitSet;
+                if(affinity != 0)
+                {
+                    InternalCoreInfo& coreInfo = coreInfoByGroup[iGroup][coreIndexByAffinityByGroup[iGroup][affinity]];
+                    if (coreInfo.visited)
+                    {
+                        continue;
+                    }
+                    coreInfo.visited                = true;
+                    CpuCoreInfo& oCoreInfo          = oSocketInfo.pCoreInfoArray[coreIdx++];
+                    oCoreInfo.efficiencyClass       = coreInfo.efficiencyClass;
+                    size_t numHwThreads             = countSetBits(coreInfo.processorsBitSet);
+                    oCoreInfo.hardwareThreadIdCount = numHwThreads;
+                    oCoreInfo.pHardwareThreadIds    = new uint32_t[numHwThreads];
+                    for (uint32_t iThreadBit = 0, threadIdx = 0; iThreadBit < sizeof(KAFFINITY) * 8; ++iThreadBit)
+                    {
+                        affinity = (uintptr_t(1) << iThreadBit) & coreInfo.processorsBitSet;
+                        if(affinity != 0)
+                        {
+                            oCoreInfo.pHardwareThreadIds[threadIdx++] = iThreadBit;
+                        }
+                    }
+                    numCores++;
+                }
+            }
+            oSocketInfo.coreInfoElementCount = numCores;
+        }
     }
 }
 
@@ -242,117 +592,129 @@ uint32_t Thread::getHardwareThreadCount()
     return (uint32_t)info.dwNumberOfProcessors;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// ThisThread:
+//------------------------------------------------------------------------------
+void Thread::getCurrentProcessorId(uint32_t& groupId, uint32_t& hwTid)
+{
+    PROCESSOR_NUMBER procNum;
+    GetCurrentProcessorNumberEx(&procNum);
+    groupId = procNum.Group;
+    hwTid = procNum.Number;
+}
 
 //------------------------------------------------------------------------------
-void ThisThread::yield()
+void Thread::yield()
 {
     ::SwitchToThread();
 }
 
 //------------------------------------------------------------------------------
-void ThisThread::sleepFor(size_t milliseconds)
+void Thread::sleep(uint32_t milliseconds)
 {
     ::Sleep((DWORD)milliseconds);
 }
 
 //------------------------------------------------------------------------------
-uintptr_t ThisThread::setAffinity(uintptr_t mask)
-{
-    HANDLE hThread = ::GetCurrentThread();
-    GTS_ASSERT(hThread != NULL);
-    return gts::setAffinity(hThread, mask);
-}
-
-//------------------------------------------------------------------------------
-bool ThisThread::setPriority(Thread::PriorityLevel priority)
-{
-    HANDLE hThread = ::GetCurrentThread();
-    GTS_ASSERT(hThread != NULL);
-    return gts::setPriority(hThread, priority);
-}
-
-//------------------------------------------------------------------------------
-ThreadId ThisThread::getId()
+ThreadId Thread::getThisThreadId()
 {
     return GetCurrentThreadId();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// Mutex:
-
 //------------------------------------------------------------------------------
-Mutex::Mutex(uint32_t spinCount)
+bool Thread::setThisGroupAffinity(size_t groupId, AffinitySet const& affinity)
 {
-    ::InitializeCriticalSectionAndSpinCount((CRITICAL_SECTION*)&m_criticalSection, spinCount);
+    HANDLE hThead = GetCurrentThread();
+    return setGroupAffinity(hThead, groupId, affinity);
 }
 
 //------------------------------------------------------------------------------
-Mutex::~Mutex()
+bool Thread::setThisPriority(int32_t priority)
 {
-    ::DeleteCriticalSection((CRITICAL_SECTION*)&m_criticalSection);
+    HANDLE hThread = ::GetCurrentThread();
+    BOOL result = ::SetThreadPriority(hThread, priority);
+    GTS_ASSERT(result != 0);
+    return result;
 }
 
-//------------------------------------------------------------------------------
-void Mutex::lock()
-{
-    ::EnterCriticalSection((CRITICAL_SECTION*)&m_criticalSection);
-}
-
-//------------------------------------------------------------------------------
-void Mutex::unlock()
-{
-    ::LeaveCriticalSection((CRITICAL_SECTION*)&m_criticalSection);
-}
+#endif // GTS_HAS_CUSTOM_THREAD_WRAPPERS
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-// BinarySemaphore:
+// Event:
+
+#ifndef GTS_HAS_CUSTOM_EVENT_WRAPPERS
+
+static_assert(sizeof(EventHandle::MutexHandle)  == sizeof(CRITICAL_SECTION), "EventHandle::MutexHandle size mismatch.");
+static_assert(alignof(EventHandle::MutexHandle) == alignof(CRITICAL_SECTION), "EventHandle::MutexHandle alignment mismatch.");
+static_assert(sizeof(EventHandle::CondVar)      == sizeof(CONDITION_VARIABLE), "EventHandle::MutexHandle size mismatch.");
+static_assert(alignof(EventHandle::CondVar)     == alignof(CONDITION_VARIABLE), "EventHandle::MutexHandle alignment mismatch.");
 
 //------------------------------------------------------------------------------
-BinarySemaphore::BinarySemaphore()
+bool Event::createEvent(EventHandle& handle)
 {
-    m_event = CreateEventEx(NULL, NULL,
-        CREATE_EVENT_INITIAL_SET | CREATE_EVENT_MANUAL_RESET, // manual reset for isWaiting.
-        EVENT_ALL_ACCESS);
-
-    GTS_ASSERT(m_event != NULL);
+    InitializeConditionVariable((CONDITION_VARIABLE*)&handle.condVar);
+    InitializeCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+    return true;
 }
 
 //------------------------------------------------------------------------------
-BinarySemaphore::~BinarySemaphore()
+bool Event::destroyEvent(EventHandle& handle)
 {
-    ::CloseHandle(m_event);
+    DeleteCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+    return true;
 }
 
 //------------------------------------------------------------------------------
-bool BinarySemaphore::isWaiting() const
+bool Event::waitForEvent(EventHandle& handle, bool waitForever)
 {
-    DWORD result = WaitForSingleObjectEx(m_event, 0, FALSE);
-    return WAIT_TIMEOUT == result;
+    if (handle.signaled.load(memory_order::acquire))
+    {
+        return true;
+    }
+
+    EnterCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+
+    if (!waitForever)
+    {
+        LeaveCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+        return handle.waiting;
+    }
+
+    handle.waiting = true;
+
+    while (!handle.signaled.load(memory_order::acquire)) // guard against spurious wakes.
+    {
+        BOOL result = SleepConditionVariableCS((CONDITION_VARIABLE*)&handle.condVar, (CRITICAL_SECTION*)&handle.mutex, INFINITE);
+        if (result == 0)
+        {
+            GTS_ASSERT(0);
+            LeaveCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+            return false;
+        }
+    }
+
+    handle.waiting = false;
+
+    LeaveCriticalSection((CRITICAL_SECTION*)&handle.mutex);
+    return true;
 }
 
 //------------------------------------------------------------------------------
-void BinarySemaphore::wait()
+bool Event::signalEvent(EventHandle& handle)
 {
-    BOOL success = ResetEvent(m_event);
-    GTS_UNREFERENCED_PARAM(success);
-    GTS_ASSERT(success != 0);
-
-    DWORD result = WaitForSingleObjectEx(m_event, INFINITE, FALSE);
-    GTS_UNREFERENCED_PARAM(result);
-    GTS_ASSERT(result != WAIT_FAILED);
+    handle.signaled.exchange(true, memory_order::acq_rel);
+    WakeConditionVariable((CONDITION_VARIABLE*)&handle.condVar);
+    return true;
 }
 
 //------------------------------------------------------------------------------
-void BinarySemaphore::signal()
+bool Event::resetEvent(EventHandle& handle)
 {
-    BOOL success = SetEvent(m_event);
-    GTS_UNREFERENCED_PARAM(success);
-    GTS_ASSERT(success != 0);
+    handle.signaled.exchange(false, memory_order::acq_rel);
+    return true;
 }
 
+} // namespace internal
 } // namespace gts
+
+#endif // GTS_HAS_CUSTOM_EVENT_WRAPPERS
+#endif // GTS_WINDOWS

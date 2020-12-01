@@ -2,3 +2,5 @@
 CMakeLists.txt.user
 *~
 external_dependencies/googletest
+external_dependencies/Detours
+external_dependencies/Tracy
