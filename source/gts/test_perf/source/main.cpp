@@ -25,7 +25,7 @@
 #include "gts_perf/Output.h"
 #include "gts_perf/PerfTests.h"
 
-#define PROFILEx
+#define SANDBOXx
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -482,7 +482,7 @@ int main(int argc, char *argv[])
 
     Output output("results.txt");
 
-#ifndef PROFILE
+#ifndef SANDBOX
 
     if (argc > 3)
     {
@@ -540,7 +540,7 @@ int main(int argc, char *argv[])
     //}
 
     //spawnTaskOverhead(output);
-    //schedulerOverheadParFor(output, 6, 6, 100000, 500);
+    schedulerOverheadParFor(output, 20, 20, 20, 10000);
     //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000);
     //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 1000);
     //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount());
@@ -552,7 +552,7 @@ int main(int argc, char *argv[])
     //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
 
     //homoRandomDagWorkStealing(output, 10);
-    heteroRandomDagCriticallyAware(output, 10);
+    //heteroRandomDagCriticallyAware(output, 10);
 
 #endif
 

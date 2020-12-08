@@ -48,11 +48,11 @@ Stats poorDistributionPerf(gts::MicroScheduler& taskScheduler, uint32_t taskCoun
 
         for (uint32_t t = 0; t < taskCount; ++t)
         {
-            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
+            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCHEDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
 
             gts::Task* pChildTask = taskScheduler.allocateTask([](gts::TaskContext const&)->gts::Task*
             {
-                GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
+                GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCHEDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
 
                 volatile float val = 0.f;
                 for (volatile uint32_t ii = 0; ii < 10000; ++ii)

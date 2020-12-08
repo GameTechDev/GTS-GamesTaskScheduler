@@ -680,11 +680,6 @@ void MemoryStore::deallocateSlab(SlabHeader* pSlab, bool freeIt)
 //------------------------------------------------------------------------------
 PageHeader* MemoryStore::allocatePage(SlabHeader* pSlab, size_t blockSize)
 {
-    if (!pSlab)
-    {
-        return nullptr;
-    }
-
     if (blockSize > UINT32_MAX || blockSize > pSlab->pageSize)
     {
         GTS_INTERNAL_ASSERT(0);
@@ -694,6 +689,11 @@ PageHeader* MemoryStore::allocatePage(SlabHeader* pSlab, size_t blockSize)
     GTS_INTERNAL_ASSERT(pSlab ? pSlab->tid == ThisThread::getId() : true);
 
     GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::BINNED_ALLOCATOR_DEBUG, analysis::Color::AntiqueWhite, "PAGE ALLOC", pSlab);
+
+    if (!pSlab)
+    {
+        return nullptr;
+    }
 
     if (pSlab->numPages == pSlab->numCommittedPages)
     {

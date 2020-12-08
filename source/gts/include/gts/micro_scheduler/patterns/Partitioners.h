@@ -350,7 +350,7 @@ public:
     template<typename TRange>
     GTS_INLINE void initialize(uint16_t workerCount)
     {
-        m_initialSplitDepth = TRange::adjustDivisor(workerCount, false);
+        m_initialSplitDepth = TRange::adjustDivisor(nextPow2(workerCount), false);
         m_maxBalancedSplitDepth = INIT_DEPTH;
     }
 

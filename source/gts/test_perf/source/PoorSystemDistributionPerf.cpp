@@ -55,7 +55,7 @@ void asyncSubmit(gts::MicroScheduler& taskScheduler, uint32_t taskCount, uint32_
     {
         gts::Task* pChildTask = taskScheduler.allocateTask([workCount](gts::TaskContext const&)->gts::Task*
         {
-            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
+            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MICRO_SCHEDULER_ALL, gts::analysis::Color::RoyalBlue, "Poor Dist Root Task");
 
             volatile float val = 0.f;
             for (volatile uint32_t ii = 0; ii < workCount; ++ii)

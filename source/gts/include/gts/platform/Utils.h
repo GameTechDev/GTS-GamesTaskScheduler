@@ -116,6 +116,21 @@ struct IsPow2
 
 //------------------------------------------------------------------------------
 /**
+ * @brief Calculates the next 16-bit power of 2 if \a value is not a power of 2.
+ * @return The next power of 2 after \a value or \a value.
+ */
+GTS_INLINE constexpr uint16_t nextPow2(uint16_t value)
+{
+    value--;
+    value |= value >> 1;
+    value |= value >> 2;
+    value |= value >> 4;
+    value |= value >> 8;
+    return ++value;
+}
+
+//------------------------------------------------------------------------------
+/**
  * @brief Calculates the next 32-bit power of 2 if \a value is not a power of 2.
  * @return The next power of 2 after \a value or \a value.
  */

@@ -109,7 +109,7 @@ Stats aoBenchPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t w, uint32
             gts::KdRange2d<int>(0, w, 1, 0, h, 16),
             [](gts::KdRange2d<int>& range, void* param, gts::TaskContext const&)
             {
-                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::MICRO_SCEHDULER_ALL, gts::analysis::Color::DarkBlue, "AOBench Task", range.size());
+                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::MICRO_SCHEDULER_ALL, gts::analysis::Color::DarkBlue, "AOBench Task", range.size());
 
                 AoUniformData& data = *(AoUniformData*)param;
                 
