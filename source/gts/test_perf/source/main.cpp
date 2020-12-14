@@ -533,16 +533,9 @@ int main(int argc, char *argv[])
     GTS_UNREFERENCED_PARAM(argc);
     GTS_UNREFERENCED_PARAM(argv);
 
-    //volatile float warmup = 42.f;
-    //for (size_t ii = 0; ii < UINT32_MAX >> 4; ++ii)
-    //{
-    //    warmup = sin(warmup);
-    //}
-
     //spawnTaskOverhead(output);
-    schedulerOverheadParFor(output, 20, 20, 20, 10000);
     //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000);
-    //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 1000);
+    mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 100);
     //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount());
 
     //matMul(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 100, false, false);

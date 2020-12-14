@@ -260,10 +260,9 @@ public:
     {
         GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::RoyalBlue1, "ADAPTIVE doExecute", m_maxBalancedSplitDepth);
 
-        // Split the range if there is an remaining initial split.
+        // Split the range if there is a remaining initial split.
         if (m_initialSplitDepth == 1)
         {
-            m_initialSplitDepth = 0;
             pPattern->balanceAndExecute(ctx, *this, range, splitter);
         }
         else
@@ -283,26 +282,23 @@ public:
         TRange& range,
         splitter_type const& splitter)
     {
-        // Split the range if there is an remaining initial split.
-        if (m_initialSplitDepth == 1)
+        GTS_ASSERT(m_initialSplitDepth == 1);
+
+        m_initialSplitDepth = 0;
+        uint16_t splitDepth = 0;
+
+        // Split to depth to balance the Task tree.
+        while (splitDepth < m_maxBalancedSplitDepth && range.isDivisible())
         {
-            m_initialSplitDepth = 0;
+            GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::PaleVioletRed4, "ADAPTIVE SPLIT");
 
-            uint16_t splitDepth = 0;
+            typename TRange::split_result splits;
+            range.split(splits, splitter);
+            ++splitDepth;
 
-            // Split to depth to balance the Task tree.
-            while (splitDepth < m_maxBalancedSplitDepth && range.isDivisible())
+            for (int ii = 0; ii < splits.size; ++ii)
             {
-                GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::PaleVioletRed4, "ADAPTIVE SPLIT");
-
-                typename TRange::split_result splits;
-                range.split(splits, splitter);
-                ++splitDepth;
-
-                for (int ii = 0; ii < splits.size; ++ii)
-                {
-                    pPattern->offerRange(ctx, splits.ranges[ii], splitDepth);
-                }
+                pPattern->offerRange(ctx, splits.ranges[ii], splitDepth);
             }
         }
 

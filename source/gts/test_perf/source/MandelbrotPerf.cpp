@@ -125,7 +125,7 @@ Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimens
 
 
         parallelFor(
-            gts::Range1d<uint32_t>(0, dimensions, 16),
+            gts::Range1d<uint32_t>(0, dimensions, 1),
             [](gts::Range1d<uint32_t>& range, void* param, gts::TaskContext const&)
         {
             GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Mandelbrot Task", range.size());
@@ -145,7 +145,7 @@ Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimens
                 }
             }
         },
-        gts::SimplePartitioner(),
+        gts::AdaptivePartitioner(),
         &taskData);
 
         auto end = std::chrono::high_resolution_clock::now();
