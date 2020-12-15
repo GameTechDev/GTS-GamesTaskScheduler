@@ -1,11 +1,16 @@
 var NAVTREEINDEX0 =
 {
+".html":[3,0,0],
+".html":[3,0,0,0],
+".html":[3,0,0,1],
+".html":[3,0,1],
 "annotated.html":[3,0],
 "classes.html":[3,1],
 "classgts_1_1_adaptive_partitioner.html":[2,2,0,14],
 "classgts_1_1_adaptive_partitioner.html#a23af74ca6a96241d582af0fff393453a":[2,2,0,14,3],
 "classgts_1_1_adaptive_partitioner.html#a3d30fb580401e93af2096142d2ed8b15":[2,2,0,14,10],
 "classgts_1_1_adaptive_partitioner.html#a46ff8c18bf98212dbd5bf1ce011eb6e0":[2,2,0,14,5],
+"classgts_1_1_adaptive_partitioner.html#a725ae72b3c6cd543f281d18c5df67116":[2,2,0,14,1],
 "classgts_1_1_adaptive_partitioner.html#a767de7bfb7e20b8f8884e2b303a1b54d":[2,2,0,14,2],
 "classgts_1_1_adaptive_partitioner.html#a76b51de05bc3677a10cb562bbde459d6":[2,2,0,14,13],
 "classgts_1_1_adaptive_partitioner.html#a79727780ed9b74365a6c704b74a60955":[2,2,0,14,8],
@@ -14,7 +19,6 @@ var NAVTREEINDEX0 =
 "classgts_1_1_adaptive_partitioner.html#aa3a20d831374a28bbee356ba14c8b8ab":[2,2,0,14,6],
 "classgts_1_1_adaptive_partitioner.html#aab56c35a37acfd1171901e7b9f42730c":[2,2,0,14,11],
 "classgts_1_1_adaptive_partitioner.html#acdc574ae99717913cf3048cf13f12755":[2,2,0,14,0],
-"classgts_1_1_adaptive_partitioner.html#ad7c23997af55adb5ec2a432d16af8f11":[2,2,0,14,1],
 "classgts_1_1_adaptive_partitioner.html#aec9988d248bbeb917eae779e04d90f09":[2,2,0,14,12],
 "classgts_1_1_adaptive_partitioner.html#af283fe0783ca83a494ccaf33c1a764b2":[2,2,0,14,9],
 "classgts_1_1_aligned_allocator.html":[2,6,0,0],
@@ -245,9 +249,5 @@ var NAVTREEINDEX0 =
 "classgts_1_1_micro_scheduler.html#adce3bfc3ac0f2918bfcf6c4b5dbf0f1a":[2,2,1,23],
 "classgts_1_1_micro_scheduler.html#adcf02fd39749bd1a1480e7ad3d9a9ffa":[2,2,1,0],
 "classgts_1_1_micro_scheduler.html#ae27030011b31a7a81dec2eca254d3476":[2,2,1,27],
-"classgts_1_1_micro_scheduler.html#aee0cf1c9a0a5f83f078452dffdd795ea":[2,2,1,13],
-"classgts_1_1_micro_scheduler.html#afa24e7a258e9bc879200050400d72bb9":[2,2,1,4],
-"classgts_1_1_micro_scheduler.html#affd71ea924200bed433b9eb92077c458":[2,2,1,26],
-"classgts_1_1_micro_scheduler___compute_resource.html":[2,0,0,0],
-"classgts_1_1_micro_scheduler___compute_resource.html#a2f1a83c843bdd7b967ca666cd0e43545":[2,0,0,0,17]
+"classgts_1_1_micro_scheduler.html#aee0cf1c9a0a5f83f078452dffdd795ea":[2,2,1,13]
 };

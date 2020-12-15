@@ -1,5 +1,9 @@
 var NAVTREEINDEX1 =
 {
+"classgts_1_1_micro_scheduler.html#afa24e7a258e9bc879200050400d72bb9":[2,2,1,4],
+"classgts_1_1_micro_scheduler.html#affd71ea924200bed433b9eb92077c458":[2,2,1,26],
+"classgts_1_1_micro_scheduler___compute_resource.html":[2,0,0,0],
+"classgts_1_1_micro_scheduler___compute_resource.html#a2f1a83c843bdd7b967ca666cd0e43545":[2,0,0,0,17],
 "classgts_1_1_micro_scheduler___compute_resource.html#a30ee018f85eea6cfbbcc771adfde3fbe":[2,0,0,0,12],
 "classgts_1_1_micro_scheduler___compute_resource.html#a3c92d48c9f0cdcd194667eb60d88438e":[2,0,0,0,13],
 "classgts_1_1_micro_scheduler___compute_resource.html#a55ac49ae226a0527c07631732fabbe05":[2,0,0,0,7],
@@ -32,7 +36,6 @@ var NAVTREEINDEX1 =
 "classgts_1_1_micro_scheduler_lambda___workload.html#abf11a8a31e367b460ed4dcfad4a1ebdd":[2,0,0,3,0],
 "classgts_1_1_node.html":[2,0,8],
 "classgts_1_1_node.html#a0257a0644cd0204b8fe6661ffafa267b":[2,0,8,12],
-"classgts_1_1_node.html#a0669477c8b55449da3de086ab845a2ccafe3683b75d8c786d60a65c50d1401e73":[2,0,8,0],
 "classgts_1_1_node.html#a0fe9cf64290ca909ef760b6b7f194e15":[2,0,8,27],
 "classgts_1_1_node.html#a1bca8078bc0053973b524e34367ee368":[2,0,8,2],
 "classgts_1_1_node.html#a1eb009ab34e9aa934e70259dbfe730ff":[2,0,8,24],
@@ -61,6 +64,7 @@ var NAVTREEINDEX1 =
 "classgts_1_1_node.html#ac93329e6cbdc2653caae0bdf58b058f1":[2,0,8,8],
 "classgts_1_1_node.html#ad6e42cca701ec09c27c9e406ff06a61f":[2,0,8,25],
 "classgts_1_1_node.html#ae1a92d56771c484c8bd2dc6ab5555a5e":[2,0,8,30],
+"classgts_1_1_node.html#af325894b4e8f6f84af5855aade69b8fbafe3683b75d8c786d60a65c50d1401e73":[2,0,8,0],
 "classgts_1_1_node.html#af828b1dfa968b9ec76cf10fbb90b5101":[2,0,8,26],
 "classgts_1_1_node.html#afb24eabe6049df08ea657f6b31b0fbc8":[2,0,8,1],
 "classgts_1_1_null_mutex.html":[2,3,5,6],
@@ -245,9 +249,5 @@ var NAVTREEINDEX1 =
 "classgts_1_1_parallel_vector_1_1iterator.html#a843ad09e822e1820d332e90e14ac60a5":[2,6,1,7,1,0],
 "classgts_1_1_parallel_vector_1_1iterator.html#aad389fef976fa56b557df65620b8a2d2":[2,6,1,7,1,1],
 "classgts_1_1_parallel_vector_1_1iterator.html#af00f05096393fb8d7949986dcf4d422c":[2,6,1,7,1,7],
-"classgts_1_1_parallel_vector_1_1iterator.html#af1b16bd644588acd9be3a74c58eaf235":[2,6,1,7,1,8],
-"classgts_1_1_parallel_vector_1_1iterator.html#af7eaee6656c8152a11d4c08c0126afe0":[2,6,1,7,1,4],
-"classgts_1_1_parallel_wavefront.html":[2,2,0,11],
-"classgts_1_1_parallel_wavefront.html#a25e04ed4c71c17e83e0a233b3cad3368":[2,2,0,11,0],
-"classgts_1_1_parallel_wavefront.html#af62db263770dde817706a72ddb145a23":[2,2,0,11,1]
+"classgts_1_1_parallel_vector_1_1iterator.html#af1b16bd644588acd9be3a74c58eaf235":[2,6,1,7,1,8]
 };

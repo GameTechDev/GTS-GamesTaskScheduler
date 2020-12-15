@@ -4,7 +4,7 @@ var group___utilities =
     [ "numericLimits< uint32_t >", "structgts_1_1numeric_limits_3_01uint32__t_01_4.html", null ],
     [ "numericLimits< uint64_t >", "structgts_1_1numeric_limits_3_01uint64__t_01_4.html", null ],
     [ "IsPow2", "structgts_1_1_is_pow2.html", [
-      [ "value", "structgts_1_1_is_pow2.html#a265f491455382eba1b895e3995dd7d9caa452d4d9e7a8d546d0de7d1b14247d5a", null ]
+      [ "value", "structgts_1_1_is_pow2.html#a48336238234d33722095735d262f30e9aa452d4d9e7a8d546d0de7d1b14247d5a", null ]
     ] ],
     [ "OwnedId", "classgts_1_1_owned_id.html", [
       [ "OwnedId", "classgts_1_1_owned_id.html#a32fb2f0c96afcc31db9bdb5a274b1a67", null ],
@@ -52,6 +52,7 @@ var group___utilities =
     [ "murmur_hash3", "group___utilities.html#gaa060e416dab1ce0721a8e3094996c219", null ],
     [ "murmur_hash3", "group___utilities.html#ga451a05b203f0c546bd6d35ad71036ac1", null ],
     [ "murmur_hash3", "group___utilities.html#gadf2be92c31c953fbb5e5241858b589ef", null ],
+    [ "nextPow2", "group___utilities.html#gaf7248ad435c5f137f0ba40b07e868a94", null ],
     [ "nextPow2", "group___utilities.html#ga7331647a758cc53f6cfd8b39f1c8e14d", null ],
     [ "nextPow2", "group___utilities.html#ga5e68d202246fca2d7b6998a1ae10213e", null ],
     [ "UNKNOWN_SUBID", "group___utilities.html#gae06d6a72ff5ee0ee4080d10a52e3ce8d", null ],

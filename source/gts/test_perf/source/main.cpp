@@ -25,7 +25,7 @@
 #include "gts_perf/Output.h"
 #include "gts_perf/PerfTests.h"
 
-#define SANDBOXx
+#define SANDBOX
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -149,6 +149,30 @@ void schedulerOverheadParFor(Output& output, uint32_t startThreadCount, uint32_t
         taskScheduler.initialize(&workerPool);
 
         Stats stats = schedulerOverheadParForPerf(taskScheduler, size, iterations);
+        output << stats.mean() << ", ";
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void irregularParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t size = 10000,
+    uint32_t iterations = 100000)
+{
+    output << "=== Irregular ParFor (s) ===" << std::endl;
+    output << "size: " << size << std::endl;
+    output << "iterations: " << iterations << std::endl;
+
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = irregularParallelFor(taskScheduler, size, iterations);
         output << stats.mean() << ", ";
     }
 
@@ -535,7 +559,7 @@ int main(int argc, char *argv[])
 
     //spawnTaskOverhead(output);
     //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000);
-    mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 100);
+    //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 100);
     //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount());
 
     //matMul(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 100, false, false);
@@ -543,6 +567,8 @@ int main(int argc, char *argv[])
     //aoBench(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 1024, 10);
 
     //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
+
+    irregularParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
 
     //homoRandomDagWorkStealing(output, 10);
     //heteroRandomDagCriticallyAware(output, 10);

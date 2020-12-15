@@ -1,5 +1,10 @@
 var NAVTREEINDEX5 =
 {
+"quick_start.html":[0,0],
+"structgts_1_1_atomic_arithmetic.html":[2,3,1,1],
+"structgts_1_1_atomic_arithmetic.html#a0077cc9ccde02a3337f4c851bd1b4351":[2,3,1,1,5],
+"structgts_1_1_atomic_arithmetic.html#a341891565b87f71a2ea8539e878032d4":[2,3,1,1,8],
+"structgts_1_1_atomic_arithmetic.html#a41c3302967dd531c4c22c516f2447996":[2,3,1,1,1],
 "structgts_1_1_atomic_arithmetic.html#a696e4f848038fae0568b5c7b3096e9b1":[2,3,1,1,7],
 "structgts_1_1_atomic_arithmetic.html#a7d07a97bf5a82baf2b1070af9a978306":[2,3,1,1,9],
 "structgts_1_1_atomic_arithmetic.html#a9a662341ec50b7aaa7afc865b7bb4adc":[2,3,1,1,4],
@@ -48,15 +53,15 @@ var NAVTREEINDEX5 =
 "structgts_1_1_free_list_node.html":[2,6,1,0],
 "structgts_1_1_free_list_node.html#a51ae103804c59145584a53e0f271df37":[2,6,1,0,0],
 "structgts_1_1_is_pow2.html":[2,3,6,3],
-"structgts_1_1_is_pow2.html#a265f491455382eba1b895e3995dd7d9caa452d4d9e7a8d546d0de7d1b14247d5a":[2,3,6,3,0],
+"structgts_1_1_is_pow2.html#a48336238234d33722095735d262f30e9aa452d4d9e7a8d546d0de7d1b14247d5a":[2,3,6,3,0],
 "structgts_1_1_key_value.html":[2,6,1,5],
 "structgts_1_1_key_value.html#a451b201004b94ea9c1fa877206fed417":[2,6,1,5,1],
 "structgts_1_1_key_value.html#a8f33d8ec7d37ceb3a14efb6e995b5dfb":[2,6,1,5,0],
 "structgts_1_1_launch_task.html":[2,2,0,8],
 "structgts_1_1_launch_task_3_012_01_4.html":[2,2,0,9],
-"structgts_1_1_launch_task_3_012_01_4.html#a04de67ffe98e22921e6831c734de66b1ac99e59e89030906f859e5cc92eb32ec0":[2,2,0,9,0],
+"structgts_1_1_launch_task_3_012_01_4.html#a7bd2862699e36da2edaa790bc48f6526ac99e59e89030906f859e5cc92eb32ec0":[2,2,0,9,0],
 "structgts_1_1_launch_task_3_013_01_4.html":[2,2,0,10],
-"structgts_1_1_launch_task_3_013_01_4.html#a535e8182394eaca31817a44e089cb27ea16cf47d39aad7597e17990365c9382f2":[2,2,0,10,0],
+"structgts_1_1_launch_task_3_013_01_4.html#a5d2178b2d4d2f0db5907c6cf863c84c1a16cf47d39aad7597e17990365c9382f2":[2,2,0,10,0],
 "structgts_1_1_lock.html":[2,3,5,2],
 "structgts_1_1_lock.html#a453b613db21363d24ae48773a6e2062b":[2,3,5,2,1],
 "structgts_1_1_lock.html#a6a1a363183e4d0d738e48ccff4dbbb28":[2,3,5,2,2],
@@ -238,9 +243,5 @@ var NAVTREEINDEX5 =
 "structgts__examples_1_1_parallel_fib_task4.html#aac7ba34ce891eecd81075230b2811ae5":[3,0,1,10,1],
 "structgts__examples_1_1_parallel_fib_task4.html#ad3f60ed87ab4c47d83551bfad37e9440":[3,0,1,10,2],
 "structgts__examples_1_1_parallel_fib_task4.html#afe7b215042ac61e50051d93d522f56ae":[3,0,1,10,3],
-"todo.html":[1],
-"":[3,0,1],
-"":[3,0,0,1],
-"":[3,0,0,0],
-"":[3,0,0]
+"todo.html":[1]
 };

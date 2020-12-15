@@ -35,6 +35,8 @@ Stats schedulerOverheadFibPerf(gts::MicroScheduler& taskScheduler, uint32_t fibN
 Stats poorDistributionPerf(gts::MicroScheduler& taskScheduler, uint32_t taskCount, uint32_t iterations);
 Stats poorSystemDistributionPerf(gts::WorkerPool& workerPool, uint32_t iterations);
 
+Stats irregularParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, uint32_t iterations);
+
 Stats mandelbrotPerfSerial(uint32_t dimensions, uint32_t iterations);
 Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimensions, uint32_t iterations);
 

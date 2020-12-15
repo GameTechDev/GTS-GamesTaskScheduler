@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['adaptivepartitioner_5',['AdaptivePartitioner',['../classgts_1_1_adaptive_partitioner.html',1,'gts']]],
+  ['adaptivepartitioner_5',['AdaptivePartitioner',['../classgts_1_1_adaptive_partitioner.html',1,'gts::AdaptivePartitioner'],['../classgts_1_1_adaptive_partitioner.html#a725ae72b3c6cd543f281d18c5df67116',1,'gts::AdaptivePartitioner::AdaptivePartitioner()']]],
   ['addchildtaskwithoutref_6',['addChildTaskWithoutRef',['../classgts_1_1_task.html#aa8ab1e33d6e658ec73e73a3dd020e375',1,'gts::Task']]],
   ['addchildtaskwithref_7',['addChildTaskWithRef',['../classgts_1_1_task.html#a3ba82924b8ac948c9e33a74a4e60fe29',1,'gts::Task']]],
   ['addexternalvictim_8',['addExternalVictim',['../classgts_1_1_micro_scheduler.html#aaf38be6a898a3965e2c24f5f896a63d0',1,'gts::MicroScheduler']]],

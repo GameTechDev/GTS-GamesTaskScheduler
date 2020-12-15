@@ -85,10 +85,10 @@ var group___parallel_patterns =
     ] ],
     [ "LaunchTask", "structgts_1_1_launch_task.html", null ],
     [ "LaunchTask< 2 >", "structgts_1_1_launch_task_3_012_01_4.html", [
-      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_012_01_4.html#a04de67ffe98e22921e6831c734de66b1ac99e59e89030906f859e5cc92eb32ec0", null ]
+      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_012_01_4.html#a7bd2862699e36da2edaa790bc48f6526ac99e59e89030906f859e5cc92eb32ec0", null ]
     ] ],
     [ "LaunchTask< 3 >", "structgts_1_1_launch_task_3_013_01_4.html", [
-      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_013_01_4.html#a535e8182394eaca31817a44e089cb27ea16cf47d39aad7597e17990365c9382f2", null ]
+      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_013_01_4.html#a5d2178b2d4d2f0db5907c6cf863c84c1a16cf47d39aad7597e17990365c9382f2", null ]
     ] ],
     [ "ParallelWavefront", "classgts_1_1_parallel_wavefront.html", [
       [ "ParallelWavefront", "classgts_1_1_parallel_wavefront.html#a25e04ed4c71c17e83e0a233b3cad3368", null ],
@@ -119,7 +119,7 @@ var group___parallel_patterns =
     ] ],
     [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html", [
       [ "splitter_type", "classgts_1_1_adaptive_partitioner.html#acdc574ae99717913cf3048cf13f12755", null ],
-      [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html#ad7c23997af55adb5ec2a432d16af8f11", null ],
+      [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html#a725ae72b3c6cd543f281d18c5df67116", null ],
       [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html#a767de7bfb7e20b8f8884e2b303a1b54d", null ],
       [ "adjustDepth", "classgts_1_1_adaptive_partitioner.html#a23af74ca6a96241d582af0fff393453a", null ],
       [ "adjustIfStolen", "classgts_1_1_adaptive_partitioner.html#a7ea396af30f92eac77c330cc10b1de57", null ],
