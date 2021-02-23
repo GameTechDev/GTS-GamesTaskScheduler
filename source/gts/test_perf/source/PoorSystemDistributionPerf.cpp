@@ -46,7 +46,7 @@ struct alignas(GTS_NO_SHARING_CACHE_LINE_SIZE) RandState
 //------------------------------------------------------------------------------
 void asyncSubmit(gts::MicroScheduler& taskScheduler, uint32_t taskCount, uint32_t workCount)
 {
-    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::ThisThread::getId(), "Async");
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::analysis::Color::Aqua, "Async");
 
     gts::Task* pRootTask = taskScheduler.allocateTask<gts::EmptyTask>();
     pRootTask->addRef(taskCount + 1);
@@ -78,7 +78,7 @@ void serialWorker(uint32_t w, uint32_t h, uint32_t nsubsamples)
 {
     using namespace ao_bench;
 
-    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::ThisThread::getId(), "SerialMaster");
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::analysis::Color::Aqua, "SerialMaster");
     float* image = new float[w * h * 3];
 
     Plane plane = { Vec3(0.0f, -0.5f, 0.0f), Vec3(0.f, 1.f, 0.f) };
@@ -107,7 +107,7 @@ struct MatMulTaskData
 //------------------------------------------------------------------------------
 void matMulParallel(gts::MicroScheduler& taskScheduler, const uint32_t M, const uint32_t N, const uint32_t K)
 {
-    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::ThisThread::getId(), "Matmul");
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::analysis::Color::Aqua, "Matmul");
 
     gts::Vector<float, gts::AlignedAllocator<32>> A(M * N);
     matmul::initMatrix(A.data(), M, N, 10.0f);
@@ -122,7 +122,7 @@ void matMulParallel(gts::MicroScheduler& taskScheduler, const uint32_t M, const 
 //------------------------------------------------------------------------------
 void parallelMaster(gts::MicroScheduler& taskScheduler, uint32_t seed)
 {
-    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::ThisThread::getId(), "ParallelMaster");
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::ALL, gts::analysis::Color::Aqua, "ParallelMaster");
     RandState myRand;
     myRand.state = seed;
 

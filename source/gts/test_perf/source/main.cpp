@@ -156,11 +156,11 @@ void schedulerOverheadParFor(Output& output, uint32_t startThreadCount, uint32_t
 }
 
 //------------------------------------------------------------------------------
-void irregularParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+void irregularRandParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
     uint32_t size = 10000,
     uint32_t iterations = 100000)
 {
-    output << "=== Irregular ParFor (s) ===" << std::endl;
+    output << "=== Irregular Random ParFor (s) ===" << std::endl;
     output << "size: " << size << std::endl;
     output << "iterations: " << iterations << std::endl;
 
@@ -172,7 +172,31 @@ void irregularParFor(Output& output, uint32_t startThreadCount, uint32_t endThre
         gts::MicroScheduler taskScheduler;
         taskScheduler.initialize(&workerPool);
 
-        Stats stats = irregularParallelFor(taskScheduler, size, iterations);
+        Stats stats = irregularRandParallelFor(taskScheduler, size, iterations);
+        output << stats.mean() << ", ";
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
+void irregularUpfrontParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t size = 10000,
+    uint32_t iterations = 100000)
+{
+    output << "=== Irregular Random ParFor (s) ===" << std::endl;
+    output << "size: " << size << std::endl;
+    output << "iterations: " << iterations << std::endl;
+
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = irregularUpfrontParallelFor(taskScheduler, size, iterations);
         output << stats.mean() << ", ";
     }
 
@@ -558,9 +582,9 @@ int main(int argc, char *argv[])
     GTS_UNREFERENCED_PARAM(argv);
 
     //spawnTaskOverhead(output);
-    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000);
-    //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 100);
-    //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount());
+    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000000, 1000);
+    //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 50);
+    poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 0, 100);
 
     //matMul(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 100, false, false);
 
@@ -568,7 +592,8 @@ int main(int argc, char *argv[])
 
     //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
 
-    irregularParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
+    //irregularRandParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
+    //irregularUpfrontParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
 
     //homoRandomDagWorkStealing(output, 10);
     //heteroRandomDagCriticallyAware(output, 10);

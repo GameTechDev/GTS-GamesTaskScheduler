@@ -25,6 +25,8 @@
 
 #include "gts/platform/Utils.h"
 #include "gts/platform/Thread.h"
+#include "gts/synchronization/SpinMutex.h"
+#include "gts/synchronization/Lock.h"
 #include "gts/containers/AlignedAllocator.h"
 #include "gts/containers/parallel/Guards.h"
 #include "gts/containers/Vector.h"

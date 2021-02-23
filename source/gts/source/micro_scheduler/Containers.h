@@ -23,7 +23,7 @@
 
 #include "gts/containers/parallel/QueueMPMC.h"
 #include "gts/containers/parallel/QueueMPSC.h"
-
+#include "gts/synchronization/SpinMutex.h"
 #include "gts/micro_scheduler/Task.h"
 #include "WorkStealingDeque_ChaseLev.h"
 #include "TerminationBackoff.h"
@@ -40,7 +40,7 @@ class AffinityTaskQueue : public QueueMPSC<Task*, UnfairSpinMutex<>, AlignedAllo
 class TerminationBackoff : public TerminationBackoffAdaptive
 {
 public:
-    explicit GTS_INLINE TerminationBackoff(uint32_t minFailThreshold) : TerminationBackoffAdaptive(minFailThreshold) {}
+    explicit GTS_INLINE TerminationBackoff(uint64_t maxCyclesToTry, int32_t minQuitThreshold) : TerminationBackoffAdaptive(maxCyclesToTry, minQuitThreshold) {}
 };
 
 using PriorityTaskDeque         = Vector<TaskDeque, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>;

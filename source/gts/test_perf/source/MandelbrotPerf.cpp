@@ -145,7 +145,7 @@ Stats mandelbrotPerfParallel(gts::MicroScheduler& taskScheduler, uint32_t dimens
                 }
             }
         },
-        gts::AdaptivePartitioner(),
+        gts::AdaptivePartitioner(3),
         &taskData);
 
         auto end = std::chrono::high_resolution_clock::now();

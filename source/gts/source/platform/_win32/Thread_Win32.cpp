@@ -713,8 +713,9 @@ bool Event::resetEvent(EventHandle& handle)
     return true;
 }
 
+#endif // GTS_HAS_CUSTOM_EVENT_WRAPPERS
+
 } // namespace internal
 } // namespace gts
 
-#endif // GTS_HAS_CUSTOM_EVENT_WRAPPERS
 #endif // GTS_WINDOWS

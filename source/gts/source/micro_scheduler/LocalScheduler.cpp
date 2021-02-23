@@ -70,6 +70,7 @@ LocalScheduler::LocalScheduler()
 LocalScheduler::~LocalScheduler()
 {
     m_pMyScheduler->destoryTask(m_pWaiterTask);
+    m_pMyScheduler = nullptr;
 }
 
 // ACCESSORS:

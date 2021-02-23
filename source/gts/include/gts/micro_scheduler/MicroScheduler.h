@@ -25,7 +25,7 @@
 
 #include "gts/platform/Assert.h"
 #include "gts/platform/Atomic.h"
-#include "gts/platform/Thread.h"
+#include "gts/synchronization/SpinMutex.h"
 
 #include "gts/containers/AlignedAllocator.h"
 

@@ -43,7 +43,7 @@ struct alignas(256) PaddedInt
 #endif
 
 //------------------------------------------------------------------------------
-Stats irregularParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, uint32_t iterations)
+Stats irregularRandParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, uint32_t iterations)
 {
     Stats stats(iterations);
 
@@ -72,10 +72,10 @@ Stats irregularParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, u
                 GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Irregular ParFor Task", range.size());
 
                 uint32_t& randState = randStates[ctx.workerId.localId()].i;
-                uint32_t s = spins[gts::fastRand(randState) % TOTAL_SPINS];
 
                 for (uint32_t r = range.begin(); r != range.end(); ++r)
                 {
+                    uint32_t s = spins[gts::fastRand(randState) % TOTAL_SPINS];
                     float f = 0.45f;
                     for (volatile uint32_t ii = 0; ii < s; ++ii)
                     {
@@ -83,8 +83,58 @@ Stats irregularParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, u
                     }
                 }
             },
-            gts::AdaptivePartitioner(),
+            gts::AdaptivePartitioner(4),
             nullptr);
+
+        auto end = std::chrono::high_resolution_clock::now();
+
+        std::chrono::duration<double> diff = end - start;
+        stats.addDataPoint(diff.count());
+    }
+
+    return stats;
+}
+
+//------------------------------------------------------------------------------
+Stats irregularUpfrontParallelFor(gts::MicroScheduler& taskScheduler, uint32_t items, uint32_t iterations)
+{
+    Stats stats(iterations);
+
+    gts::ParallelFor parallelFor(taskScheduler);
+
+    constexpr float precentageofRange = 0.1f;
+    uint32_t rangeOfHighCostEnd       = uint32_t(items * precentageofRange);
+
+    // Do test.
+    for (uint32_t ii = 0; ii < iterations; ++ii)
+    {
+        GTS_TRACE_FRAME_MARK(gts::analysis::CaptureMask::ALL);
+
+        auto start = std::chrono::high_resolution_clock::now();
+
+        parallelFor(
+            gts::Range1d<uint32_t>(0, items, 1),
+            [rangeOfHighCostEnd](gts::Range1d<uint32_t>& range, void*, gts::TaskContext const&)
+            {
+                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Irregular ParFor Task", range.size());
+
+                for (uint32_t r = range.begin(); r != range.end(); ++r)
+                {
+                    uint32_t numSpins = 10;
+                    if (r > rangeOfHighCostEnd)
+                    {
+                        numSpins = 100000;
+                    }
+
+                    float f = 0.45f;
+                    for (volatile uint32_t ii = 0; ii < numSpins; ++ii)
+                    {
+                        f = sin(f);
+                    }
+                }
+            },
+            gts::AdaptivePartitioner(4),
+                nullptr);
 
         auto end = std::chrono::high_resolution_clock::now();
 

@@ -508,6 +508,9 @@ void QueueSPMC<T, TMutex, TAllocator>::clear()
     {
         m_pSubQueues[ii].clear();
     }
+
+    m_front.store(0, memory_order::relaxed);
+    m_back.store(0, memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------

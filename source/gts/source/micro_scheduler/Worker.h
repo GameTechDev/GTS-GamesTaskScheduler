@@ -182,6 +182,7 @@ private: // DATA:
     Vector<LocalScheduler*> m_registeredSchedulers;
     LocalScheduler* m_pCurrentScheduler;
     void* m_pUserData;
+    uint64_t m_minSleepCycles; // track the min cost of sleeping for backoff.
     BinarySemaphore* m_pHaltSemaphore;
     MutexType* m_pLocalSchedulersMutex;
     WorkerPoolDesc::GetThreadLocalStateFcn m_pGetThreadLocalStateFcn;

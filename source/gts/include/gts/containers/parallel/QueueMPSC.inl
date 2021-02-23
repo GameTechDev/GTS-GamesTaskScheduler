@@ -429,11 +429,11 @@ QueueMPSC<T, TMutex, TAllocator>& QueueMPSC<T, TMutex, TAllocator>::operator=(Qu
 {
     if (this != &other)
     {
-	    for (size_type ii = 0; ii < m_numSubQueues; ++ii)
-	    {
-		allocator_type::destroy(m_pSubQueues + ii);
-	    }
-	    allocator_type::deallocate(m_pSubQueues, m_numSubQueues);
+        for (size_type ii = 0; ii < m_numSubQueues; ++ii)
+        {
+        allocator_type::destroy(m_pSubQueues + ii);
+        }
+        allocator_type::deallocate(m_pSubQueues, m_numSubQueues);
 
         m_front.store(std::move(other.m_front.load(memory_order::relaxed)), memory_order::relaxed);
         m_back.store(std::move(other.m_back.load(memory_order::relaxed)), memory_order::relaxed);
@@ -507,6 +507,9 @@ void QueueMPSC<T, TMutex, TAllocator>::clear()
     {
         m_pSubQueues[ii].clear();
     }
+
+    m_front.store(0, memory_order::relaxed);
+    m_back.store(0, memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------

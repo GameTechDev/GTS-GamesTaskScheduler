@@ -235,6 +235,24 @@ struct QueueTester
         }
     }
 
+
+    //--------------------------------------------------------------------------
+    void clear()
+    {
+        TQueue queue;
+        for (uint32_t ii = 0; ii < ITEM_COUNT; ++ii)
+        {
+            ValueType val(ii);
+            while (!queue.tryPush(val))
+            {
+            }
+        }
+
+        ASSERT_EQ(queue.size(), ITEM_COUNT);
+        queue.clear();
+        ASSERT_TRUE(queue.empty());
+    }
+
     //--------------------------------------------------------------------------
     void pushRace(uint32_t producerThreadCount)
     {

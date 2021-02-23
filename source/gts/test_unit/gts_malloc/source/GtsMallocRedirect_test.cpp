@@ -69,6 +69,10 @@ TEST(GtsMallocRedirect, testDynamicRedirection)
     // Wait until child process exits.
     WaitForSingleObject( pi.hProcess, INFINITE );
 
+    DWORD exitCode;
+    GetExitCodeProcess(pi.hProcess, &exitCode);
+    ASSERT_EQ(exitCode, 0U);
+
     // Close process and thread handles. 
     CloseHandle( pi.hProcess );
     CloseHandle( pi.hThread );

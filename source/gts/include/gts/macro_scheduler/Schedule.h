@@ -22,6 +22,7 @@
 #pragma once
 
 #include "gts/platform/Machine.h"
+#include "gts/synchronization/SpinMutex.h"
 #include "gts/macro_scheduler/MacroSchedulerTypes.h"
 
 namespace gts {

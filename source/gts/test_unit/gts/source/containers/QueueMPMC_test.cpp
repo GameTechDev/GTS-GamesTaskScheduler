@@ -71,6 +71,12 @@ TEST(QueueMPMC, moveAssign)
 }
 
 //------------------------------------------------------------------------------
+TEST(QueueMPMC, clear)
+{
+    tester.clear();
+}
+
+//------------------------------------------------------------------------------
 TEST(QueueMPMC, copyPushPop)
 {
     tester.copyPushPop();

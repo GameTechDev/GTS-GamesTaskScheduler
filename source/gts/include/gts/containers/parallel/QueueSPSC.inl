@@ -167,8 +167,11 @@ void QueueSPSC<T, TAllocator>::clear()
         allocator_type::deallocate(m_ppDataBackingArray[ii], currSize);
     }
     allocator_type::vector_delete_object(m_ppDataBackingArray, m_dataBackingArraySize);
-
     m_ppDataBackingArray = nullptr;
+    m_dataBackingArraySize = 0;
+
+    m_front.store(0, memory_order::relaxed);
+    m_back.store(0, memory_order::relaxed);
 
     // Delete current table.
     RingBuffer* pBuffer = m_pRingBuffer.exchange(nullptr, memory_order::acq_rel);

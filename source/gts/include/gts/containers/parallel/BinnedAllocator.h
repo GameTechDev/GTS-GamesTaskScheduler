@@ -26,6 +26,7 @@
 #include "gts/platform/Atomic.h"
 #include "gts/platform/Utils.h"
 #include "gts/platform/Thread.h"
+#include "gts/synchronization/SpinMutex.h"
 #include "gts/containers/OsHeapAllocator.h"
 #include "gts/containers/parallel/QueueMPMC.h"
 #include "gts/containers/parallel/ParallelHashTable.h"

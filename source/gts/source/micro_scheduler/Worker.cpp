@@ -24,6 +24,7 @@
 #include "gts/platform/Assert.h"
 #include "gts/analysis/Trace.h"
 #include "gts/analysis/Counter.h"
+#include "gts/synchronization/Lock.h"
 
 #include "gts/micro_scheduler/MicroScheduler.h"
 #include "gts/micro_scheduler/WorkerPool.h"
@@ -62,6 +63,7 @@ Worker::Worker()
     , m_pSleepBlocker(nullptr)
     , m_pCurrentScheduler(nullptr)
     , m_pUserData(nullptr)
+    , m_minSleepCycles(UINT64_MAX)
     , m_pHaltSemaphore(nullptr)
     , m_pLocalSchedulersMutex(nullptr)
     , m_pGetThreadLocalStateFcn(nullptr)
@@ -424,6 +426,8 @@ void Worker::sleep(bool force)
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::DarkRed, "WORKER SLEEP", this, id().localId());
     GTS_WP_COUNTER_INC(id(), gts::analysis::WorkerPoolCounters::NUM_SLEEP_SUCCESSES);
 
+    uint64_t startSleepTime = GTS_RDTSC();
+
     // Notify the WorkPool of the suspension.
     m_pMyPool->m_sleepingWorkerCount.fetch_add(1, memory_order::acquire);
 
@@ -466,6 +470,17 @@ void Worker::sleep(bool force)
 
     // Notify the WorkPool of the resume.
     m_pMyPool->m_sleepingWorkerCount.fetch_sub(1, memory_order::release);
+
+    uint64_t endSleepTime = GTS_RDTSC();
+
+    if (endSleepTime > startSleepTime)
+    {
+        uint64_t dt = endSleepTime - startSleepTime;
+        if (dt < m_minSleepCycles)
+        {
+            m_minSleepCycles = dt;
+        }
+    }
 
     GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::Green, "WORKER WOKE", this, id().localId());
 }
@@ -612,7 +627,8 @@ void Worker::_schedulerExecutionLoop(SubIdType localWorkerId)
 
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKER EXE LOOP", this, localWorkerId);
 
-    TerminationBackoff backoff(1);
+    constexpr uint32_t minQuitThreshold = 1;
+    TerminationBackoff backoff(m_minSleepCycles, minQuitThreshold);
 
     Task* pFoundTask = nullptr;
 
@@ -692,6 +708,7 @@ void Worker::_schedulerExecutionLoop(SubIdType localWorkerId)
                 {
                     GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::OrangeRed, "WORKER ENTER SLEEP", this, localWorkerId);
                     sleep(false);
+                    backoff.resetQuitThreshold(m_minSleepCycles * 2, minQuitThreshold);
                 }
                 else
                 {

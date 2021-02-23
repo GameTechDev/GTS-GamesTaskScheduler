@@ -43,7 +43,7 @@ class TerminationBackoffFixed
 public:
 
     //--------------------------------------------------------------------------
-    GTS_INLINE TerminationBackoffFixed(uint32_t minQuitThreshold)
+    GTS_INLINE explicit TerminationBackoffFixed(uint32_t minQuitThreshold)
         : m_quitThreshold(minQuitThreshold)
         , m_quitCount(0)
     {}
@@ -104,8 +104,10 @@ class TerminationBackoffAdaptive
 public:
 
     //--------------------------------------------------------------------------
-    GTS_INLINE TerminationBackoffAdaptive(int32_t minQuitThreshold)
-        : m_minQuitThreshold(minQuitThreshold)
+    GTS_INLINE TerminationBackoffAdaptive(uint64_t maxCyclesToTry, int32_t minQuitThreshold)
+        : m_maxCyclesToTry(maxCyclesToTry)
+        , m_currCyclesTried(0)
+        , m_minQuitThreshold(minQuitThreshold)
         , m_quitThreshold(minQuitThreshold)
         , m_quitCount(0)
     {
@@ -114,9 +116,10 @@ public:
 
 
     //--------------------------------------------------------------------------
-    GTS_INLINE void resetQuitThreshold(uint32_t minQuitThreshold)
+    GTS_INLINE void resetQuitThreshold(uint64_t maxCyclesToTry, int32_t minQuitThreshold)
     {
         m_minQuitThreshold = minQuitThreshold;
+        m_maxCyclesToTry = maxCyclesToTry;
     }
 
     //--------------------------------------------------------------------------
@@ -131,6 +134,7 @@ public:
             GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Red, "BACKOFF RESET", m_quitThreshold);
         }
 
+        m_currCyclesTried = 0;
         m_quitCount = 0;
     }
 
@@ -138,6 +142,27 @@ public:
     GTS_INLINE bool tryToQuit(SubIdType workerId)
     {
         GTS_UNREFERENCED_PARAM(workerId);
+
+        // Quit if we are beyond the cycle limit.
+        {
+            uint64_t cycles = GTS_RDTSC();
+            uint64_t dt = 0;
+            if (m_currCyclesTried != 0 && cycles > m_currCyclesTried)
+            {
+                dt = cycles - m_currCyclesTried;
+            }
+            else
+            {
+                m_currCyclesTried = cycles;
+            }
+
+            GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Red3, "CHECK CYCLE LIMIT", dt, m_maxCyclesToTry);
+            if (dt > m_maxCyclesToTry)
+            {
+                return true;
+            }
+        }
+
 
         GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Red, "BACKOFF", workerId);
         {
@@ -155,6 +180,8 @@ public:
 
 private:
 
+    uint64_t m_maxCyclesToTry;
+    uint64_t m_currCyclesTried;
     int32_t m_minQuitThreshold;
     int32_t m_quitThreshold;
     int32_t m_quitCount;

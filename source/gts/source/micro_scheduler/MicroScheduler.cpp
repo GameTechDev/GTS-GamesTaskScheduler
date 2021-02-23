@@ -175,13 +175,13 @@ void MicroScheduler::shutdown()
     // Tell this MicroScheduler to quit.
     m_isAttached.store(false, memory_order::release);
 
-    m_pExternalSchedulers->unregisterAllThieves(this);
-    m_pExternalSchedulers->unregisterAllVictims(this);
-
     GTS_ASSERT(m_pWorkerPool != nullptr);
 
     // Unregister from the WorkerPool
     _unRegisterFromWorkerPool(m_pWorkerPool, true);
+
+    m_pExternalSchedulers->unregisterAllThieves(this);
+    m_pExternalSchedulers->unregisterAllVictims(this);
 
     // Must delete before the WorkerPool to cleanup internal Task resources.
     for (uint16_t ii = 0; ii < m_localSchedulerCount; ++ii)

@@ -63,6 +63,12 @@ TEST(QueueSPSC, moveAssign)
 }
 
 //------------------------------------------------------------------------------
+TEST(QueueSPSC, clear)
+{
+    tester.clear();
+}
+
+//------------------------------------------------------------------------------
 TEST(QueueSPSC, copyPushPop)
 {
     tester.copyPushPop();

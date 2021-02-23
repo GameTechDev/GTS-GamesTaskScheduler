@@ -172,8 +172,10 @@ namespace testing {
 //------------------------------------------------------------------------------
 TEST(CriticallyAware_MacroScheduler_test, DiamondTest_OneResourceOneThread)
 {
+    uint32_t threadCount = 1;
+
     WorkerPool workerPool;
-    workerPool.initialize(1);
+    workerPool.initialize(threadCount);
 
     MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
@@ -189,8 +191,10 @@ TEST(CriticallyAware_MacroScheduler_test, DiamondTest_OneResourceOneThread)
 //------------------------------------------------------------------------------
 TEST(CriticallyAware_MacroScheduler_test, DiamondTest_OneResourceManyThreads)
 {
+    uint32_t threadCount = gts::Thread::getHardwareThreadCount();
+
     WorkerPool workerPool;
-    workerPool.initialize(gts::Thread::getHardwareThreadCount());
+    workerPool.initialize(threadCount);
 
     MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
@@ -209,8 +213,10 @@ TEST(CriticallyAware_MacroScheduler_test, DiamondTest_OneResourceManyThreads)
 //------------------------------------------------------------------------------
 TEST(CriticallyAware_MacroScheduler_test, RandomDagTest_OneResourceOneThread)
 {
+    uint32_t threadCount = 1;
+
     WorkerPool workerPool;
-    workerPool.initialize(1);
+    workerPool.initialize(threadCount);
 
     MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
@@ -226,8 +232,10 @@ TEST(CriticallyAware_MacroScheduler_test, RandomDagTest_OneResourceOneThread)
 //------------------------------------------------------------------------------
 TEST(CriticallyAware_MacroScheduler_test, RandomDagTest_OneResourceManyThreads)
 {
+    uint32_t threadCount = gts::Thread::getHardwareThreadCount();
+
     WorkerPool workerPool;
-    workerPool.initialize(gts::Thread::getHardwareThreadCount());
+    workerPool.initialize(threadCount);
 
     MicroScheduler taskScheduler;
     taskScheduler.initialize(&workerPool);
@@ -252,8 +260,9 @@ TEST(CriticallyAware_MacroScheduler_test, RandomDagTest_TwoResourcesManyThreads)
     Vector<ComputeResource*> computeResources;
     for (uint32_t ii = 0; ii < numResources; ++ii)
     {
+        uint32_t threadCount = gts::Thread::getHardwareThreadCount() / numResources;
         WorkerPool* workerPool = alignedNew<WorkerPool, GTS_NO_SHARING_CACHE_LINE_SIZE>();
-        workerPool->initialize(gts::Thread::getHardwareThreadCount() / numResources);
+        workerPool->initialize(threadCount);
         workerPools.push_back(workerPool);
 
         MicroScheduler* microScheduler = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();

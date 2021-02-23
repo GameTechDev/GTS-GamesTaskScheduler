@@ -148,7 +148,7 @@ void createHeterogeneousComputeResources(ComputeResourceData& out)
     out.pMicroScheduler[0] = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     out.pMicroScheduler[0]->initialize(out.pWorkerPool[0]);
 
-    out.pComputeResource[0] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], 0);
+    out.pComputeResource[0] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], 0, bigCoreCount);
     out.pComputeResource[0]->setExecutionNormalizationFactor(1);
 
     ThisThread::setAffinity(0, bigCoreAffinity);
@@ -177,7 +177,7 @@ void createHeterogeneousComputeResources(ComputeResourceData& out)
     out.pMicroScheduler[1] = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     out.pMicroScheduler[1]->initialize(out.pWorkerPool[1]);
 
-    out.pComputeResource[1] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[1], 0);
+    out.pComputeResource[1] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[1], 0, 1);
     out.pComputeResource[1]->setExecutionNormalizationFactor(2);
 
     // 1-way stealing.
