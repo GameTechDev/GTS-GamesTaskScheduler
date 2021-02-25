@@ -29,6 +29,7 @@
 #include <string>
 
 #include "gts/platform/Thread.h"
+#include "gts/synchronization/SpinMutex.h"
 #include "gts/containers/Vector.h"
 #include "gts/platform/Assert.h"
 #include "gts/platform/Atomic.h"

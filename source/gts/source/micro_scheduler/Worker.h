@@ -164,13 +164,15 @@ private: // DATA:
 
     struct ThreadBlocker
     {
-        static constexpr uint32_t IS_UNBLOCKED = 0x00;
-        static constexpr uint32_t IS_BLOCKED   = 0x01;
+        static constexpr uint32_t IS_UNBLOCKED          = 0;
+        static constexpr uint32_t IS_BLOCKED            = 1;
+        static constexpr uint32_t IS_OUT_OF_SIGNAL_LOOP = 2;
+        static constexpr uint32_t IS_AWAKE              = 3;
 
         GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) Atomic<uint32_t> state = { IS_UNBLOCKED };
         BinarySemaphore semaphore;
+        Atomic<uint32_t> numWakers = { 0 };
         Atomic<bool> resetOnWake = { false };
-        Atomic<bool> doneWaking = { false };
     };
 
     using BackoffType = Backoff<BackoffGrowth::Geometric, true>;

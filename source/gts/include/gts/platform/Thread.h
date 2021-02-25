@@ -535,9 +535,12 @@ public:
         return GTS_WAIT_FOR_EVENT(m_event, false);
     }
 
-    void wait()
+    /**
+     *  @return True if the event was waited on, false otherwise.
+     */
+    bool wait()
     {
-        GTS_WAIT_FOR_EVENT(m_event, true);
+        return GTS_WAIT_FOR_EVENT(m_event, true);
     }
 
     void signal()

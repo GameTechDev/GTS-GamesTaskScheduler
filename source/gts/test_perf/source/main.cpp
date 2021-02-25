@@ -156,6 +156,30 @@ void schedulerOverheadParFor(Output& output, uint32_t startThreadCount, uint32_t
 }
 
 //------------------------------------------------------------------------------
+void sparseWork(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
+    uint32_t size = 10000,
+    uint32_t iterations = 100000)
+{
+    output << "=== Sparse Work (s) ===" << std::endl;
+    output << "size: " << size << std::endl;
+    output << "iterations: " << iterations << std::endl;
+
+    for (uint32_t iThread = startThreadCount; iThread <= endThreadCount; ++iThread)
+    {
+        gts::WorkerPool workerPool;
+        initWorkerPool(workerPool, iThread, false);
+
+        gts::MicroScheduler taskScheduler;
+        taskScheduler.initialize(&workerPool);
+
+        Stats stats = sparseWorkPerf(taskScheduler, size, iterations);
+        output << stats.mean() << ", ";
+    }
+
+    output << std::endl;
+}
+
+//------------------------------------------------------------------------------
 void irregularRandParFor(Output& output, uint32_t startThreadCount, uint32_t endThreadCount,
     uint32_t size = 10000,
     uint32_t iterations = 100000)
@@ -582,17 +606,19 @@ int main(int argc, char *argv[])
     GTS_UNREFERENCED_PARAM(argv);
 
     //spawnTaskOverhead(output);
-    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000000, 1000);
+    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000000, 1000000);
     //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 50);
-    poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 0, 100);
+    //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 0, 100);
 
     //matMul(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 100, false, false);
 
-    //aoBench(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 1024, 10);
+    //aoBench(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 512, 50);
 
     //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
 
-    //irregularRandParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
+    sparseWork(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
+
+    //irregularRandParFor(output, 16, 16, 10000, 500);
     //irregularUpfrontParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
 
     //homoRandomDagWorkStealing(output, 10);

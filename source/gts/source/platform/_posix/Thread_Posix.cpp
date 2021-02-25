@@ -510,7 +510,7 @@ bool Event::waitForEvent(EventHandle& handle, bool waitForever)
 {
     if (handle.signaled.load(memory_order::acquire))
     {
-        return true;
+        return false;
     }
 
     int result = pthread_mutex_lock((pthread_mutex_t*)&handle.mutex);

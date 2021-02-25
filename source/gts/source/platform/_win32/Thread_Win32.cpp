@@ -666,15 +666,18 @@ bool Event::destroyEvent(EventHandle& handle)
 //------------------------------------------------------------------------------
 bool Event::waitForEvent(EventHandle& handle, bool waitForever)
 {
+    GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple, "Event waiting");
     if (handle.signaled.load(memory_order::acquire))
     {
-        return true;
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple2, "Event is signaled");
+        return false;
     }
 
     EnterCriticalSection((CRITICAL_SECTION*)&handle.mutex);
 
     if (!waitForever)
     {
+        GTS_TRACE_ZONE_MARKER_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple2, "Event waiting check");
         LeaveCriticalSection((CRITICAL_SECTION*)&handle.mutex);
         return handle.waiting;
     }
@@ -683,6 +686,7 @@ bool Event::waitForEvent(EventHandle& handle, bool waitForever)
 
     while (!handle.signaled.load(memory_order::acquire)) // guard against spurious wakes.
     {
+        GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple2, "Event waiting loop");
         BOOL result = SleepConditionVariableCS((CONDITION_VARIABLE*)&handle.condVar, (CRITICAL_SECTION*)&handle.mutex, INFINITE);
         if (result == 0)
         {
@@ -701,6 +705,7 @@ bool Event::waitForEvent(EventHandle& handle, bool waitForever)
 //------------------------------------------------------------------------------
 bool Event::signalEvent(EventHandle& handle)
 {
+    GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple, "Event signaled");
     handle.signaled.exchange(true, memory_order::acq_rel);
     WakeConditionVariable((CONDITION_VARIABLE*)&handle.condVar);
     return true;
@@ -709,6 +714,7 @@ bool Event::signalEvent(EventHandle& handle)
 //------------------------------------------------------------------------------
 bool Event::resetEvent(EventHandle& handle)
 {
+    GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::Purple, "Event reset");
     handle.signaled.exchange(false, memory_order::acq_rel);
     return true;
 }

@@ -69,7 +69,7 @@ Stats irregularRandParallelFor(gts::MicroScheduler& taskScheduler, uint32_t item
             gts::Range1d<uint32_t>(0, items, 1),
             [spins, TOTAL_SPINS, &randStates](gts::Range1d<uint32_t>& range, void*, gts::TaskContext const& ctx)
             {
-                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Irregular ParFor Task", range.size());
+                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::Cyan, "Irregular ParFor Task", range.size());
 
                 uint32_t& randState = randStates[ctx.workerId.localId()].i;
 
@@ -116,7 +116,7 @@ Stats irregularUpfrontParallelFor(gts::MicroScheduler& taskScheduler, uint32_t i
             gts::Range1d<uint32_t>(0, items, 1),
             [rangeOfHighCostEnd](gts::Range1d<uint32_t>& range, void*, gts::TaskContext const&)
             {
-                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::DarkBlue, "Irregular ParFor Task", range.size());
+                GTS_TRACE_SCOPED_ZONE_P1(gts::analysis::CaptureMask::USER, gts::analysis::Color::Cyan, "Irregular ParFor Task", range.size());
 
                 for (uint32_t r = range.begin(); r != range.end(); ++r)
                 {
