@@ -86,7 +86,7 @@ Worker::~Worker()
 bool Worker::initialize(
     WorkerPool* pMyPool,
     OwnedId workerId,
-    WorkerThreadDesc::GroupAndAffinity  affinity,
+    const WorkerThreadDesc::GroupAndAffinity &affinity,
     Thread::Priority threadPrioity,
     const char* threadName,
     void* pUserData,
