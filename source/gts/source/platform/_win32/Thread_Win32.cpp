@@ -122,10 +122,7 @@ void getProcInfoBuffer(LOGICAL_PROCESSOR_RELATIONSHIP type, PSYSTEM_LOGICAL_PROC
         {
             GTS_ASSERT(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
 
-            if (*ppBuffer)
-            {
-                free(*ppBuffer);
-            }
+            free(*ppBuffer);
 
             *ppBuffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)malloc(*len);
         }
