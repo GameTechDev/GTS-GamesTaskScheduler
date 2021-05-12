@@ -495,7 +495,6 @@ void Thread::getSytemTopology(SystemTopology& out)
         {
             auto& numaInfo   = group.numaInfo[iNuma];
             auto& oNumaInfo  = oGroup.pNumaInfoArray[iNuma];
-            oNumaInfo.nodeId = numaInfo.nodeId;
 
             size_t numNumaProcs      = countSetBits(numaInfo.processorsBitSet);
             oNumaInfo.pCoreInfoArray = new CpuCoreInfo[numNumaProcs];
