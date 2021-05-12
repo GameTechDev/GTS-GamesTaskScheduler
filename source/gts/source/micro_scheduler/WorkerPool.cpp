@@ -159,13 +159,14 @@ bool WorkerPool::_initWorkers(WorkerPoolDesc& desc)
     {
         GTS_TRACE_SCOPED_ZONE_P3(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::AntiqueWhite, "WORKERPOOL INIT WORKER", this, m_poolId, workerId);
 
+        const WorkerThreadDesc& workerThreadDesc = desc.workerDescs[workerId];
         if (!m_pWorkersByIdx[workerId].initialize(
             this,
             OwnedId(m_poolId, workerId),
-            desc.workerDescs[workerId].affinity,
-            desc.workerDescs[workerId].priority,
-            desc.workerDescs[workerId].name,
-            desc.workerDescs[workerId].pUserData,
+            workerThreadDesc.affinity,
+            workerThreadDesc.priority,
+            workerThreadDesc.name,
+            workerThreadDesc.pUserData,
             desc.pGetThreadLocalStateFcn,
             desc.pSetThreadLocalStateFcn,
             desc.pVisitor,
