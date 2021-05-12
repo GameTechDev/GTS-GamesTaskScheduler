@@ -185,6 +185,10 @@ bool Thread::createThread(ThreadHandle& handle, ThreadId& tid, ThreadFunction fu
     }
 
     ThreadData* pThreadData = new (GTS_MALLOC(sizeof(ThreadData))) ThreadData();
+    if (!pThreadData)
+    {
+        return false;
+    }
     pThreadData->func = function;
     pThreadData->pArg = pArg;
     pThreadData->pTid = &tid;

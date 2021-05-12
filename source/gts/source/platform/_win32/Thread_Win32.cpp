@@ -341,12 +341,16 @@ bool Thread::createThread(ThreadHandle& handle, ThreadId&, ThreadFunction functi
     }
 
     ThreadData* pThreadData = (ThreadData*)GTS_MALLOC(sizeof(ThreadData));
-    pThreadData->func = function;
-    pThreadData->pArg = pArg;
+    if (pThreadData)
+    {
+        pThreadData->func = function;
+        pThreadData->pArg = pArg;
 
-    handle = ::CreateThread(NULL, stackSize, Win32ThreadFunc, pThreadData, 0, NULL);
-    GTS_ASSERT(handle != NULL);
-    return handle != NULL;
+        handle = ::CreateThread(NULL, stackSize, Win32ThreadFunc, pThreadData, 0, NULL);
+        GTS_ASSERT(handle != NULL);
+        return handle != NULL;
+    }
+    return false;
 }
 
 //------------------------------------------------------------------------------
