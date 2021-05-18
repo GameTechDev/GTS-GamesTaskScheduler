@@ -78,7 +78,7 @@ void printLogToTextFile(
     {
         indexSortedThreads[iter.second] = iter;
     }
-    for (auto iter : indexSortedThreads)
+    for (auto &&iter : indexSortedThreads)
     {
         constexpr size_t BUFF_SIZE = 256;
         char buff[BUFF_SIZE];

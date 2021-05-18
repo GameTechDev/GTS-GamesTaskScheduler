@@ -386,7 +386,7 @@ bool LocalScheduler::runUntilDone(Task* pWaitingTask, Task* pChild)
                         executedTask = true;
                     }
 
-                    GTS_ASSERT((!pByPassTask || (pByPassTask && !(pByPassTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION))) &&
+                    GTS_ASSERT((!pByPassTask || !(pByPassTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION)) &&
                         "A bypass task cannot be a continuation.");
 
                     Task* pParent = nullptr;

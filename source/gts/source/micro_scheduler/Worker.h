@@ -61,7 +61,7 @@ public: // MUTATORS:
     bool initialize(
         WorkerPool* pMyPool,
         OwnedId workerId,
-        WorkerThreadDesc::GroupAndAffinity affinityByGroup,
+        const WorkerThreadDesc::GroupAndAffinity &affinityByGroup,
         Thread::Priority threadPrioity,
         const char* threadName,
         void* pUserData,

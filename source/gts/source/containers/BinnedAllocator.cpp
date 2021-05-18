@@ -680,7 +680,7 @@ void MemoryStore::deallocateSlab(SlabHeader* pSlab, bool freeIt)
 //------------------------------------------------------------------------------
 PageHeader* MemoryStore::allocatePage(SlabHeader* pSlab, size_t blockSize)
 {
-    if (blockSize > UINT32_MAX || blockSize > pSlab->pageSize)
+    if (blockSize > UINT32_MAX || pSlab && blockSize > pSlab->pageSize)
     {
         GTS_INTERNAL_ASSERT(0);
         return nullptr;

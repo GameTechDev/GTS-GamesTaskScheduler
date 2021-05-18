@@ -214,6 +214,7 @@ TData* CStyleTask::setData(TData* pData)
 {
     m_pData = pData;
     _resetDataDestructor<TData*>();
+    return pData;
 }
 
 // ACCCESSORS:

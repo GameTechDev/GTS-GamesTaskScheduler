@@ -123,7 +123,7 @@ void* Memory::osHeapAlloc(size_t size)
 bool Memory::osHeapFree(void* ptr, size_t)
 {
     HANDLE hHeap = GetProcessHeap();
-    return HeapFree(hHeap, 0, ptr) == TRUE;
+    return HeapFree(hHeap, 0, ptr) != FALSE;
 }
 
 //------------------------------------------------------------------------------
@@ -166,8 +166,8 @@ bool Memory::osVirtualDecommit(void* ptr, size_t size)
 {
     GTS_ASSERT(ptr != nullptr);
     BOOL result = VirtualFree(ptr, size, MEM_DECOMMIT);
-    GTS_ASSERT(result == TRUE);
-    return result == TRUE;
+    GTS_ASSERT(result != FALSE);
+    return result != FALSE;
 }
 
 //------------------------------------------------------------------------------
@@ -175,8 +175,8 @@ bool Memory::osVirtualFree(void* ptr, size_t)
 {
     GTS_ASSERT(ptr != nullptr);
     BOOL result = VirtualFree(ptr, size_t(0), MEM_RELEASE);
-    GTS_ASSERT(result == TRUE);
-    return result == TRUE;
+    GTS_ASSERT(result != FALSE);
+    return result != FALSE;
 }
 
 } // namespace internal

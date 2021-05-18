@@ -390,7 +390,8 @@ public:
     };
 
     GTS_INLINE Thread()
-        : m_handle()
+        : m_handle(),
+          m_tid(UINT32_MAX)
     {}
 
     GTS_INLINE ~Thread()
