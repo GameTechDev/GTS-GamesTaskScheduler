@@ -6,6 +6,7 @@ var classgts_1_1_macro_scheduler =
     [ "_freeWorkload", "classgts_1_1_macro_scheduler.html#ae1c067282ea2bcbc79d22d495604330f", null ],
     [ "allocateNode", "classgts_1_1_macro_scheduler.html#a45a80bf2775a677ad1e6adeef6bfd66a", null ],
     [ "buildSchedule", "classgts_1_1_macro_scheduler.html#a674d8bde40dd9b40652028facb9eb797", null ],
+    [ "computeResources", "classgts_1_1_macro_scheduler.html#a8022c1d5743df205c22bdd9d91e24858", null ],
     [ "computeResources", "classgts_1_1_macro_scheduler.html#a8822478e3a255da7d3f13b3eb50bf7dc", null ],
     [ "destroyNode", "classgts_1_1_macro_scheduler.html#abf287c3c45901e67738e369d0dce0be5", null ],
     [ "executeSchedule", "classgts_1_1_macro_scheduler.html#a7d019b812d2e938c63d1b45912921ead", null ],

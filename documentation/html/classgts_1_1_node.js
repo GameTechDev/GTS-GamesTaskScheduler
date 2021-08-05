@@ -1,6 +1,5 @@
 var classgts_1_1_node =
 [
-    [ "NODE_NAME_MAX", "classgts_1_1_node.html#af325894b4e8f6f84af5855aade69b8fbafe3683b75d8c786d60a65c50d1401e73", null ],
     [ "Node", "classgts_1_1_node.html#afb24eabe6049df08ea657f6b31b0fbc8", null ],
     [ "~Node", "classgts_1_1_node.html#a1bca8078bc0053973b524e34367ee368", null ],
     [ "_markPredecessorComplete", "classgts_1_1_node.html#a68ff5bdf8613d9eb8229c78f1a5a4f47", null ],
@@ -14,6 +13,8 @@ var classgts_1_1_node =
     [ "affinity", "classgts_1_1_node.html#a4eee8bea1057e8bff2e005b0db3962ee", null ],
     [ "currentSchedule", "classgts_1_1_node.html#a0257a0644cd0204b8fe6661ffafa267b", null ],
     [ "currPredecessorCount", "classgts_1_1_node.html#a7dcbd42d602bbc1b4bd375f91121461f", null ],
+    [ "downRank", "classgts_1_1_node.html#aca2ec5960e51287832d9eba91335cec6", null ],
+    [ "downRank", "classgts_1_1_node.html#a74cc5266e53eb0d302c4d277db438d5b", null ],
     [ "executionCost", "classgts_1_1_node.html#a25939d07dff80ebb5298f8497103900d", null ],
     [ "findWorkload", "classgts_1_1_node.html#a65f9e8e2972d90d048b44674352726ad", null ],
     [ "initPredecessorCount", "classgts_1_1_node.html#a7de9106a4258581edcc972f578191aac", null ],
@@ -22,8 +23,6 @@ var classgts_1_1_node =
     [ "name", "classgts_1_1_node.html#a3e14ecac5aafe9359e36062114380a63", null ],
     [ "predecessors", "classgts_1_1_node.html#aa1b8bb590077ae0980f8a7c359b78d7f", null ],
     [ "predecessors", "classgts_1_1_node.html#ab3097f6a71b14ef01340f5e16f743096", null ],
-    [ "rank", "classgts_1_1_node.html#a838cf31c9e790087a1bd81b02ba18fb1", null ],
-    [ "rank", "classgts_1_1_node.html#a3d39c3a314a918ecf88165c3ff82daed", null ],
     [ "removeSuccessor", "classgts_1_1_node.html#a1eb009ab34e9aa934e70259dbfe730ff", null ],
     [ "removeWorkload", "classgts_1_1_node.html#ad6e42cca701ec09c27c9e406ff06a61f", null ],
     [ "reset", "classgts_1_1_node.html#af828b1dfa968b9ec76cf10fbb90b5101", null ],
@@ -31,5 +30,7 @@ var classgts_1_1_node =
     [ "setName", "classgts_1_1_node.html#abce8722f94e1a205e1a217fae0295a3c", null ],
     [ "successors", "classgts_1_1_node.html#a3be0839685559d76f6e4cbc41d738a97", null ],
     [ "successors", "classgts_1_1_node.html#ae1a92d56771c484c8bd2dc6ab5555a5e", null ],
+    [ "upRank", "classgts_1_1_node.html#ab3f2f3b64faf2143ed843ec91d9d923e", null ],
+    [ "upRank", "classgts_1_1_node.html#a3fe67da143f61003fe525a72c5fb16e7", null ],
     [ "CriticiallyAware_Schedule", "classgts_1_1_node.html#a75e316cb69361e5a349b232261b40b76", null ]
 ];

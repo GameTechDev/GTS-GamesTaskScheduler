@@ -24,6 +24,8 @@
 #include "gts/platform/Assert.h"
 #include "gts/containers/AlignedAllocator.h"
 
+#include <initializer_list>
+
 namespace gts {
 
 /** 
@@ -84,6 +86,12 @@ public: // STRUCTORS:
      *  Constructs the container with 'count' copies of elements with value 'fill'.
      */
     Vector(size_type count, value_type const& fill, const allocator_type& alloc = allocator_type());
+
+    /**
+     * @brief
+     *  Constructs the container with an InitializerList.
+     */
+    Vector(std::initializer_list<value_type> initList, const allocator_type& alloc = allocator_type());
 
     /**
      * @brief

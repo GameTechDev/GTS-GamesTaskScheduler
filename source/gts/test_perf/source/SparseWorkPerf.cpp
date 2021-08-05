@@ -54,7 +54,7 @@ Stats sparseWorkPerf(gts::MicroScheduler& taskScheduler, uint32_t items, uint32_
                     float f = 0.45f;
                     for (volatile uint32_t ii = 0; ii < 1000; ++ii)
                     {
-                        f = sin(f);
+                        f = sinf(f);
                     }
                 }
             },

@@ -24,6 +24,7 @@
 #include <fstream>
 #include <sstream>
 #include <queue>
+#include <stack>
 #include <unordered_set>
 #include <algorithm>
 
@@ -38,11 +39,11 @@ namespace gts {
 
 void DagUtils::printToDot(const char* filename, Node* pDagRoot, NodePropertyFlags propertiesToPrint)
 {
-    std::stringstream gvStructs;
     std::stringstream gvNodes;
+    std::stringstream gvEdges;
 
     std::ofstream file(filename);
-    file << "digraph structs {\n";
+    file << "digraph {\n";
 
     std::unordered_set<Node*> visited;
 
@@ -62,35 +63,37 @@ void DagUtils::printToDot(const char* filename, Node* pDagRoot, NodePropertyFlag
         for (uint32_t ii = 0; ii < pCurr->successors().size(); ++ii)
         {
             Node* pChild = pCurr->successors()[ii];
-            gvStructs << "n" << pCurr->name() << "->" << "n" << pChild->name() << ";\n";
+            gvEdges << "\"" << pCurr->name() << "\"->\"" << pChild->name() << "\"" << std::endl;
             q.push(pChild);
         }
     }
 
     for (auto pNode : visited)
     {
-        gvStructs << "n" << pNode->name() << "[label = <"
-            "<TABLE BORDER=\"0\" CELLBORDER=\"1\" CELLSPACING=\"0\">";
+        gvNodes << "\"" << pNode->name() << "\" [label =\"";
 
         if (propertiesToPrint & NAME)
         {
-            gvStructs << "<TR><TD>name</TD><TD>" << pNode->name() << "</TD></TR>";
+            gvNodes << " " << pNode->name();
         }
         if (propertiesToPrint & COST)
         {
-            gvStructs << "<TR><TD>cost</TD><TD>" << pNode->executionCost() << "</TD></TR>";
+            gvNodes << " " << pNode->executionCost();
         }
         if (propertiesToPrint & UPRANK)
         {
-            gvStructs << "<TR><TD>rank</TD><TD>" << pNode->rank().load(memory_order::relaxed) << "</TD></TR>";
+            gvNodes << " " << pNode->upRank().load(memory_order::relaxed);
+        }
+        if (propertiesToPrint & DOWNRANK)
+        {
+            gvNodes << " " << pNode->downRank().load(memory_order::relaxed);
         }
 
-        gvStructs << "</TABLE>>];\n";
+        gvNodes << "\"];\n";
     }
 
-    file << "node [shape=plaintext]\n";
-    file << gvStructs.str();
     file << gvNodes.str();
+    file << gvEdges.str();
 
     file << "}\n";
 }
@@ -128,15 +131,22 @@ void DagUtils::totalWork(uint64_t& outTotalWork, size_t& outNodeCount, Node* pDa
 }
 
 //-----------------------------------------------------------------------------
-void DagUtils::_upRank(Node* pNode, Vector<Node*>& dag)
+void DagUtils::_upRank(Node* pNode)
 {
-    for (size_t ii = 0; ii < pNode->predecessors().size(); ++ii)
+    std::stack<Node*> s;
+    s.push(pNode);
+    while (!s.empty())
     {
-        Node* pPred = pNode->predecessors()[ii];
-        if (pPred->rank().load(memory_order::relaxed) < pNode->rank().load(memory_order::relaxed) + 1)
+        Node* pCurr = s.top(); s.pop();
+
+        for (size_t ii = 0; ii < pCurr->predecessors().size(); ++ii)
         {
-            pPred->rank().store(pNode->rank().load(memory_order::relaxed) + 1, memory_order::relaxed);
-            _upRank(pPred, dag);
+            Node* pPred = pCurr->predecessors()[ii];
+            if (pPred->upRank().load(memory_order::relaxed) < pCurr->upRank().load(memory_order::relaxed) + 1)
+            {
+                pPred->upRank().store(pCurr->upRank().load(memory_order::relaxed) + 1, memory_order::relaxed);
+                s.push(pPred);
+            }
         }
     }
 }
@@ -147,11 +157,11 @@ void DagUtils::getCriticalPath(Vector<Node*>& out, Vector<Node*>& dag)
     Vector<uint64_t> rankCopy(dag.size());
     for (size_t ii = 0; ii < dag.size(); ++ii)
     {
-        rankCopy[ii] = dag[ii]->rank().load(memory_order::relaxed);
+        rankCopy[ii] = dag[ii]->upRank().load(memory_order::relaxed);
     }
 
-    dag.back()->rank().store(1, memory_order::relaxed);
-    _upRank(dag.back(), dag);
+    dag.back()->upRank().store(1, memory_order::relaxed);
+    _upRank(dag.back());
 
     uint64_t maxRank = 0; // set to zero so we add the first node in the DFT.
     Node* pMaxNode = dag.front();
@@ -175,10 +185,10 @@ void DagUtils::getCriticalPath(Vector<Node*>& out, Vector<Node*>& dag)
             }
         }
 
-        if (pCurr->rank().load(memory_order::relaxed) > maxRank ||
-            (pCurr->rank().load(memory_order::relaxed) == maxRank - 1 && isSuccessor))
+        if (pCurr->upRank().load(memory_order::relaxed) > maxRank ||
+            (pCurr->upRank().load(memory_order::relaxed) == maxRank - 1 && isSuccessor))
         {
-            maxRank = pCurr->rank().load(memory_order::relaxed);
+            maxRank = pCurr->upRank().load(memory_order::relaxed);
             pMaxNode = pCurr;
             out.push_back(pCurr);
         }
@@ -196,7 +206,7 @@ void DagUtils::getCriticalPath(Vector<Node*>& out, Vector<Node*>& dag)
     // Reset numPredecessors and ranks.
     for (uint32_t ii = 0; ii < dag.size(); ++ii)
     {
-        dag[ii]->rank().store(rankCopy[ii], memory_order::relaxed);
+        dag[ii]->upRank().store(rankCopy[ii], memory_order::relaxed);
         dag[ii]->reset();
     }
 }
@@ -248,13 +258,13 @@ bool DagUtils::isAcyclic(Node* pDagRoot)
 void DagUtils::generateRandomDag(
     MacroScheduler* pMacroScheduler,
     uint32_t randSeed,
-    uint32_t rank,
+    uint32_t upRank,
     uint32_t minNodesPerRank,
     uint32_t maxNodesPerRank,
     uint32_t precentChanceOfEdge,
     Vector<Node*>& dag)
 {
-    GTS_ASSERT(rank > 0);
+    GTS_ASSERT(upRank > 0);
 
     GTS_ASSERT(minNodesPerRank > 0);
     GTS_ASSERT(minNodesPerRank <= maxNodesPerRank);
@@ -266,9 +276,9 @@ void DagUtils::generateRandomDag(
     dag[0]->setName("%d", 0);
     uint32_t prevRankStartIdx = 0;
 
-    for (uint32_t iRank = 0; iRank < rank; ++iRank)
+    for (uint32_t iRank = 0; iRank < upRank; ++iRank)
     {
-        // Generate the number of Nodes for this rank.
+        // Generate the number of Nodes for this upRank.
         uint32_t numNewNodes = minNodesPerRank + (rand() % (maxNodesPerRank - minNodesPerRank + 1));
         uint32_t prevNodeCount = (uint32_t)dag.size();
         GTS_ASSERT(prevNodeCount > prevRankStartIdx);
@@ -308,7 +318,7 @@ void DagUtils::generateRandomDag(
             }
         }
 
-        if (iRank == rank - 1)
+        if (iRank == upRank - 1)
         {
             // Join all leaf Nodes to a sink.
             Node* pSink = pMacroScheduler->allocateNode();

@@ -71,6 +71,16 @@ public: // ACCESORS:
     virtual bool canExecute(Node* pNode) const = 0;
 
     /**
+     * @returns The number of independent processing elements.
+     */
+    virtual uint32_t processorCount() const = 0;
+
+    /**
+     * @returns The maximum Node rank this ComputeResouce can execute.
+     */
+    GTS_INLINE uint32_t maxRank() const { return m_maxRank; }
+
+    /**
      * @returns The normalization factor applied to execution times produced by
      *  this compute resource.
      */
@@ -115,6 +125,14 @@ public: // MUTATORS:
      */
     virtual void unregisterSchedule(Schedule*) {};
 
+    /**
+     * @brief
+     *  Sets the maximum Node rank this ComputeResouce can execute.
+     * @remark Internal use only.
+     * @remark Not thread-safe.
+     */
+    GTS_INLINE void _setMaxRank(uint32_t maxRank) { m_maxRank = maxRank; }
+
 protected:
 
     //! Nodes that require this ComputeResource. They are send from other
@@ -132,6 +150,8 @@ private:
 
     //! This ComputeResource's Type.
     ComputeResourceId m_id;
+
+    uint32_t m_maxRank;
 };
 
 /** @} */ // end of MacroScheduler

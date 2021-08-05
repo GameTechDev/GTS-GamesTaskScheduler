@@ -66,7 +66,7 @@ Worker::Worker()
     , m_pUserData(nullptr)
     , m_minSleepCycles(UINT64_MAX)
     , m_pHaltSemaphore(nullptr)
-    , m_pLocalSchedulersMutex(nullptr)
+    , m_pRegisteredSchedulersMutex(nullptr)
     , m_pGetThreadLocalStateFcn(nullptr)
     , m_pSetThreadLocalStateFcn(nullptr)
     , m_threadId(0)
@@ -86,7 +86,7 @@ Worker::~Worker()
 bool Worker::initialize(
     WorkerPool* pMyPool,
     OwnedId workerId,
-    const WorkerThreadDesc::GroupAndAffinity &affinity,
+    WorkerThreadDesc::GroupAndAffinity  affinity,
     Thread::Priority threadPrioity,
     const char* threadName,
     void* pUserData,
@@ -118,7 +118,7 @@ bool Worker::initialize(
     m_pTaskPool = alignedNew<TaskPool, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     m_pSleepBlocker = alignedNew<ThreadBlocker, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     m_pHaltSemaphore = alignedNew<BinarySemaphore, GTS_NO_SHARING_CACHE_LINE_SIZE>();
-    m_pLocalSchedulersMutex = alignedNew<MutexType, GTS_NO_SHARING_CACHE_LINE_SIZE>();
+    m_pRegisteredSchedulersMutex = alignedNew<MutexType, GTS_NO_SHARING_CACHE_LINE_SIZE>();
 
     if(cachableTaskSize < GTS_CACHE_LINE_SIZE)
     {
@@ -218,7 +218,7 @@ void Worker::shutdown()
         m_thread.destroy();
     }
 
-    alignedDelete(m_pLocalSchedulersMutex);
+    alignedDelete(m_pRegisteredSchedulersMutex);
     alignedDelete(m_pHaltSemaphore);
     alignedDelete(m_pSleepBlocker);
     alignedDelete(m_pTaskPool);
@@ -599,7 +599,7 @@ void Worker::registerLocalScheduler(LocalScheduler* pLocalScheduler)
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKER REG LOCAL SCHED", this, id().localId());
     GTS_WP_COUNTER_INC(id(), gts::analysis::WorkerPoolCounters::NUM_SCHEDULER_REGISTERS);
 
-    Lock<MutexType> lock(*m_pLocalSchedulersMutex);
+    Lock<MutexType> lock(*m_pRegisteredSchedulersMutex);
 
     GTS_ASSERT(_locateScheduler(pLocalScheduler) == -1 && "LocalScheduler is already registered.");
 
@@ -612,7 +612,7 @@ void Worker::unregisterLocalScheduler(LocalScheduler* pLocalScheduler)
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::WORKERPOOL_DEBUG, analysis::Color::AntiqueWhite, "WORKER UNREG LOCAL SCHED", this, id().localId());
     GTS_WP_COUNTER_INC(id(), gts::analysis::WorkerPoolCounters::NUM_SCHEDULER_UNREGISTERS);
 
-    Lock<MutexType> lock(*m_pLocalSchedulersMutex);
+    Lock<MutexType> lock(*m_pRegisteredSchedulersMutex);
 
     // Wait until it's not in use by the Worker.
     pLocalScheduler->m_workerAccessMutex.lock();
@@ -811,7 +811,7 @@ LocalScheduler* Worker::_getNextSchedulerRoundRobinLoop(SubIdType localWorkerId,
 
         LocalScheduler* pLocalScheduler = nullptr;
         {
-            LockShared<MutexType> lock(*m_pLocalSchedulersMutex);
+            LockShared<MutexType> lock(*m_pRegisteredSchedulersMutex);
             if(ii < m_registeredSchedulers.size())
             {
                 pLocalScheduler = m_registeredSchedulers[ii];
@@ -863,7 +863,7 @@ bool Worker::_hasWork()
         {
             LocalScheduler* pLocalScheduler = nullptr;
             {
-                LockShared<MutexType> lock(*m_pLocalSchedulersMutex);
+                LockShared<MutexType> lock(*m_pRegisteredSchedulersMutex);
                 if(ii < m_registeredSchedulers.size())
                 {
                     pLocalScheduler = m_registeredSchedulers[ii];

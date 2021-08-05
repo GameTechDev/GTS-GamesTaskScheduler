@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['oseventwrapper_1125',['OsEventWrapper',['../group___os_event_wrapper.html',1,'']]],
-  ['osmemorywrapper_1126',['OsMemoryWrapper',['../group___os_memory_wrapper.html',1,'']]],
-  ['osthreadwrapper_1127',['OsThreadWrapper',['../group___os_thread_wrapper.html',1,'']]]
+  ['parallelcontainers_1099',['ParallelContainers',['../group___parallel_containers.html',1,'']]],
+  ['parallelpatterns_1100',['ParallelPatterns',['../group___parallel_patterns.html',1,'']]],
+  ['platform_1101',['Platform',['../group___platform.html',1,'']]]
 ];

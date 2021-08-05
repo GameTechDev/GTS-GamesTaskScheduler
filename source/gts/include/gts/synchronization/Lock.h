@@ -62,7 +62,7 @@ struct Lock
 {
     Lock(TMutex& m) : m_mutex(m) { m_mutex.lock(); }
     ~Lock() { m_mutex.unlock(); }
-    TMutex& mutex() { return m_mutex; }
+    TMutex& mutex() { m_mutex; }
 
 private:
 

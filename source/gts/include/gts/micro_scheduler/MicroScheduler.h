@@ -25,8 +25,8 @@
 
 #include "gts/platform/Assert.h"
 #include "gts/platform/Atomic.h"
+#include "gts/platform/Thread.h"
 #include "gts/synchronization/SpinMutex.h"
-
 #include "gts/containers/AlignedAllocator.h"
 
 #include "gts/micro_scheduler/Task.h"
@@ -48,14 +48,11 @@ class LocalSchedulerBackoff;
 class WorkerPool;
 class MicroScheduler;
 
-namespace internal {
-
 #ifdef GTS_MSVC
 #pragma warning(push)
 #pragma warning(disable : 4324) // alignment padding warning
 #endif
 
-} // namespace internal
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -67,7 +64,7 @@ namespace internal {
  * Supports:
  * -Help-first work-stealing
  * -Fork-join with nested parallelism
- * -Supports arbitrary DAGs
+ * -Arbitrary DAGs
  * -Blocking joins
  * -Continuation joins
  * -Scheduler by-passing and task recycling optimizations
@@ -214,7 +211,7 @@ public: // MUTATORS:
      * @param pTask
      *  The Task to wait on. The Task must have an extra reference count
      *  for the wait before spawning, otherwise the MicroSchedule will
-     *  destroy the task on completion. It is also up the the caller
+     *  destroy the task on completion. It is also up the caller
      *  to destroy this task once the wait in completed.
      */
     void waitFor(Task* pTask);
@@ -293,7 +290,24 @@ public: // MUTATORS:
      */
     static void resetIdGenerator();
 
+    /**
+     * @brief
+     *  Tries to steal and execute a Task.
+     * @return
+     *  True if a Task was executed.
+     * @remark
+     *  Special method used by MacroScheduler algorithms. Not for general use.
+     */
+    bool stealAndExecuteTask();
+
 public: // ACCESSORS:
+
+    /**
+     * @brief
+     *  Checks if the LocalScheduler mapped to this thread has demand.
+     * @return True if there is demand, false otherwise.
+     */
+    bool hasDemand(bool clear = false) const;
 
     /**
      * @brief
@@ -351,7 +365,7 @@ public: // ACCESSORS:
      *  Get this schedulers ID.
      * @return The unique ID of the scheduler.
      */
-    GTS_INLINE bool id() const
+    GTS_INLINE SubIdType id() const
     {
         return m_schedulerId;
     }
@@ -386,37 +400,39 @@ private: // DATA:
         TaskQueue, AlignedAllocator<GTS_NO_SHARING_CACHE_LINE_SIZE>>;
 
     using BackoffType = Backoff<>;
-    using MutexType = UnfairSpinMutex<BackoffType>;
+    using MutexType = UnfairSharedSpinMutex<uint8_t, BackoffType>;
 
     class GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) ExternalSchedulers
     {
     public:
-        void registerVictim(MicroScheduler* pVictim, MicroScheduler* pThief);
-        void unregisterVictim(MicroScheduler* pVictim, MicroScheduler* pThief);
 
-        void unregisterAllVictims(MicroScheduler* pThief);
-        void unregisterAllThieves(MicroScheduler* pVictim);
+        void shutdown(MicroScheduler* pScheduler);
+
+        void registerVictim(MicroScheduler* pVictim, MicroScheduler* pThief);
+        void unregisterVictim(MicroScheduler* pVictim, MicroScheduler* pThief, bool useLock = true);
 
         Task* getTask(Worker* pWorker, SubIdType localId, bool& executedTask);
         bool hasDequeTasks() const;
-        bool hasVictims() const;
+        bool hasVictimsUnsafe() const;
         void wakeThieves(Worker* pThisWorker, uint32_t count, bool reset);
 
         void addThief(MicroScheduler* pScheduler);
-        void removeThief(MicroScheduler* pScheduler);
-        void removeVictim(MicroScheduler* pScheduler);
+        void removeThief(MicroScheduler* pScheduler, bool useLock = true);
+        void removeVictim(MicroScheduler* pScheduler, bool useLock = true);
 
+        void _unregisterAllVictims(MicroScheduler* pThief);
+        void _unregisterAllThieves(MicroScheduler* pVictim);
         int32_t _locateVictim(MicroScheduler* pScheduler);
         int32_t _locateThief(MicroScheduler* pScheduler);
 
         Vector<MicroScheduler*> m_victims;
         Vector<MicroScheduler*> m_thieves;
         Atomic<uint16_t> m_thiefAccessCount = { 0 };
-        MutexType m_mutex;
+        mutable MutexType m_mutex;
     };
 
     struct Callback
-    {
+    {       
         uintptr_t func;
         void* pData;
     };
@@ -444,12 +460,13 @@ private: // DATA:
     Callbacks* m_pCallbacks;
     ThreadId m_creationThreadId;
     uint32_t m_localSchedulerCount;
-    uint16_t m_schedulerId;
+    SubIdType m_schedulerId;
     Atomic<bool> m_isAttached;
+    bool m_canStealExternally;
     GTS_ALIGN(GTS_CACHE_LINE_SIZE) Atomic<bool> m_isActive;
     char m_debugName[DESC_NAME_SIZE];
 
-    static Atomic<uint16_t> s_nextSchedulerId;
+    static Atomic<SubIdType> s_nextSchedulerId;
 };
 
 

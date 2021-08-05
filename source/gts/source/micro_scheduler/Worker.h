@@ -61,7 +61,7 @@ public: // MUTATORS:
     bool initialize(
         WorkerPool* pMyPool,
         OwnedId workerId,
-        const WorkerThreadDesc::GroupAndAffinity &affinityByGroup,
+        WorkerThreadDesc::GroupAndAffinity affinityByGroup,
         Thread::Priority threadPrioity,
         const char* threadName,
         void* pUserData,
@@ -186,7 +186,7 @@ private: // DATA:
     void* m_pUserData;
     uint64_t m_minSleepCycles; // track the min cost of sleeping for backoff.
     BinarySemaphore* m_pHaltSemaphore;
-    MutexType* m_pLocalSchedulersMutex;
+    MutexType* m_pRegisteredSchedulersMutex;
     WorkerPoolDesc::GetThreadLocalStateFcn m_pGetThreadLocalStateFcn;
     WorkerPoolDesc::SetThreadLocalStateFcn m_pSetThreadLocalStateFcn;
     Thread m_thread;

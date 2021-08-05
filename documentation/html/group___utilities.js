@@ -3,9 +3,9 @@ var group___utilities =
     [ "numericLimits", "structgts_1_1numeric_limits.html", null ],
     [ "numericLimits< uint32_t >", "structgts_1_1numeric_limits_3_01uint32__t_01_4.html", null ],
     [ "numericLimits< uint64_t >", "structgts_1_1numeric_limits_3_01uint64__t_01_4.html", null ],
-    [ "IsPow2", "structgts_1_1_is_pow2.html", [
-      [ "value", "structgts_1_1_is_pow2.html#a48336238234d33722095735d262f30e9aa452d4d9e7a8d546d0de7d1b14247d5a", null ]
-    ] ],
+    [ "numericLimits< int32_t >", "structgts_1_1numeric_limits_3_01int32__t_01_4.html", null ],
+    [ "numericLimits< int64_t >", "structgts_1_1numeric_limits_3_01int64__t_01_4.html", null ],
+    [ "IsPow2", "structgts_1_1_is_pow2.html", null ],
     [ "OwnedId", "classgts_1_1_owned_id.html", [
       [ "OwnedId", "classgts_1_1_owned_id.html#a32fb2f0c96afcc31db9bdb5a274b1a67", null ],
       [ "OwnedId", "classgts_1_1_owned_id.html#ad463c800725681f731281ef739ac372d", null ],

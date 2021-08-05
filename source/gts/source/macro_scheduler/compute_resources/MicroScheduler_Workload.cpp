@@ -42,7 +42,10 @@ MicroScheduler_Task::MicroScheduler_Task(
 Task* MicroScheduler_Task::execute(TaskContext const& ctx)
 {
     m_pThisWorkload->m_executionContext = ctx;
-    m_workloadContext.pExtra = ctx.pMicroScheduler;
+
+    ComputeResource* pThisCompResource = findThisComputeResource(ctx.workerId.ownerId());
+    GTS_ASSERT(pThisCompResource);
+    m_workloadContext.pComputeResource = pThisCompResource;
 
     uint64_t start = GTS_RDTSC();
 
@@ -55,14 +58,15 @@ Task* MicroScheduler_Task::execute(TaskContext const& ctx)
     {
         cost = uint64_t(double(end - start) / m_workloadContext.pComputeResource->executionNormalizationFactor());
     }
-    else
+    else // Something messed up the cost, like a context switch.
     {
+        // Try the previous cost.
         cost = m_pThisWorkload->myNode()->executionCost();
 
+        // Or use the Normalization Factor if the previous cost is zero.
         if (cost == 0)
         {
-            // Use GTS_CONTEXT_SWITCH_CYCLES if the previous cost is zero.
-            cost = uint64_t(double(GTS_CONTEXT_SWITCH_CYCLES) / m_workloadContext.pComputeResource->executionNormalizationFactor());
+            cost = uint64_t(m_workloadContext.pComputeResource->executionNormalizationFactor());
         }
     }
 
@@ -73,6 +77,21 @@ Task* MicroScheduler_Task::execute(TaskContext const& ctx)
 
     static_cast<MicroScheduler_ComputeResource*>(m_workloadContext.pComputeResource)->spawnReadyChildren(m_workloadContext, this);
 
+    return nullptr;
+}
+
+//------------------------------------------------------------------------------
+ComputeResource* MicroScheduler_Task::findThisComputeResource(SubIdType microSchedulerId)
+{
+    auto& compResources = m_workloadContext.pSchedule->getScheduler()->computeResources();
+    for (uint32_t ii = 0; ii < compResources.size(); ++ii)
+    {
+        if (compResources[ii]->type() == ComputeResourceType::CpuMicroScheduler
+            && ((MicroScheduler_ComputeResource*)compResources[ii])->microScheduler()->id() == microSchedulerId)
+        {
+            return compResources[ii];
+        }
+    }
     return nullptr;
 }
 

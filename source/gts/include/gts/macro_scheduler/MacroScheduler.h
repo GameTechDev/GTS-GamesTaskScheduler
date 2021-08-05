@@ -79,6 +79,11 @@ public: // ACCESSORS:
 public: // MUTATORS:
 
     /**
+     * @return Get a list of all the ComputeResource.
+     */
+    Vector<ComputeResource*>& computeResources();
+
+    /**
      * Allocate a Node that can be inserted into a DAG.
      * @remark Adding a Node to multiple DAGs is undefined.
      */

@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['implementations_1119',['Implementations',['../group___implementations.html',1,'']]]
+  ['logging_1091',['Logging',['../group___logging.html',1,'']]]
 ];

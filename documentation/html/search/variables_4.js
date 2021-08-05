@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['efficiencyclass_1035',['efficiencyClass',['../structgts_1_1_cpu_core_info.html#af809621edace29c9bd992be024985fb6',1,'gts::CpuCoreInfo']]]
+  ['efficiencyclass_1007',['efficiencyClass',['../group___platform.html#gaf809621edace29c9bd992be024985fb6',1,'gts::CpuCoreInfo']]]
 ];

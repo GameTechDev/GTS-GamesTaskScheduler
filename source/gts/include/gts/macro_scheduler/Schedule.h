@@ -72,7 +72,7 @@ public: // ACCESSORS:
     /**
      * @returns The next Node for the ComputeResource to execute.
      */
-    virtual Node* popNextNode(ComputeResourceId id, ComputeResourceType::Enum type) = 0;
+    virtual Node* popNextNode(ComputeResource* pComputeResource, bool myQueuesOnly) = 0;
 
     /**
      * @returns True if the schedule is completed.
@@ -112,46 +112,12 @@ public: // MUTATORS:
     /**
      * Share the current Node's execution cost on the specified compute resource.
      */
-    virtual void observeExecutionCost(ComputeResourceId id, uint64_t cost) = 0;
+    virtual void observeExecutionCost(ComputeResourceId /*id*/, uint64_t /*cost*/) {}
 
 private:
 
     MacroScheduler* m_pMyScheduler;
     Atomic<int32_t> m_refCount;
-};
-
-
-class ProtectedSchedule
-{
-    class Accessor
-    {
-    public:
-
-        GTS_INLINE Accessor(Schedule* pSchedule, UnfairSharedSpinMutex<>& rwLock)
-            : m_pSchedule(pSchedule)
-            , m_rwLock(rwLock)
-        { rwLock.lock_shared(); }
-
-        GTS_INLINE ~Accessor() { m_rwLock.unlock_shared(); }
-
-        GTS_INLINE Schedule* get() { return m_pSchedule; }
-
-    private:
-
-        Schedule* m_pSchedule;
-        UnfairSharedSpinMutex<>& m_rwLock;
-    };
-
-public:
-
-    GTS_INLINE Accessor getAccessor() { return Accessor(m_pSchedule, m_rwLock); }
-
-    GTS_INLINE Accessor getDeletor() { return Accessor(m_pSchedule, m_rwLock); }
-
-private:
-
-    Schedule* m_pSchedule;
-    UnfairSharedSpinMutex<> m_rwLock;
 };
 
 /** @} */ // end of MacroScheduler

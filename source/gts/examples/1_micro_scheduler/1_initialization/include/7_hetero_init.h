@@ -144,7 +144,7 @@ void heteroInit()
 
         for (auto highSched : highVec)
         {
-            for (int jj = ii; jj >= 0; --jj)
+            for (int jj = ii - 1; jj >= 0; --jj)
             {
                 auto lowVec = microSchedulersByEfficiency[jj];
 

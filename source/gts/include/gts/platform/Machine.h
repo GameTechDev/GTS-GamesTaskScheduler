@@ -227,6 +227,20 @@
 #ifndef GTS_HAS_CUSTOM_CPU_INTRINSICS_WRAPPERS
 namespace gts {
 
+constexpr uint32_t WAITPKG_OPTIMIZE_POWER = 0;
+constexpr uint32_t WAITPKG_OPTIMIZE_SPEED = 1;
+
+//------------------------------------------------------------------------------
+GTS_INLINE void tpause(uint32_t control, uint64_t cycles)
+{
+#ifdef GTS_ARCH_X86
+    _tpause(control, cycles);
+#else
+    #error "not implemented"
+#endif
+}
+#define GTS_TPAUSE(control, cycles) gts::tpause(control, cycles)
+
 //------------------------------------------------------------------------------
 GTS_INLINE void pause()
 {

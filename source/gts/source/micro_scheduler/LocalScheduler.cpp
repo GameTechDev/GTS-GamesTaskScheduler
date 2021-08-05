@@ -25,6 +25,8 @@
 #include "gts/platform/Assert.h"
 #include "gts/analysis/Trace.h"
 #include "gts/analysis/Counter.h"
+#include "gts/synchronization/SpinMutex.h"
+#include "gts/synchronization/Lock.h"
 
 #include "gts/micro_scheduler/MicroScheduler.h"
 #include "gts/micro_scheduler/WorkerPool.h"
@@ -59,6 +61,7 @@ void Task::spawnAndWaitForAll(Task* pChild)
 LocalScheduler::LocalScheduler()
     : m_pPriorityTaskQueue(nullptr)
     , m_pMyScheduler(nullptr)
+    , m_hasDemand{false}
     , m_pWaiterTask(nullptr)
     , m_randState(0)
     , m_proirityBoostAgeStart(INT16_MAX)
@@ -70,7 +73,6 @@ LocalScheduler::LocalScheduler()
 LocalScheduler::~LocalScheduler()
 {
     m_pMyScheduler->destoryTask(m_pWaiterTask);
-    m_pMyScheduler = nullptr;
 }
 
 // ACCESSORS:
@@ -110,7 +112,8 @@ void LocalScheduler::initialize(
     OwnedId scheduleId,
     MicroScheduler* pScheduler,
     uint32_t priorityCount,
-    int16_t proirityBoostAge)
+    int16_t proirityBoostAge,
+    bool canStealBack)
 {
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_DEBUG, analysis::Color::AntiqueWhite, "LocalScheduler Init", scheduleId.localId(), 0);
 
@@ -130,6 +133,8 @@ void LocalScheduler::initialize(
     m_pWaiterTask = m_pMyScheduler->allocateTask<EmptyTask>();
     m_pWaiterTask->header().executionState = internal::TaskHeader::ALLOCATED;
     m_pWaiterTask->header().flags |= internal::TaskHeader::TASK_IS_WAITER;
+
+    m_stealBack.enabled = canStealBack;
 }
 
 //------------------------------------------------------------------------------
@@ -147,7 +152,7 @@ bool LocalScheduler::queueAffinityTask(Task* pTask, uint32_t priority)
 //------------------------------------------------------------------------------
 bool LocalScheduler::run(Task* pInitialTask)
 {
-    // ref count of 3 -> wait forever.
+    // ref count of 3 ==> wait forever.
     m_pWaiterTask->header().refCount.store(3, memory_order::relaxed);
     bool executedTask = runUntilDone(m_pWaiterTask, pInitialTask);
     return executedTask;
@@ -195,7 +200,7 @@ void LocalScheduler::_handleContinuation(Task* pParent, Task*& pBypassTask, SubI
 }
 
 //------------------------------------------------------------------------------
-Task* LocalScheduler::_getNonLocalTask(Worker* pThisWorker, bool getAffinity, bool callerIsExternal, SubIdType localId, bool& executedWork)
+Task* LocalScheduler::_getNonLocalTask(Worker* pThisWorker, bool getAffinity, bool callerIsExternal, bool isLastChance, SubIdType localId, bool& executedWork)
 {
     Task* pTask = _getQueuedTask(localId);
 
@@ -217,10 +222,12 @@ Task* LocalScheduler::_getNonLocalTask(Worker* pThisWorker, bool getAffinity, bo
 
     if (!pTask)
     {
+        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Orange2, "L_SCHD CHECK_FOR_TASK CALLBACKS", this, 0);
 
         auto& callbacks = m_pMyScheduler->m_pCallbacks[(size_t)MicroSchedulerCallbackType::CHECK_FOR_TASK];
         auto& callbacksVec = callbacks.m_callbacks;
 
+        if(!callbacksVec.empty() && isLastChance) // Race OK.
         {
             // Acquire reference to the callback so they cannot be unregistered while calling them.
             LockShared<MicroScheduler::Callbacks::rw_lock_type> lock(callbacks.m_mutex);
@@ -228,7 +235,7 @@ Task* LocalScheduler::_getNonLocalTask(Worker* pThisWorker, bool getAffinity, bo
             // TODO: make starvation resistant. Round-robin?
             for (size_t ii = 0; ii < callbacksVec.size(); ++ii)
             {
-                pTask = ((OnCheckForTasksFcn)(callbacksVec[ii].func))(callbacksVec[ii].pData, m_pMyScheduler, m_id, executedWork);
+                pTask = ((OnCheckForTasksFcn)(callbacksVec[ii].func))(callbacksVec[ii].pData, m_pMyScheduler, m_id, callerIsExternal, executedWork);
                 if (pTask)
                 {
                     break;
@@ -241,7 +248,7 @@ Task* LocalScheduler::_getNonLocalTask(Worker* pThisWorker, bool getAffinity, bo
 }
 
 //------------------------------------------------------------------------------
-Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWorker, SubIdType localId, bool& executedTask)
+Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWorker, SubIdType localId, bool canStealExternal, bool& executedTask)
 {
     GTS_SIM_TRACE_MARKER(sim_trace::MARKER_NONLOCAL_TASKLOOP_BEGIN);
     GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Orange2, "L_SCHD NON-LOCAL TASK LOOP", this, 0);
@@ -260,7 +267,7 @@ Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWork
 
         if (!pTask)
         {
-            pTask = _getNonLocalTask(pThisWorker, true, false, localId, executedTask);
+            pTask = _getNonLocalTask(pThisWorker, true, false, false, localId, executedTask);
         }
 
         // ---------------------------------
@@ -279,14 +286,14 @@ Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWork
             if (isTopLevelWorker)
             {
                 // Try to skip expensive _stealExternalTask.
-                if (m_id.localId() != 0 && !m_pMyScheduler->m_pExternalSchedulers->hasVictims())
+                if (canStealExternal && m_id.localId() != 0 && !m_pMyScheduler->m_pExternalSchedulers->hasVictimsUnsafe())
                 {
-                    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::AntiqueWhite, "L_SCHD SEARCH FOR EXTERNAL TASK", this, 0);
-
                     // ^^^^^^^^^^^^^^^^^^
                     // Empty check race seems OK. At worst miss a newly
                     // added victim or we step into _stealExternalTask and
                     // learn there are no victims.
+
+                    GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::AntiqueWhite, "L_SCHD SEARCH FOR EXTERNAL TASK", this, 0);
 
                     // Since this scheduler has no demand,
                     // try to steal a task from a victim scheduler.
@@ -302,7 +309,7 @@ Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWork
                 GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::DarkRed, "L_SCHD VERIFY NO WORK", this, 0);
 
 #if GTS_USE_PRODUCTIVE_EMPTY_CHECKS
-                pTask = _getNonLocalTask(pThisWorker, true, false, localId, executedTask);
+                pTask = _getNonLocalTask(pThisWorker, true, false, true, localId, executedTask);
                 if(pTask)
                 {
                     break;
@@ -343,6 +350,68 @@ Task* LocalScheduler::_getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWork
 }
 
 //------------------------------------------------------------------------------
+void LocalScheduler::_executeTaskLoop(Task* pTask, SubIdType localId, Worker* pThisWorker, bool& executedTask)
+{
+    while (pTask)
+    {
+        // ----------------------------------------------------
+        // Execute this task then any continuations or bypasses.
+
+        Task* pByPassTask = nullptr;
+        {
+            // Execute!
+            GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Cyan, "L_SCHD EXECUTE TASK", this, pTask);
+            GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_EXECUTED_TASKS);
+            pTask->header().pMyLocalScheduler = this;
+            pTask->header().executionState = internal::TaskHeader::EXECUTING;
+            pByPassTask = pTask->execute(TaskContext{ m_pMyScheduler, m_id, pTask, pThisWorker->m_pUserData });
+            executedTask = true;
+        }
+
+        GTS_ASSERT((!pByPassTask || (pByPassTask && !(pByPassTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION))) &&
+            "A bypass task cannot be a continuation.");
+
+        Task* pParent = nullptr;
+
+        switch (pTask->header().executionState)
+        {
+        case internal::TaskHeader::EXECUTING:
+
+            GTS_SIM_TRACE_MARKER(sim_trace::MARKER_CLEANUP_TASK_BEGIN);
+
+            pTask->~Task();
+
+            pParent = pTask->parent();
+            if (pParent != nullptr)
+            {
+                _handleContinuation(pParent, pByPassTask, localId);
+            }
+
+            GTS_ASSERT(pTask->refCount() <= 1 && "Task still has children after executing.");
+
+            // NOTE: allocation id is associated with Workers not Schedules.
+            m_pMyScheduler->_freeTask(pTask);
+
+            GTS_SIM_TRACE_MARKER(sim_trace::MARKER_CLEANUP_TASK_END);
+
+            break;
+
+        case internal::TaskHeader::ALLOCATED:
+            if (!pByPassTask && (pTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION) == 0)
+            {
+                // Spawn any recycled Task that is not a bypass or continuation Task.
+                spawnTask(pTask, 0);
+            }
+            break;
+        }
+
+        pTask = pByPassTask;
+
+        --m_proirityBoostAge;
+    }
+}
+
+//------------------------------------------------------------------------------
 bool LocalScheduler::runUntilDone(Task* pWaitingTask, Task* pChild)
 {
     GTS_ASSERT(pWaitingTask ? pWaitingTask->refCount() >= (pChild && pChild->parent() == pWaitingTask ? 3 : 2) : true &&
@@ -350,6 +419,7 @@ bool LocalScheduler::runUntilDone(Task* pWaitingTask, Task* pChild)
 
     GTS_ASSERT(m_id.uid() != UNKNOWN_UID);
 
+    bool canStealExternally = m_pMyScheduler->m_canStealExternally;
     bool executedTask       = false;
     Task* pTask             = pChild;
     const SubIdType localId = m_id.localId();
@@ -368,67 +438,8 @@ bool LocalScheduler::runUntilDone(Task* pWaitingTask, Task* pChild)
             while(m_pMyScheduler->m_isAttached.load(memory_order::relaxed))
             {
                 GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Green1, "L_SCHD TASK EXECUTION LOOP", this, 0);
-
-                // TASK EXECUTION LOOP
-                while (pTask)
-                {
-                    // ----------------------------------------------------
-                    // Execute this task then any continuations or bypasses.
-
-                    Task* pByPassTask = nullptr;
-                    {
-                        // Execute!
-                        GTS_TRACE_SCOPED_ZONE_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Cyan, "L_SCHD EXECUTE TASK", this, pTask);
-                        GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_EXECUTED_TASKS);
-                        pTask->header().pMyLocalScheduler = this;
-                        pTask->header().executionState = internal::TaskHeader::EXECUTING;
-                        pByPassTask = pTask->execute(TaskContext{ m_pMyScheduler, m_id, pTask, pThisWorker->m_pUserData });
-                        executedTask = true;
-                    }
-
-                    GTS_ASSERT((!pByPassTask || !(pByPassTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION)) &&
-                        "A bypass task cannot be a continuation.");
-
-                    Task* pParent = nullptr;
-
-                    switch (pTask->header().executionState)
-                    {
-                    case internal::TaskHeader::EXECUTING:
-
-                        GTS_SIM_TRACE_MARKER(sim_trace::MARKER_CLEANUP_TASK_BEGIN);
-
-                        pTask->~Task();
-
-                        pParent = pTask->parent();
-                        if(pParent != nullptr)
-                        {
-                            _handleContinuation(pParent, pByPassTask, localId);
-                        }
-
-                        GTS_ASSERT(pTask->refCount() <= 1 && "Task still has children after executing.");
-                        GTS_ASSERT(pTask != pWaitingTask && "Cannot execute the waiting Task.");
-
-                        // NOTE: allocation id is associated with Workers not Schedules.
-                        m_pMyScheduler->_freeTask(pTask); 
-
-                        GTS_SIM_TRACE_MARKER(sim_trace::MARKER_CLEANUP_TASK_END);
-
-                        break;
-
-                    case internal::TaskHeader::ALLOCATED:
-                        if(!pByPassTask && (pTask->header().flags & internal::TaskHeader::TASK_IS_CONTINUATION) == 0)
-                        {
-                            // Spawn any recycled Task that is not a bypass or continuation Task.
-                            spawnTask(pTask, 0);
-                        }
-                        break;
-                    }
-
-                    pTask = pByPassTask;
-
-                    --m_proirityBoostAge;
-
-                } // END TASK EXECUTION LOOP
+                
+                _executeTaskLoop(pTask, localId, pThisWorker, executedTask);
 
                 // ----------------------------------------------------
                 // Get a task from the local queue
@@ -457,7 +468,7 @@ bool LocalScheduler::runUntilDone(Task* pWaitingTask, Task* pChild)
             GTS_SIM_TRACE_MARKER(sim_trace::MARKER_LOCAL_TASKLOOP_END);
         }
 
-        pTask = _getNonLocalTaskLoop(pWaitingTask, pThisWorker, localId, executedTask);
+        pTask = _getNonLocalTaskLoop(pWaitingTask, pThisWorker, localId, canStealExternally, executedTask);
         if (!pTask)
         {
             break;
@@ -568,6 +579,25 @@ Task* LocalScheduler::_stealTask(SubIdType localId, bool callerIsExternal)
 
     Task* pTask = nullptr;
 
+
+    if (m_stealBack.enabled)
+    {
+        OwnedId stealBackId = m_stealBack.lastThief.exchange(OwnedId(), memory_order::acq_rel);
+
+        if (stealBackId.uid() != UNKNOWN_UID)
+        {
+            if (stealBackId.ownerId() == m_id.ownerId())
+            {
+                pTask = _stealTaskFrom(localId, stealBackId.localId(), ppVictims, false);
+            }
+            else
+            {
+                pTask = _stealBackExternalTask(localId, stealBackId);
+            }
+        }
+    }
+
+
 #if 0
 
     uint32_t r = fastRand(m_randState) % (localSchedulerCount);
@@ -596,7 +626,12 @@ Task* LocalScheduler::_stealTask(SubIdType localId, bool callerIsExternal)
 #else
 
     uint32_t r = fastRand(m_randState) % (localSchedulerCount);
-    pTask = _stealTaskLoop(localId, ppVictims, r, localSchedulerCount);
+
+    if (!pTask)
+    {
+        pTask = _stealTaskLoop(localId, ppVictims, r, localSchedulerCount);
+    }
+
     if(!pTask)
     {
         pTask = _stealTaskLoop(localId, ppVictims, 0, r);
@@ -614,27 +649,48 @@ Task* LocalScheduler::_stealTaskLoop(SubIdType localId, LocalScheduler** GTS_NOT
     GTS_UNREFERENCED_PARAM(localId);
 
     Task* pTask = nullptr;
-    for(uint32_t ii = begin; ii < end; ++ii)
+    for(uint32_t ii = begin; ii < end && !pTask; ++ii)
     {
-        PriorityTaskDeque& GTS_NOT_ALIASED victimDeque = ppVictims[ii]->m_priorityTaskDeque;
-        const size_t numPriorities = victimDeque.size();
-
-        for (size_t priority = 0; priority < numPriorities; ++priority)
-        {
-            GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_DEQUE_STEAL_ATTEMPTS);
-
-            TaskDeque& deque = victimDeque[priority];
-            if (deque.trySteal(pTask))
-            {
-                GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Blue, "L_SCHD STOLE TASK", this, pTask);
-                GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_DEQUE_STEAL_SUCCESSES);
-                pTask->header().flags |= internal::TaskHeader::TASK_IS_STOLEN;
-                return pTask;
-            }
-            GTS_SPECULATION_FENCE();
-        }
+        pTask = _stealTaskFrom(localId, (SubIdType)ii, ppVictims, true);
     }
 
+    return pTask;
+}
+
+//------------------------------------------------------------------------------
+Task* LocalScheduler::_stealTaskFrom(SubIdType localId, SubIdType victimId, LocalScheduler** ppVictims, bool notifyStealBack)
+{
+    GTS_UNREFERENCED_PARAM(localId);
+
+    Task* pTask = nullptr;
+
+    PriorityTaskDeque& GTS_NOT_ALIASED victimDeque = ppVictims[victimId]->m_priorityTaskDeque;
+    const size_t numPriorities = victimDeque.size();
+
+    for (size_t priority = 0; priority < numPriorities; ++priority)
+    {
+        GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_DEQUE_STEAL_ATTEMPTS);
+
+        TaskDeque& deque = victimDeque[priority];
+        if (deque.trySteal(pTask))
+        {
+            GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::MICRO_SCHEDULER_PROFILE, analysis::Color::Blue, "L_SCHD STOLE TASK", this, pTask);
+            GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_DEQUE_STEAL_SUCCESSES);
+            pTask->header().flags |= internal::TaskHeader::TASK_IS_STOLEN;
+            if (m_stealBack.enabled)
+            {
+                if (notifyStealBack)
+                {
+                    ppVictims[victimId]->m_stealBack.lastThief.store(m_id, memory_order::release);
+                }
+            }
+            ppVictims[victimId]->m_hasDemand.store(false, memory_order::release);
+            return pTask;
+        }
+        GTS_SPECULATION_FENCE();
+    }
+
+    ppVictims[victimId]->m_hasDemand.store(true, memory_order::release);
     return nullptr;
 }
 
@@ -701,7 +757,7 @@ Task* LocalScheduler::_stealExternalTask(SubIdType localId)
     while (true)
     {
         {
-            Lock<MicroScheduler::MutexType> lock(m_pMyScheduler->m_pExternalSchedulers->m_mutex);
+            LockShared<MicroScheduler::MutexType> lock(m_pMyScheduler->m_pExternalSchedulers->m_mutex);
             if (iScheduler < m_pMyScheduler->m_pExternalSchedulers->m_victims.size())
             {
                 pScheduler = m_pMyScheduler->m_pExternalSchedulers->m_victims[iScheduler];
@@ -716,7 +772,6 @@ Task* LocalScheduler::_stealExternalTask(SubIdType localId)
         LocalScheduler** GTS_NOT_ALIASED ppVictims = pScheduler->m_ppLocalSchedulersByIdx;
         uint32_t localSchedulerCount = pScheduler->m_localSchedulerCount;
         uint32_t r = fastRand(m_randState) % (localSchedulerCount);
-
 
         pTask = _stealTaskLoop(localId, ppVictims, r, localSchedulerCount);
         if(!pTask)
@@ -736,6 +791,44 @@ Task* LocalScheduler::_stealExternalTask(SubIdType localId)
 
         GTS_SPECULATION_FENCE();
     }
+}
+
+//------------------------------------------------------------------------------
+Task* LocalScheduler::_stealBackExternalTask(SubIdType localId, OwnedId const& stealBackId)
+{
+    Task* pTask = nullptr;
+    MicroScheduler* pScheduler = nullptr;
+
+    {
+        LockShared<MicroScheduler::MutexType> lock(m_pMyScheduler->m_pExternalSchedulers->m_mutex);
+        for (size_t ii = 0; ii < m_pMyScheduler->m_pExternalSchedulers->m_victims.size(); ++ii)
+        {
+            if (m_pMyScheduler->m_pExternalSchedulers->m_victims[ii]->id() == stealBackId.ownerId())
+            {
+                pScheduler = m_pMyScheduler->m_pExternalSchedulers->m_victims[ii];
+                pScheduler->m_pExternalSchedulers->m_thiefAccessCount.fetch_add(1, memory_order::acquire);
+                break;
+            }
+        }
+    }
+
+    if (!pScheduler)
+    {
+        return nullptr;
+    }
+
+    LocalScheduler** GTS_NOT_ALIASED ppVictims = pScheduler->m_ppLocalSchedulersByIdx;
+    pTask = _stealTaskFrom(localId, stealBackId.localId(), ppVictims, false);
+
+    pScheduler->m_pExternalSchedulers->m_thiefAccessCount.fetch_sub(1, memory_order::release);
+
+    if (pTask)
+    {
+        GTS_MS_COUNTER_INC(m_id, analysis::MicroSchedulerCounters::NUM_EXTERNAL_STEAL_SUCCESSES);
+        return pTask;
+    }
+
+    return nullptr;
 }
 
 } // namespace gts

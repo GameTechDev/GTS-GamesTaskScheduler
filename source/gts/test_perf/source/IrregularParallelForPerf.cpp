@@ -53,15 +53,17 @@ Stats irregularRandParallelFor(gts::MicroScheduler& taskScheduler, uint32_t item
 
     uint32_t spins[TOTAL_SPINS] = { 10, 10, 10, 100, 100, 100, 100000 };
     gts::Vector<PaddedInt> randStates(taskScheduler.workerCount());
-    for (uint32_t ii = 0; ii < randStates.size(); ++ii)
-    {
-        randStates[ii].i = ii + 1;
-    }
 
     // Do test.
     for (uint32_t ii = 0; ii < iterations; ++ii)
     {
         GTS_TRACE_FRAME_MARK(gts::analysis::CaptureMask::ALL);
+
+        // reseed.
+        for (uint32_t rr = 0; rr < randStates.size(); ++rr)
+        {
+            randStates[rr].i = rr + 1;
+        }
 
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -79,7 +81,7 @@ Stats irregularRandParallelFor(gts::MicroScheduler& taskScheduler, uint32_t item
                     float f = 0.45f;
                     for (volatile uint32_t ii = 0; ii < s; ++ii)
                     {
-                        f = sin(f);
+                        f = sinf(f);
                     }
                 }
             },
@@ -129,7 +131,7 @@ Stats irregularUpfrontParallelFor(gts::MicroScheduler& taskScheduler, uint32_t i
                     float f = 0.45f;
                     for (volatile uint32_t ii = 0; ii < numSpins; ++ii)
                     {
-                        f = sin(f);
+                        f = sinf(f);
                     }
                 }
             },

@@ -30,8 +30,8 @@
 
 #include "gts/macro_scheduler/Node.h"
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_ComputeResource.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_MacroScheduler.h"
+#include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
+#include "gts/macro_scheduler/schedulers/homogeneous/central_queue/CentralQueue_MacroScheduler.h"
 
 using namespace gts;
 
@@ -83,15 +83,15 @@ void basicMacroSchedulerNodeGraph()
     printf ("================\n");
 
     // A MacroScheduler is a high level scheduler that maps a persistent task
-    // graph (DAG) of Nodes to set of ComputeResources. A DynamicMicroScheduler
+    // graph (DAG) of Nodes to set of ComputeResources. A CentralQueue_MacroScheduler
     // is a MacroScheduler that executes a DAG exclusively on one or more
     // MicroSchedulers. Each Node is converted to a Task when it is ready to be
     // executed.
 
     //
     // First, we create a MicroSchedulder and map it to a
-    // DynamicMicroScheduler_ComputeResource that can be consumed by
-    // a DynamicMicroScheduler_MacroScheduler.
+    // MicroScheduler_ComputeResource that can be consumed by
+    // a CentralQueue_MacroScheduler.
 
     WorkerPool workerPool;
     workerPool.initialize();
@@ -99,16 +99,16 @@ void basicMacroSchedulerNodeGraph()
     MicroScheduler microScheduler;
     microScheduler.initialize(&workerPool);
 
-    DynamicMicroScheduler_ComputeResource microSchedulerCompResource(&microScheduler, 0);
+    MicroScheduler_ComputeResource microSchedulerCompResource(&microScheduler, 0, 0);
 
     //
-    // Second, we create a DynamicMicroScheduler_MacroScheduler and map the
-    // DynamicMicroScheduler_ComputeResource to it.
+    // Second, we create a CentralQueue_MacroScheduler and map the
+    // MicroScheduler_ComputeResource to it.
 
     MacroSchedulerDesc generalizedDagSchedulerDesc;
     generalizedDagSchedulerDesc.computeResources.push_back(&microSchedulerCompResource);
 
-    MacroScheduler* pMacroScheduler = new DynamicMicroScheduler_MacroScheduler;
+    MacroScheduler* pMacroScheduler = new CentralQueue_MacroScheduler;
     pMacroScheduler->init(generalizedDagSchedulerDesc);
 
     //
@@ -176,7 +176,7 @@ void basicMacroSchedulerNodeGraphWithParallelFor()
     MicroScheduler microScheduler;
     microScheduler.initialize(&workerPool);
 
-    DynamicMicroScheduler_ComputeResource microSchedulerCompResource(&microScheduler, 0);
+    MicroScheduler_ComputeResource microSchedulerCompResource(&microScheduler, 0, 0);
 
     //
     // Init MacroScheduler
@@ -184,7 +184,7 @@ void basicMacroSchedulerNodeGraphWithParallelFor()
     MacroSchedulerDesc generalizedDagSchedulerDesc;
     generalizedDagSchedulerDesc.computeResources.push_back(&microSchedulerCompResource);
 
-    MacroScheduler* pMacroScheduler = new DynamicMicroScheduler_MacroScheduler;
+    MacroScheduler* pMacroScheduler = new CentralQueue_MacroScheduler;
     pMacroScheduler->init(generalizedDagSchedulerDesc);
 
     //

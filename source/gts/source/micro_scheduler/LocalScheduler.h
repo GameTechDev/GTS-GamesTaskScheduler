@@ -70,7 +70,8 @@ public: // MUTATORS:
         OwnedId scheduleId,
         MicroScheduler* pScheduler,
         uint32_t priorityCount,
-        int16_t proirityToBoostAge);
+        int16_t proirityToBoostAge,
+        bool canStealBack);
 
     bool run(Task* pInitialTask);
 
@@ -80,16 +81,19 @@ public: // MUTATORS:
 
 private: // PRIVATE METHODS:
 
+    void _executeTaskLoop(Task* pTask, SubIdType localId, Worker* pThisWorker, bool& executedTask);
     GTS_NO_INLINE void _handleContinuation(Task* pParent, Task*& pBypassTask, SubIdType localId);
     Task* _getLocalTask(SubIdType localId);
     GTS_NO_INLINE Task* _getLocalBoostedTask(SubIdType localId);
-    Task* _getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWorker, SubIdType localId, bool& executedTask);
+    Task* _getNonLocalTaskLoop(Task* pWaitingTask, Worker* pThisWorker, SubIdType localId, bool canStealExternal, bool& executedTask);
     Task* _getQueuedTask(SubIdType localId);
     Task* _getAffinityTask(SubIdType localId);
     Task* _stealTask(SubIdType localId, bool callerIsExternal);
     Task* _stealTaskLoop(SubIdType localId, LocalScheduler** ppVictims, uint32_t begin, uint32_t end);
-    Task* _getNonLocalTask(Worker* pThisWorker, bool getAffinity, bool callerIsExternal, SubIdType localId, bool& executedTask);
+    Task* _stealTaskFrom(SubIdType localId, SubIdType victimId, LocalScheduler** ppVictims, bool notifyStealBack);
+    Task* _getNonLocalTask(Worker* pThisWorker, bool getAffinity, bool callerIsExternal, bool isLastChance, SubIdType localId, bool& executedTask);
     GTS_NO_INLINE Task* _stealExternalTask(SubIdType localId);
+    Task* LocalScheduler::_stealBackExternalTask(SubIdType localId, OwnedId const& stealbackId);
 
 private: // DATA:
 
@@ -104,12 +108,19 @@ private: // DATA:
 
     using MutexType = UnfairSpinMutex<>;
 
-
     PriorityTaskDeque m_priorityTaskDeque;
     PriorityAffinityTaskQueue m_affinityTaskQueue;
     PriorityTaskQueue* m_pPriorityTaskQueue;
     MicroScheduler* m_pMyScheduler;
     OwnedId m_id;
+
+    struct GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) 
+    {
+        Atomic<OwnedId> lastThief;
+        bool enabled;
+    } m_stealBack;
+    
+    Atomic<bool> m_hasDemand;
 
     GTS_ALIGN(GTS_NO_SHARING_CACHE_LINE_SIZE) Task* m_pWaiterTask;
 

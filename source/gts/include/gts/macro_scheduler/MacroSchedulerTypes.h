@@ -76,13 +76,8 @@ struct WorkloadContext
     // The Schedule this workload is executing under.
     Schedule* pSchedule = nullptr;
 
-    //! The ComputeResource that spawned this Workload. In a work-stealing
-    //! environment, this may not be the ComputeResources executing the 
-    //! workload. Use pExtra to set info about the current ComputeResource.
+    //! The ComputeResource executing this Workload.
     ComputeResource* pComputeResource = nullptr;
-
-    //! A pointer to extra data needed to execute a workload.
-    void* pExtra = nullptr;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -26,6 +26,7 @@
 #include "gts/platform/Memory.h"
 #include "gts/analysis/Trace.h"
 #include "gts/analysis/Counter.h"
+#include "gts/synchronization/Lock.h"
 
 #include "gts/micro_scheduler/MicroScheduler.h"
 
@@ -159,14 +160,13 @@ bool WorkerPool::_initWorkers(WorkerPoolDesc& desc)
     {
         GTS_TRACE_SCOPED_ZONE_P3(analysis::CaptureMask::WORKERPOOL_ALL, analysis::Color::AntiqueWhite, "WORKERPOOL INIT WORKER", this, m_poolId, workerId);
 
-        const WorkerThreadDesc& workerThreadDesc = desc.workerDescs[workerId];
         if (!m_pWorkersByIdx[workerId].initialize(
             this,
             OwnedId(m_poolId, workerId),
-            workerThreadDesc.affinity,
-            workerThreadDesc.priority,
-            workerThreadDesc.name,
-            workerThreadDesc.pUserData,
+            desc.workerDescs[workerId].affinity,
+            desc.workerDescs[workerId].priority,
+            desc.workerDescs[workerId].name,
+            desc.workerDescs[workerId].pUserData,
             desc.pGetThreadLocalStateFcn,
             desc.pSetThreadLocalStateFcn,
             desc.pVisitor,

@@ -53,7 +53,7 @@ public:
      * parallel-reduce operations will be scheduled with the specified 'priority'.
      */
     GTS_INLINE ParallelReduce(MicroScheduler& scheduler, uint32_t priority = 0)
-        : m_taskScheduler(scheduler)
+        : m_microScheduler(scheduler)
         , m_priority(priority)
     {}
 
@@ -95,16 +95,16 @@ public:
         TPartitioner partitioner = AdaptivePartitioner(),
         void* userData = nullptr)
     {
-        GTS_ASSERT(m_taskScheduler.isRunning());
+        GTS_ASSERT(m_microScheduler.isRunning());
 
-        partitioner.template initialize<TRange>((uint16_t)m_taskScheduler.workerCount());
+        partitioner.template initialize<TRange>((uint16_t)m_microScheduler.workerCount());
 
         TResultValue result = identityValue;
 
-        Task* pTask = m_taskScheduler.allocateTask<ParallelReduceTask<TRange, TResultValue, TMapReduceFunc, TJoinFunc, TPartitioner>>(
+        Task* pTask = m_microScheduler.allocateTask<ParallelReduceTask<TRange, TResultValue, TMapReduceFunc, TJoinFunc, TPartitioner>>(
             mapReduceFunc, joinFunc, userData, &result, range, partitioner, m_priority);
 
-        m_taskScheduler.spawnTaskAndWait(pTask);
+        m_microScheduler.spawnTaskAndWait(pTask);
 
         return result;
     }
@@ -114,7 +114,7 @@ private:
     ParallelReduce(ParallelReduce const&) = delete;
     ParallelReduce* operator=(ParallelReduce const&) = delete;
 
-    MicroScheduler& m_taskScheduler;
+    MicroScheduler& m_microScheduler;
     uint32_t m_priority;
 
 private:
@@ -126,18 +126,17 @@ private:
         typename TResultValue,
         typename TJoinFunc
         >
-    class TheftObserverAndJoinTask : public Task
+    class JoinTask : public Task
     {
     public:
 
         //----------------------------------------------------------------------
-        GTS_INLINE TheftObserverAndJoinTask(
+        GTS_INLINE JoinTask(
             TJoinFunc& joinFunc,
             TResultValue* pAcculumation,
             uint8_t numPredecessors)
             : m_joinFunc(joinFunc)
             , m_pAcculumation(pAcculumation)
-            , m_childTaskStolen(false)
             , m_numPredecessors(numPredecessors)
         {
             GTS_ASSERT(numPredecessors <= MAX_PREDECESSORS);
@@ -164,11 +163,10 @@ private:
 
         enum { MAX_PREDECESSORS = TRange::split_result::MAX_RANGES + 1 };
 
-        TJoinFunc&        m_joinFunc;
-        TResultValue      m_prececessorValues[MAX_PREDECESSORS];
-        TResultValue*     m_pAcculumation;
-        gts::Atomic<bool> m_childTaskStolen;
-        uint8_t           m_numPredecessors;
+        TJoinFunc&              m_joinFunc;
+        TResultValue            m_prececessorValues[MAX_PREDECESSORS];
+        TResultValue*           m_pAcculumation;
+        uint8_t                 m_numPredecessors;
     };
 
     ////////////////////////////////////////////////////////////////////////////
@@ -188,7 +186,7 @@ private:
     {
     public:
 
-        using observer_task_type = TheftObserverAndJoinTask<TRange, TResultValue, TJoinFunc>;
+        using observer_task_type = JoinTask<TRange, TResultValue, TJoinFunc>;
 
         //----------------------------------------------------------------------
         ParallelReduceTask(
@@ -337,14 +335,14 @@ private:
         //----------------------------------------------------------------------
         virtual Task* execute(TaskContext const& ctx) final
         {
-            m_partitioner.template adjustIfStolen<observer_task_type, TRange>(this);
+            m_partitioner.template adjustIfStolen<TRange>(this);
             return m_partitioner.execute(ctx, this, m_range);
         }
 
         //----------------------------------------------------------------------
         void balanceAndExecute(TaskContext const& ctx, TPartitioner& partitioner, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            partitioner.template balanceAndExecute<observer_task_type>(ctx, this, range, splitter);
+            partitioner.balanceAndExecute(ctx, this, range, splitter);
         }
 
     private:

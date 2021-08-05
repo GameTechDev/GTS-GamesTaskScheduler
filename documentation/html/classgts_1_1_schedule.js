@@ -6,8 +6,8 @@ var classgts_1_1_schedule =
     [ "getScheduler", "classgts_1_1_schedule.html#a0b31b184b8e9eaa977b44606a2f87d0b", null ],
     [ "insertReadyNode", "classgts_1_1_schedule.html#ad0748af2ae74f9a04559ee313eeb77fd", null ],
     [ "isDone", "classgts_1_1_schedule.html#aae879f95dc566b71ac3cd5eb163caed2", null ],
-    [ "observeExecutionCost", "classgts_1_1_schedule.html#a1418b4a4c118b2bf777153c974650cb8", null ],
-    [ "popNextNode", "classgts_1_1_schedule.html#a7dea7fc117ac3a98b960860433bdab0e", null ],
+    [ "observeExecutionCost", "classgts_1_1_schedule.html#af60f81ec1ec9fee7de68e768efec4cb4", null ],
+    [ "popNextNode", "classgts_1_1_schedule.html#a2f4ff7d13bb1d6fe96b7f589ea0fa158", null ],
     [ "refCount", "classgts_1_1_schedule.html#a81ae8006f9cee4ba0b58ac02b5e4bfe8", null ],
     [ "removeRef", "classgts_1_1_schedule.html#a5efa78c14d009f474ae059ef1df4fe68", null ],
     [ "tryMarkDone", "classgts_1_1_schedule.html#a3234d66557efcb4ffdac4c7b9e4ed353", null ]

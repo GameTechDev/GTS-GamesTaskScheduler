@@ -23,6 +23,7 @@
 
 #include <utility>
 
+#include "gts/platform/Utils.h"
 #include "gts/platform/Machine.h"
 #include "gts/platform/Assert.h"
 #include "gts/micro_scheduler/patterns/RangeSplitters.h"
@@ -91,6 +92,7 @@ public: // CREATORS
         GTS_ASSERT(_distance(m_begin, m_end) > 0);
         GTS_ASSERT(m_minSize > 0);
         GTS_ASSERT(minSize >= splitOnMultiplesOf);
+        GTS_ASSERT(isPow2(splitOnMultiplesOf));
     }
 
 public: // ACCESSORS
@@ -190,7 +192,7 @@ public: // ACCESSORS
         GTS_ASSERT(range.isDivisible());
 
         // Calculate the middle.
-        iter_type middle = (iter_type)(range.m_begin + range.size() / 2);
+        iter_type middle = (iter_type)(range.m_begin + (range.size() >> 1));
         // Adjust base of the specified multiple.
         middle = (iter_type)(middle + _calOffset(_distance(range.m_origin, middle), range.m_splitOnMultiplesOf));
 
@@ -251,7 +253,7 @@ private:
     template<typename T>
     GTS_INLINE static size_type _calOffset(T value, size_type boundary)
     {
-        size_type offset = value % boundary;
+        size_type offset = value & (boundary - 1);
         if (offset == 0)
         {
             return 0;

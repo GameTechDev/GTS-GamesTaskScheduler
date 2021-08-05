@@ -25,9 +25,12 @@
 #include "gts/platform/Machine.h"
 #include "gts/platform/Atomic.h"
 #include "gts/platform/Thread.h"
+#include "gts/platform/InstructionSet.h"
 #include "gts/analysis/Trace.h"
 
 namespace gts {
+
+constexpr uint32_t WAITPKG_OPTIMIZATION_STATE = WAITPKG_OPTIMIZE_POWER;
 
 /**
  * @defgroup Synchronization
@@ -43,9 +46,20 @@ namespace gts {
 GTS_INLINE void spin(uint32_t count)
 {
     GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::DarkRed, "SPIN", count);
-    for (uint32_t pp = 0; pp <= count; ++pp)
+    if (!InstructionSet::waitPackage())
     {
-        GTS_PAUSE();
+        for (uint32_t pp = 0; pp <= count; ++pp)
+        {
+            GTS_PAUSE();
+        }
+    }
+    else
+    {
+        constexpr uint64_t cycles = 40;
+        for (uint32_t pp = 0; pp <= count; ++pp)
+        {
+            tpause(WAITPKG_OPTIMIZATION_STATE, cycles);
+        }
     }
 }
 
@@ -70,24 +84,31 @@ enum class BackoffGrowth
 */
 GTS_INLINE void pauseFor(uint32_t cycleCount)
 {
-    int32_t count = 0;
-
-    uint64_t prev = GTS_RDTSC();
-    const uint64_t finish = prev + cycleCount;
-    do
+    if (!InstructionSet::waitPackage())
     {
-        spin(count);
-        count *= 2;
+        int32_t count = 0;
 
-        uint64_t curr = GTS_RDTSC();
-        if (curr <= prev)
+        uint64_t prev = GTS_RDTSC();
+        const uint64_t finish = prev + cycleCount;
+        do
         {
-            // Quit on context switch or overflow.
-            break;
-        }
-        prev = curr;
+            spin(count);
+            count *= 2;
 
-    } while (prev < finish);
+            uint64_t curr = GTS_RDTSC();
+            if (curr <= prev)
+            {
+                // Quit on context switch or overflow.
+                break;
+            }
+            prev = curr;
+
+        } while (prev < finish);
+    }
+    else
+    {
+        tpause(WAITPKG_OPTIMIZATION_STATE, cycleCount);
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

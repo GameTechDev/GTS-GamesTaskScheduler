@@ -62,7 +62,7 @@ TEST(MicroScheduler, initializeMultipleSameThread)
 
     for (uint32_t ii = 0; ii < NUM_SCHEDULERS; ++ii)
     {
-        taskScheduler[NUM_SCHEDULERS - ii - 1].shutdown();
+        taskScheduler[ii].shutdown();
     }
 }
 

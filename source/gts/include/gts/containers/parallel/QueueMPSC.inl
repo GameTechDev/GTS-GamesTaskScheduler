@@ -88,7 +88,6 @@ TicketQueueMPSC<T, TMutex, TAllocator>::TicketQueueMPSC(TicketQueueMPSC const& o
 template<typename T, typename TMutex, typename TAllocator>
 TicketQueueMPSC<T, TMutex, TAllocator>::TicketQueueMPSC(TicketQueueMPSC&& other)
     : allocator_type(std::move(other.get_allocator()))
-    , m_ticketMask(std::move(other.m_ticketMask))
     , m_ticketShift(std::move(other.m_ticketShift))
     , m_front(std::move(other.m_front))
     , m_back(std::move(other.m_back))

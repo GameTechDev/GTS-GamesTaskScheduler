@@ -308,11 +308,11 @@ struct Thread
     struct EventHandle
     {
     #ifdef GTS_64BIT
-        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[40]; } mutex;
-        struct CondVar { uintptr_t v; } condVar;
+        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[40] = { 0 }; } mutex;
+        struct CondVar { uintptr_t v = 0; } condVar;
     #else
-        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[24]; } mutex;
-        struct CondVar { uintptr_t v; } condVar;
+        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[24] = { 0 }; } mutex;
+        struct CondVar { uintptr_t v = 0; } condVar;
     #endif
         Atomic<bool> signaled = { false };
         bool waiting = false;
@@ -322,11 +322,11 @@ struct Thread
     struct EventHandle
     {
     #ifdef GTS_64BIT
-        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[40]; } mutex;
-        struct CondVar { GTS_ALIGN(uintptr_t) uint8_t v[48]; } condVar;
+        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[40] = { 0 }; } mutex;
+        struct CondVar { GTS_ALIGN(uintptr_t) uint8_t v[48] = { 0 }; } condVar;
     #else
-        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[24]; } mutex;
-        struct CondVar { GTS_ALIGN(uintptr_t) uint8_t v[48]; } condVar;
+        struct MutexHandle { GTS_ALIGN(uintptr_t) uint8_t v[24] = { 0 }; } mutex;
+        struct CondVar { GTS_ALIGN(uintptr_t) uint8_t v[48] = { 0 }; } condVar;
     #endif
         Atomic<bool> signaled = { false };
         bool waiting = false;
@@ -390,8 +390,8 @@ public:
     };
 
     GTS_INLINE Thread()
-        : m_handle(),
-          m_tid(UINT32_MAX)
+        : m_handle()
+        , m_tid(0)
     {}
 
     GTS_INLINE ~Thread()

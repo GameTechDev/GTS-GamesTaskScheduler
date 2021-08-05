@@ -35,14 +35,13 @@
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
 
-// micro_scheduler
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_ComputeResource.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_MacroScheduler.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_Schedule.h"
+// central_queue
+#include "gts/macro_scheduler/schedulers/homogeneous/central_queue/CentralQueue_MacroScheduler.h"
+#include "gts/macro_scheduler/schedulers/homogeneous/central_queue/CentralQueue_Schedule.h"
 
 // critically_aware_task_scheduling
-#include "gts/macro_scheduler/schedulers/dynamic/critically_aware_task_scheduling/CriticallyAware_MacroScheduler.h"
-#include "gts/macro_scheduler/schedulers/dynamic/critically_aware_task_scheduling/CriticallyAware_Schedule.h"
+#include "gts/macro_scheduler/schedulers/heterogeneous/critically_aware_task_scheduling/CriticallyAware_MacroScheduler.h"
+#include "gts/macro_scheduler/schedulers/heterogeneous/critically_aware_task_scheduling/CriticallyAware_Schedule.h"
 
 #include <Windows.h>
 
@@ -114,7 +113,7 @@ void createHomogeneousComputeResources(ComputeResourceData& out)
     out.pMicroScheduler[0] = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     out.pMicroScheduler[0]->initialize(out.pWorkerPool[0]);
 
-    out.pComputeResource[0] = alignedNew<DynamicMicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], 0);
+    out.pComputeResource[0] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], 0, 0);
 }
 
 //------------------------------------------------------------------------------
@@ -148,7 +147,7 @@ void createHeterogeneousComputeResources(ComputeResourceData& out)
     out.pMicroScheduler[0] = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     out.pMicroScheduler[0]->initialize(out.pWorkerPool[0]);
 
-    out.pComputeResource[0] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], bigCoreCount);
+    out.pComputeResource[0] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[0], 0, bigCoreCount);
     out.pComputeResource[0]->setExecutionNormalizationFactor(1);
 
     ThisThread::setAffinity(0, bigCoreAffinity);
@@ -177,7 +176,7 @@ void createHeterogeneousComputeResources(ComputeResourceData& out)
     out.pMicroScheduler[1] = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     out.pMicroScheduler[1]->initialize(out.pWorkerPool[1]);
 
-    out.pComputeResource[1] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[1], littleCoreCount);
+    out.pComputeResource[1] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(out.pMicroScheduler[1], 0, 1);
     out.pComputeResource[1]->setExecutionNormalizationFactor(2);
 
     // 1-way stealing.
@@ -560,7 +559,7 @@ Stats homoRandomDagWorkStealing(uint32_t iterations)
     Vector<ComputeResource*> computeResources;
     computeResources.push_back(data.pComputeResource[0]);
 
-    Stats stats = heteroRandomDagTest<DynamicMicroScheduler_MacroScheduler>(computeResources, iterations);
+    Stats stats = heteroRandomDagTest<CentralQueue_MacroScheduler>(computeResources, iterations);
 
     return stats;
 }
@@ -597,7 +596,7 @@ Stats heteroRandomDagWorkStealing(uint32_t iterations, bool bidirectionalStealin
     MicroScheduler* pBigScheduler = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     pBigScheduler->initialize(pBigPool);
 
-    DynamicMicroScheduler_ComputeResource* pBigComputeResource = alignedNew<DynamicMicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pBigScheduler, 0);
+    MicroScheduler_ComputeResource* pBigComputeResource = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pBigScheduler, 0, 0);
     computeResources.push_back(pBigComputeResource);
 
     //
@@ -623,7 +622,7 @@ Stats heteroRandomDagWorkStealing(uint32_t iterations, bool bidirectionalStealin
     MicroScheduler* pLittleScheduler = alignedNew<MicroScheduler, GTS_NO_SHARING_CACHE_LINE_SIZE>();
     pLittleScheduler->initialize(pLittlePool);
 
-    DynamicMicroScheduler_ComputeResource* pLittleComputeResource = alignedNew<DynamicMicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pLittleScheduler, 0);
+    MicroScheduler_ComputeResource* pLittleComputeResource = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pLittleScheduler, 0, 0);
     computeResources.push_back(pLittleComputeResource);
 
 
@@ -636,7 +635,7 @@ Stats heteroRandomDagWorkStealing(uint32_t iterations, bool bidirectionalStealin
         pLittleScheduler->addExternalVictim(pBigScheduler);
     }
 
-    Stats stats = heteroRandomDagTest<DynamicMicroScheduler_MacroScheduler>(computeResources, iterations);
+    Stats stats = heteroRandomDagTest<CentralQueue_MacroScheduler>(computeResources, iterations);
 
     alignedDelete(pLittleComputeResource);
     alignedDelete(pBigComputeResource);

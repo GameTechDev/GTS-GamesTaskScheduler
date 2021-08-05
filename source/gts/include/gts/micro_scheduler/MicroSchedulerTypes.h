@@ -255,6 +255,22 @@ struct MicroSchedulerDesc
      */
     int16_t priorityBoostAge = INT16_MAX;
 
+
+    /**
+     * @brief
+     * Flag to allow a MicroScheduler to steal for its external victim.
+     * @remark Used my MacroScheduler algorithm. If false, external theft is 
+     * enabled through MicroScheduler::stealAndExecuteTask.
+     */
+    bool canStealExternalTasks = true;
+
+    /**
+     * @brief
+     * Flag to allow a MicroScheduler to steal back from the last LocalScheduler
+     * that stole from it.
+     */
+    bool canStealBackTasks = false;
+
     /**
      * @brief
      * A name to help with debugging.
@@ -270,7 +286,7 @@ enum class MicroSchedulerCallbackType
     COUNT
 };
 
-using OnCheckForTasksFcn = Task* (*)(void* pUserData, MicroScheduler* pThisScheduler, OwnedId localSchedulerId, bool& executedTask);
+using OnCheckForTasksFcn = Task* (*)(void* pUserData, MicroScheduler* pThisScheduler, OwnedId localSchedulerId, bool isCallerExternal, bool& executedTask);
 
 
 /** @} */ // end of MicroScheduler

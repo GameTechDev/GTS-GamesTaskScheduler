@@ -40,7 +40,8 @@ namespace gts {
 Node::Node(MacroScheduler* pMyScheduler)
     : m_pMyScheduler(pMyScheduler)
     , m_pSchedule(nullptr)
-    , m_rank(0)
+    , m_upRank(0)
+    , m_downRank(0)
     , m_executionCost(1)
     , m_predecessorCompleteCount(0)
     , m_currPredecessorCount(0)
@@ -135,6 +136,8 @@ void Node::reset()
 {
     m_predecessorCompleteCount.store(m_initPredecessorCount, memory_order::relaxed);
     m_currPredecessorCount.store(m_initPredecessorCount, memory_order::relaxed);
+    m_upRank.store(0, memory_order::relaxed);
+    m_downRank.store(0, memory_order::relaxed);
 }
 
 //------------------------------------------------------------------------------

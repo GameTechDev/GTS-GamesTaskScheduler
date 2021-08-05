@@ -66,6 +66,8 @@ public:
 
 private:
 
+    ComputeResource* findThisComputeResource(SubIdType microSchedulerId);
+
     MicroScheduler_Workload* m_pThisWorkload;
     WorkloadContext m_workloadContext;
 };

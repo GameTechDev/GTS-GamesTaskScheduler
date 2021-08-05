@@ -94,6 +94,28 @@ struct numericLimits<uint64_t>
 
 //------------------------------------------------------------------------------
 /**
+ * @brief The numeric limits for int32_t.
+ */
+template<>
+struct numericLimits<int32_t>
+{
+    static constexpr int32_t min() { return 0; };
+    static constexpr int32_t max() { return INT32_MAX; };
+};
+
+//------------------------------------------------------------------------------
+/**
+ * @brief The numeric limits for int64_t.
+ */
+template<>
+struct numericLimits<int64_t>
+{
+    static constexpr int64_t min() { return 0; };
+    static constexpr int64_t max() { return INT64_MAX; };
+};
+
+//------------------------------------------------------------------------------
+/**
  * @brief Checks if \a value is a power of 2.
  * @returns True if \a value is a power of 2.
  */

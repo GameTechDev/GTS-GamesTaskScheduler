@@ -30,11 +30,13 @@
 namespace gts {
 
 //------------------------------------------------------------------------------
-MicroScheduler_ComputeResource::MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler, uint32_t vectorWidth)
+MicroScheduler_ComputeResource::MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler, uint32_t vectorWidth, uint32_t physicalProcessorCount)
     : m_pMicroScheduler(nullptr)
     , m_pCurrentSchedule({nullptr})
     , m_pCheckForTasksDataBySchedule(nullptr)
     , m_vectorWidth(vectorWidth)
+    , m_physicalProcessorCount(physicalProcessorCount)
+    , m_maxRank(0)
 {
     init(pMicroScheduler);
 }
@@ -63,6 +65,31 @@ bool MicroScheduler_ComputeResource::init(MicroScheduler* pMicroScheduler)
 }
 
 //------------------------------------------------------------------------------
+bool MicroScheduler_ComputeResource::_tryRunNextNode(Schedule* pSchedule, bool myQueuesOnly)
+{
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "_tryRunNextNode");
+    Node* pNode = pSchedule->popNextNode(this, myQueuesOnly);
+    if (pNode)
+    {
+        GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "Execute Node");
+        if (!_buildTaskAndRun(pSchedule, pNode))
+        {
+            GTS_ASSERT(0);
+            return false;
+        }
+        return true;
+    }
+    return false;
+}
+
+//------------------------------------------------------------------------------
+bool MicroScheduler_ComputeResource::_tryToStealWork()
+{
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "_tryToStealWork");
+    return m_pMicroScheduler->stealAndExecuteTask();
+}
+
+//------------------------------------------------------------------------------
 bool MicroScheduler_ComputeResource::process(Schedule* pSchedule, bool canBlock)
 {
     // NOTE: Start at 1 to exclude the master thread.
@@ -79,16 +106,10 @@ bool MicroScheduler_ComputeResource::process(Schedule* pSchedule, bool canBlock)
 
         while (!pSchedule->isDone())
         {
-            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan1, "Process Schedule Loop");
-            Node* pNode = pSchedule->popNextNode(id(), type());
-            if (pNode)
+            if (_tryRunNextNode(pSchedule, true) ||
+                _tryToStealWork() ||
+                _tryRunNextNode(pSchedule, false))
             {
-                GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "Execute Node");
-                if (!_buildTaskAndRun(pSchedule, pNode))
-                {
-                    GTS_ASSERT(0);
-                    return false;
-                }
                 backoff.reset();
             }
             else
@@ -109,6 +130,12 @@ bool MicroScheduler_ComputeResource::canExecute(Node* pNode) const
 }
 
 //------------------------------------------------------------------------------
+uint32_t MicroScheduler_ComputeResource::processorCount() const
+{
+    return m_physicalProcessorCount;
+}
+
+//------------------------------------------------------------------------------
 void MicroScheduler_ComputeResource::notify(Schedule*)
 {
     GTS_TRACE_ZONE_MARKER_P2(analysis::CaptureMask::MACRO_SCHEDULER_DEBUG, analysis::Color::Green1, "NOTIFY", this, m_pMicroScheduler->id());
@@ -116,33 +143,43 @@ void MicroScheduler_ComputeResource::notify(Schedule*)
 }
 
 //------------------------------------------------------------------------------
-Task* MicroScheduler_ComputeResource::onCheckForTask(void* pUserData, MicroScheduler*, OwnedId, bool& executedTask)
+Task* MicroScheduler_ComputeResource::_tryGetNextTask(CheckForTasksData* pData, bool myQueuesOnly, bool& executedTask)
+{
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "_tryGetNextTask");
+    Node* pNode = pData->pSchedule->popNextNode(pData->pSelf, myQueuesOnly);
+    if (pNode)
+    {
+        GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "Build Task");
+        Task* pTask = pData->pSelf->_buildTask(pData->pSchedule, pNode);
+        if (!pTask)
+        {
+            GTS_ASSERT(0);
+            return nullptr;
+        }
+        executedTask = true;
+        return pTask;
+    }
+    return nullptr;
+}
+
+//------------------------------------------------------------------------------
+Task* MicroScheduler_ComputeResource::onCheckForTask(void* pUserData, MicroScheduler*, OwnedId, bool isCallerExternal, bool& executedTask)
 {
     CheckForTasksData* pData = (CheckForTasksData*)pUserData;
 
-    while (true)
+    if (isCallerExternal)
     {
-        GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan1, "Process Schedule Loop");
-        Node* pNode = pData->pSchedule->popNextNode(pData->pSelf->id(), pData->pSelf->type());
-        if (pNode)
-        {
-            GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan2, "Execute Node");
-            Task* pTask = pData->pSelf->_buildTask(pData->pSchedule, pNode);
-            if (!pTask)
-            {
-                GTS_ASSERT(0);
-                break;
-            }
-            executedTask = true;
-            return pTask;
-        }
-        else
-        {
-            break;
-        }
+        return nullptr;
     }
 
-    return nullptr;
+    GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::Cyan1, "Process Schedule Loop");
+
+    Task* pTask = pData->pSelf->_tryGetNextTask(pData, true, executedTask);
+    if (!pTask)
+    {
+        pTask = pData->pSelf->_tryGetNextTask(pData, false, executedTask);
+    }
+    return pTask;
 }
 
 //------------------------------------------------------------------------------
@@ -174,7 +211,7 @@ void MicroScheduler_ComputeResource::spawnReadyChildren(WorkloadContext const& w
 {
     GTS_TRACE_SCOPED_ZONE_P0(gts::analysis::CaptureMask::MACRO_SCHEDULER_PROFILE, gts::analysis::Color::YellowGreen, "Spawn Ready Successors");
 
-    workloadContext.pNode->_waitUntilComplete();
+    //workloadContext.pNode->_waitUntilComplete();
 
     Node* pMyNode = workloadContext.pNode;
 
@@ -196,11 +233,11 @@ void MicroScheduler_ComputeResource::spawnReadyChildren(WorkloadContext const& w
         }
     }
 
-    for (size_t ii = 0; ii < children.size(); ++ii)
-    {
-        Node* pChildNode = children[ii];
-        pChildNode->_markPredecessorComplete();
-    }
+    //for (size_t ii = 0; ii < children.size(); ++ii)
+    //{
+    //    Node* pChildNode = children[ii];
+    //    pChildNode->_markPredecessorComplete();
+    //}
 }
 
 //------------------------------------------------------------------------------

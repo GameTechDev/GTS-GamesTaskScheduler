@@ -117,9 +117,14 @@ public: // ACCESSORS:
     GTS_INLINE const char* name() const { return m_name; }
 
     /**
-     * @return The rank of this Node.
+     * @return The up-rank of this Node.
      */
-    GTS_INLINE Atomic<uint64_t> const& rank() const { return m_rank;  }
+    GTS_INLINE Atomic<uint64_t> const& upRank() const { return m_upRank; }
+
+    /**
+     * @return The down-rank of this Node.
+     */
+    GTS_INLINE Atomic<uint64_t> const& downRank() const { return m_downRank;  }
 
     /**
      * @return The rank of this Node.
@@ -245,9 +250,14 @@ public: // MUTATORS:
     void setName(const char* format, ...);
 
     /**
-     * @return The rank of this Node.
+     * @return The up-rank of this Node.
      */
-    GTS_INLINE Atomic<uint64_t>& rank() { return m_rank;  }
+    GTS_INLINE Atomic<uint64_t>& upRank() { return m_upRank; }
+
+    /**
+     * @return The down-rank of this Node.
+     */
+    GTS_INLINE Atomic<uint64_t>& downRank() { return m_downRank;  }
 
     /**
      * @brief
@@ -343,8 +353,11 @@ private:
     //! The successor nodes of this Node.
     Vector<Node*> m_successors;
 
-    //! The priority rank of this Node.
-    Atomic<uint64_t> m_rank;
+    //! The up-rank of this Node.
+    Atomic<uint64_t> m_upRank;
+
+    //! The down-rank of this Node.
+    Atomic<uint64_t> m_downRank;
 
     //! The cost of executing this Node.
     uint64_t m_executionCost;

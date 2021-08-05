@@ -30,6 +30,7 @@ ComputeResourceId ComputeResource::s_nextId = 0;
 ComputeResource::ComputeResource()
     : m_exeWeight(1.0)
     , m_id(s_nextId++)
+    , m_maxRank(INT_MAX)
 {
 }
 

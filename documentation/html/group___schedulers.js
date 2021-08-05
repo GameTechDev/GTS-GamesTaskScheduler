@@ -1,5 +1,5 @@
 var group___schedulers =
 [
-    [ "CriticallyAwareTaskScheduling", "group___critically_aware_task_scheduling.html", "group___critically_aware_task_scheduling" ],
-    [ "DynamicMicroScheduler", "group___dynamic_micro_scheduler.html", "group___dynamic_micro_scheduler" ]
+    [ "CriticalNodeTaskScheduling", "group___critical_node_task_scheduling.html", "group___critical_node_task_scheduling" ],
+    [ "CentralQueue", "group___central_queue.html", "group___central_queue" ]
 ];

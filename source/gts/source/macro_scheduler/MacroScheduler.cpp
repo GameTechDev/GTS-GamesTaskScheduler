@@ -58,6 +58,12 @@ Vector<ComputeResource*> const& MacroScheduler::computeResources() const
 // MUTATORS:
 
 //--------------------------------------------------------------------------
+Vector<ComputeResource*>& MacroScheduler::computeResources()
+{
+    return m_computeResources;
+}
+
+//--------------------------------------------------------------------------
 Node* MacroScheduler::allocateNode()
 {
     // TODO: parallel allocator if needed.

@@ -101,15 +101,15 @@ define what Compute Resource it can be scheduled to.
 ![Figure 3: A simple Macro-scheduler mapping.](MacroScheduler.svg)
 
 ~~~~~~~~~~~~~~~{.cpp}
-// Create a DynamicMicroScheduler_ComputeResource that will execute Workloads through the MicroScheduler.
-gts::DynamicMicroScheduler_ComputeResource dynamicMicroSchedulerComputeResource(&microScheduler);
+// Create a MicroScheduler_ComputeResource that will execute Workloads through the MicroScheduler.
+MicroScheduler_ComputeResource microSchedulerCompResource(&microScheduler, 0, 0);
 
-// Add the WorkStealingComputeResource to the description struct for the MacroScheduler.
+// Add the microSchedulerComputeResource to the description struct for the MacroScheduler.
 gts::MacroSchedulerDesc macroSchedulerDesc;
-macroSchedulerDesc.computeResources.push_back(&workStealingComputeResource);
+macroSchedulerDesc.computeResources.push_back(&microSchedulerCompResource);
 
 // Create and initialize the MacroScheduler with the macroSchedulerDesc.
-gts::MacroScheduler* pMacroScheduler = new Dynamic_MacroScheduler;
+gts::MacroScheduler* pMacroScheduler = new gts::CentralQueue_MacroScheduler;
 pMacroScheduler->init(macroSchedulerDesc);
 ~~~~~~~~~~~~~~~
 
@@ -125,9 +125,9 @@ we use the [Dynamic Micro-scheduler](@ref DynamicMicroScheduler) implementation 
 #include "gts/micro_scheduler/MicroScheduler.h"
 
 #include "gts/macro_scheduler/Node.h"
-#include "gts/macro_scheduler/schedulers/dynamic/DynamicMicroScheduler_ComputeResource.h"
-#include "gts/macro_scheduler/schedulers/dynamic/DynamicMicroScheduler_Workload.h"
-#include "gts/macro_scheduler/schedulers/dynamic/DynamicMicroScheduler_MacroScheduler.h"
+#include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
+#include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
+#include "gts/macro_scheduler/schedulers/homogeneous/central_queue/CentralQueue_MacroScheduler.h"
 
 ...
 
@@ -145,15 +145,15 @@ gts::MicroScheduler microScheduler;
 result = microScheduler.initialize(&workerPool);
 GTS_ASSERT(result);
 
-// Create a DynamicMicroScheduler_ComputeResource that will execute Workloads through the MicroScheduler.
-gts::DynamicMicroScheduler_ComputeResource dynamicMicroSchedulerComputeResource(&microScheduler);
+// Create a MicroScheduler_ComputeResource that will execute Workloads through the MicroScheduler.
+gts::MicroScheduler_ComputeResource microSchedulerComputeResource(&microScheduler);
 
-// Add the WorkStealingComputeResource to the description struct for the MacroScheduler.
+// Add the microSchedulerComputeResource to the description struct for the MacroScheduler.
 gts::MacroSchedulerDesc macroSchedulerDesc;
-macroSchedulerDesc.computeResources.push_back(&workStealingComputeResource);
+macroSchedulerDesc.computeResources.push_back(&microSchedulerComputeResource);
 
 // Create and initialize the MacroScheduler with the macroSchedulerDesc.
-gts::MacroScheduler* pMacroScheduler = new Dynamic_MacroScheduler;
+gts::MacroScheduler* pMacroScheduler = new gts::CentralQueue_MacroScheduler;
 GTS_ASSERT(pMacroScheduler);
 pMacroScheduler->init(macroSchedulerDesc);
 
@@ -175,16 +175,16 @@ pMacroScheduler->init(macroSchedulerDesc);
     */
 
 Node* pA = pMacroScheduler->allocateNode();
-pA->addWorkload<DynamicMicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("A "); });
+pA->addWorkload<gts::MicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("A "); });
 
 Node* pB = pMacroScheduler->allocateNode();
-pB->addWorkload<DynamicMicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("B "); });
+pB->addWorkload<gts::MicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("B "); });
 
 Node* pC = pMacroScheduler->allocateNode();
-pC->addWorkload<DynamicMicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("C "); });
+pC->addWorkload<gts::MicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("C "); });
 
 Node* pD = pMacroScheduler->allocateNode();
-pD->addWorkload<DynamicMicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("D "); });
+pD->addWorkload<gts::MicroSchedulerLambda_Workload>([](WorkloadContext const&){ printf("D "); });
 
 pA->addChild(pB);
 pA->addChild(pC);
@@ -192,7 +192,7 @@ pB->addChild(pD);
 pC->addChild(pD);
 
 // Build and execute the schedule
-Schedule* pSchedule = pMacroScheduler->buildSchedule(pA, pD);
+gts::Schedule* pSchedule = pMacroScheduler->buildSchedule(pA, pD);
 pMacroScheduler->executeSchedule(pSchedule, microSchedulerCompResource.id(), true);
 ~~~~~~~~~~~~~~~
 
@@ -241,33 +241,33 @@ computation. In this example we will divide up execution on a vector over the No
   
 */
 
-ParallelFor parFor(microScheduler);
+gts::ParallelFor parFor(microScheduler);
 std::vector<int> vec(1000000, 0);
 
 // Increments all elements in a vector by 1.
 Node* pA = pMacroScheduler->allocateNode();
-pA->addWorkload<DynamicMicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const& ctx)
+pA->addWorkload<gts::MicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const& ctx)
 {
     parFor(vec.begin(), vec.end(), [](std::vector<int>::iterator iter) { (*iter)++; });
 });
 
 // Increments elements [0, n/2) by 2.
 Node* pB = pMacroScheduler->allocateNode();
-pB->addWorkload<DynamicMicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
+pB->addWorkload<gts::MicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
 {
     parFor(vec.begin(), vec.begin() + vec.size() / 2, [](std::vector<int>::iterator iter) { (*iter) += 2; });
 });
 
 // Increments elements [n/2, n) by 3.
 Node* pC = pMacroScheduler->allocateNode();
-pC->addWorkload<DynamicMicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
+pC->addWorkload<gts::MicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
 {
     parFor(vec.begin() + vec.size() / 2, vec.end(), [](std::vector<int>::iterator iter) { (*iter) += 3; });
 });
 
 // Increments all elements by by 1.
 Node* pD = pMacroScheduler->allocateNode();
-pD->addWorkload<DynamicMicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
+pD->addWorkload<gts::MicroSchedulerLambda_Workload>([&parFor, &vec](WorkloadContext const&)
 {
     parFor(vec.begin(), vec.end(), [](std::vector<int>::iterator iter) { (*iter)++; });
 });
@@ -278,7 +278,7 @@ pB->addChild(pD);
 pC->addChild(pD);
 
 // Build and execute the schedule
-Schedule* pSchedule = pMacroScheduler->buildSchedule(pA, pD);
+gts::Schedule* pSchedule = pMacroScheduler->buildSchedule(pA, pD);
 pMacroScheduler->executeSchedule(pSchedule, microSchedulerCompResource.id(), true);
 
 // Validate result = { 4, 4, ..., 4, 5, 5, ..., 5}.

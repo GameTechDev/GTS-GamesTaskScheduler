@@ -34,10 +34,11 @@ struct DagUtils
 {
     enum NodePropertyFlags : uint32_t
     {
-        NAME   = 0x01,
-        COST   = 0x02,
-        UPRANK = 0x04,
-        ALL    = uint32_t(-1)
+        NAME     = 0x01,
+        COST     = 0x02,
+        UPRANK   = 0x04,
+        DOWNRANK = 0x08,
+        ALL      = uint32_t(-1)
     };
 
     static void printToDot(const char* filename, Node* pDagRoot, NodePropertyFlags propertiesToPrint = NAME);
@@ -65,7 +66,7 @@ struct DagUtils
 
 private:
 
-    static void _upRank(Node* pNode, Vector<Node*>& dag);
+    static void _upRank(Node* pNode);
 };
 
 } // namespace gts

@@ -1,6 +1,5 @@
 var group___parallel_patterns =
 [
-    [ "SubRangeIndex", "namespacegts_1_1_sub_range_index.html", null ],
     [ "KdRange2d", "classgts_1_1_kd_range2d.html", [
       [ "iter_type", "classgts_1_1_kd_range2d.html#aebd0ef2ad75d7dfeab40d17f72212729", null ],
       [ "range_type", "classgts_1_1_kd_range2d.html#aaf733ccf1384f3ab4a57280ca9dd3462", null ],
@@ -84,12 +83,8 @@ var group___parallel_patterns =
       [ "produceSplits", "classgts_1_1_dependency_array_3_01_t_val_range_00_01_t_dep_range_00_012_01_4.html#a7245a522bf5e4d50e63199ac98260fa3", null ]
     ] ],
     [ "LaunchTask", "structgts_1_1_launch_task.html", null ],
-    [ "LaunchTask< 2 >", "structgts_1_1_launch_task_3_012_01_4.html", [
-      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_012_01_4.html#a7bd2862699e36da2edaa790bc48f6526ac99e59e89030906f859e5cc92eb32ec0", null ]
-    ] ],
-    [ "LaunchTask< 3 >", "structgts_1_1_launch_task_3_013_01_4.html", [
-      [ "DIMENSIONALITY", "structgts_1_1_launch_task_3_013_01_4.html#a5d2178b2d4d2f0db5907c6cf863c84c1a16cf47d39aad7597e17990365c9382f2", null ]
-    ] ],
+    [ "LaunchTask< 2 >", "structgts_1_1_launch_task_3_012_01_4.html", null ],
+    [ "LaunchTask< 3 >", "structgts_1_1_launch_task_3_013_01_4.html", null ],
     [ "ParallelWavefront", "classgts_1_1_parallel_wavefront.html", [
       [ "ParallelWavefront", "classgts_1_1_parallel_wavefront.html#a25e04ed4c71c17e83e0a233b3cad3368", null ],
       [ "operator()", "classgts_1_1_parallel_wavefront.html#af62db263770dde817706a72ddb145a23", null ]
@@ -98,7 +93,7 @@ var group___parallel_patterns =
       [ "splitter_type", "classgts_1_1_simple_partitioner.html#a4fd71cd33c509e5ba7c833ed541ccfa9", null ],
       [ "SimplePartitioner", "classgts_1_1_simple_partitioner.html#a933314c2ac63fa896dc1b992aca0f632", null ],
       [ "SimplePartitioner", "classgts_1_1_simple_partitioner.html#a3aa9f9a592c15ba276e0545e446d4859", null ],
-      [ "adjustIfStolen", "classgts_1_1_simple_partitioner.html#a2374152a44bbef512f0547d3fb1bff9f", null ],
+      [ "adjustIfStolen", "classgts_1_1_simple_partitioner.html#a8184d04cb906b8ede351663bf80ce2c1", null ],
       [ "doExecute", "classgts_1_1_simple_partitioner.html#a5ac298dd17922b36540e2c0f60cb336d", null ],
       [ "execute", "classgts_1_1_simple_partitioner.html#ad2dd9a8c76990f310f4e29aeb091cce4", null ],
       [ "initialize", "classgts_1_1_simple_partitioner.html#a11d1baa31413634d474d46ded3f227dd", null ],
@@ -109,29 +104,13 @@ var group___parallel_patterns =
       [ "splitter_type", "classgts_1_1_static_partitioner.html#a7e2fb10796a8a183767a60be24b11341", null ],
       [ "StaticPartitioner", "classgts_1_1_static_partitioner.html#ad5746c2b7371049935356ffdd3850446", null ],
       [ "StaticPartitioner", "classgts_1_1_static_partitioner.html#a2574bb13287de11bfb8d58bc67f7ec17", null ],
-      [ "adjustIfStolen", "classgts_1_1_static_partitioner.html#a604e9261a6336d65a58aa7f42518d35f", null ],
+      [ "adjustIfStolen", "classgts_1_1_static_partitioner.html#ad0ffd3508ff0583882024838abd41c1f", null ],
       [ "doExecute", "classgts_1_1_static_partitioner.html#ad08da7df0154d3dff60e99f805069784", null ],
       [ "execute", "classgts_1_1_static_partitioner.html#a77b74464343861f2b70369a88d87c314", null ],
       [ "initialize", "classgts_1_1_static_partitioner.html#afa24c2d302c6f2bbc2138b4b65a4d78b", null ],
       [ "initialOffer", "classgts_1_1_static_partitioner.html#af653e132cca30943fc9f7f47edcf95eb", null ],
       [ "isDivisible", "classgts_1_1_static_partitioner.html#a660693edd50f8dfb1203569864432e88", null ],
       [ "split", "classgts_1_1_static_partitioner.html#a6efbe37a2770e831473f9f011a1b6914", null ]
-    ] ],
-    [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html", [
-      [ "splitter_type", "classgts_1_1_adaptive_partitioner.html#acdc574ae99717913cf3048cf13f12755", null ],
-      [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html#a725ae72b3c6cd543f281d18c5df67116", null ],
-      [ "AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html#a767de7bfb7e20b8f8884e2b303a1b54d", null ],
-      [ "adjustDepth", "classgts_1_1_adaptive_partitioner.html#a23af74ca6a96241d582af0fff393453a", null ],
-      [ "adjustIfStolen", "classgts_1_1_adaptive_partitioner.html#a7ea396af30f92eac77c330cc10b1de57", null ],
-      [ "balanceAndExecute", "classgts_1_1_adaptive_partitioner.html#a46ff8c18bf98212dbd5bf1ce011eb6e0", null ],
-      [ "doExecute", "classgts_1_1_adaptive_partitioner.html#aa3a20d831374a28bbee356ba14c8b8ab", null ],
-      [ "execute", "classgts_1_1_adaptive_partitioner.html#a97cb1ee4bdd85683307785acedcf38e9", null ],
-      [ "initialize", "classgts_1_1_adaptive_partitioner.html#a79727780ed9b74365a6c704b74a60955", null ],
-      [ "initialOffer", "classgts_1_1_adaptive_partitioner.html#af283fe0783ca83a494ccaf33c1a764b2", null ],
-      [ "isDivisible", "classgts_1_1_adaptive_partitioner.html#a3d30fb580401e93af2096142d2ed8b15", null ],
-      [ "isSiblingStolen", "classgts_1_1_adaptive_partitioner.html#aab56c35a37acfd1171901e7b9f42730c", null ],
-      [ "maxBalancedSplitDepth", "classgts_1_1_adaptive_partitioner.html#aec9988d248bbeb917eae779e04d90f09", null ],
-      [ "split", "classgts_1_1_adaptive_partitioner.html#a76b51de05bc3677a10cb562bbde459d6", null ]
     ] ],
     [ "QuadRange", "classgts_1_1_quad_range.html", [
       [ "iter_type", "classgts_1_1_quad_range.html#aac9bad571fef45de057b7dd45bff6605", null ],

@@ -9,9 +9,10 @@ var group___micro_scheduler =
       [ "allocateTask", "classgts_1_1_micro_scheduler.html#afa24e7a258e9bc879200050400d72bb9", null ],
       [ "allocateTask", "classgts_1_1_micro_scheduler.html#aab60269532f283c552cea2e2bb54cb66", null ],
       [ "destoryTask", "classgts_1_1_micro_scheduler.html#ac86bc5fb63f9322033155f8e8f68b366", null ],
+      [ "hasDemand", "classgts_1_1_micro_scheduler.html#aa76556a1f7b3f0b08f80a31012977255", null ],
       [ "hasExternalTasks", "classgts_1_1_micro_scheduler.html#ac855a63c3bac8a0a0696d0cfefad652b", null ],
       [ "hasTasks", "classgts_1_1_micro_scheduler.html#a2d3fa6b82e67cc7533497107ce62010d", null ],
-      [ "id", "classgts_1_1_micro_scheduler.html#a4de86496a483939212696b609c560479", null ],
+      [ "id", "classgts_1_1_micro_scheduler.html#a6243c0aa26c4b1e974a7c16f6e62af26", null ],
       [ "initialize", "classgts_1_1_micro_scheduler.html#a4b1aa6c03b6dfd3465a5821cac30640e", null ],
       [ "initialize", "classgts_1_1_micro_scheduler.html#a91203e6e2ebb2866381adbde8876bebb", null ],
       [ "isActive", "classgts_1_1_micro_scheduler.html#a075238071e878e9872101df5df94f6eb", null ],
@@ -23,6 +24,7 @@ var group___micro_scheduler =
       [ "shutdown", "classgts_1_1_micro_scheduler.html#ac5eeb538581d25ec5354dffc9e03b18f", null ],
       [ "spawnTask", "classgts_1_1_micro_scheduler.html#a8ee931d6d19602004705231c5beb8243", null ],
       [ "spawnTaskAndWait", "classgts_1_1_micro_scheduler.html#a132adf759619130d7bbca9e0cdc07d83", null ],
+      [ "stealAndExecuteTask", "classgts_1_1_micro_scheduler.html#ab860db16ff4c3a6a4a78e9fd609f77b8", null ],
       [ "thisWorkerId", "classgts_1_1_micro_scheduler.html#a7b5aaa2823e8f45143038239aae7fc94", null ],
       [ "unregisterCallback", "classgts_1_1_micro_scheduler.html#a278584ce90fcdd5714a505a6fd75b184", null ],
       [ "waitFor", "classgts_1_1_micro_scheduler.html#adce3bfc3ac0f2918bfcf6c4b5dbf0f1a", null ],
@@ -68,6 +70,8 @@ var group___micro_scheduler =
       [ "workerDescs", "structgts_1_1_worker_pool_desc.html#a4f6290f534d1fd6567b8c74f56eadd4f", null ]
     ] ],
     [ "MicroSchedulerDesc", "structgts_1_1_micro_scheduler_desc.html", [
+      [ "canStealBackTasks", "structgts_1_1_micro_scheduler_desc.html#a0822e7be449a87fbe633ed30f1327ead", null ],
+      [ "canStealExternalTasks", "structgts_1_1_micro_scheduler_desc.html#a5414a1257daf008e86d6e384328ecfa8", null ],
       [ "name", "structgts_1_1_micro_scheduler_desc.html#afb01a3bb90ad2b6dd458625b71f9849a", null ],
       [ "priorityBoostAge", "structgts_1_1_micro_scheduler_desc.html#a7920f9a96d38c0e101e82da4d9386b5c", null ],
       [ "priorityCount", "structgts_1_1_micro_scheduler_desc.html#a2975230afdcb2f6efe6912d204a4e836", null ],

@@ -122,7 +122,10 @@ void getProcInfoBuffer(LOGICAL_PROCESSOR_RELATIONSHIP type, PSYSTEM_LOGICAL_PROC
         {
             GTS_ASSERT(GetLastError() == ERROR_INSUFFICIENT_BUFFER);
 
-            free(*ppBuffer);
+            if (*ppBuffer)
+            {
+                free(*ppBuffer);
+            }
 
             *ppBuffer = (PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX)malloc(*len);
         }
@@ -341,16 +344,12 @@ bool Thread::createThread(ThreadHandle& handle, ThreadId&, ThreadFunction functi
     }
 
     ThreadData* pThreadData = (ThreadData*)GTS_MALLOC(sizeof(ThreadData));
-    if (pThreadData)
-    {
-        pThreadData->func = function;
-        pThreadData->pArg = pArg;
+    pThreadData->func = function;
+    pThreadData->pArg = pArg;
 
-        handle = ::CreateThread(NULL, stackSize, Win32ThreadFunc, pThreadData, 0, NULL);
-        GTS_ASSERT(handle != NULL);
-        return handle != NULL;
-    }
-    return false;
+    handle = ::CreateThread(NULL, stackSize, Win32ThreadFunc, pThreadData, 0, NULL);
+    GTS_ASSERT(handle != NULL);
+    return handle != NULL;
 }
 
 //------------------------------------------------------------------------------
@@ -496,6 +495,7 @@ void Thread::getSytemTopology(SystemTopology& out)
         {
             auto& numaInfo   = group.numaInfo[iNuma];
             auto& oNumaInfo  = oGroup.pNumaInfoArray[iNuma];
+            oNumaInfo.nodeId = numaInfo.nodeId;
 
             size_t numNumaProcs      = countSetBits(numaInfo.processorsBitSet);
             oNumaInfo.pCoreInfoArray = new CpuCoreInfo[numNumaProcs];

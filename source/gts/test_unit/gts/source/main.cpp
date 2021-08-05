@@ -143,7 +143,8 @@ int main(int argc, char** argv)
     GTS_TRACE_SET_CAPTURE_MASK(gts::analysis::CaptureMask::ALL);
 
 #if 0
-    ::testing::GTEST_FLAG(filter) = "MicroScheduler.initializeMultipleSameThread";
+    ::testing::GTEST_FLAG(filter) = "CriticalNode_MacroScheduler/ExecutionOrderTest.DiamondDag/0";
+    ::testing::GTEST_FLAG(repeat) = 100;
 #endif
 
     return RUN_ALL_TESTS();

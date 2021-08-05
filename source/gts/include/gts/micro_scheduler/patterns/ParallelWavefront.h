@@ -377,9 +377,6 @@ struct LaunchTask<2>
         //
         // Launch root task and wait.
 
-        uint32_t workerCount = microScheduler.workerCount();
-        partitioner.template initialize<TRange<TArgs...>>((uint16_t)workerCount);
-
         Task* pTask = microScheduler.template allocateTask<TWavefrontTask>(
             wavefrontFunc, pUserData, range, partitioner, priority, depArray);
 
@@ -456,9 +453,6 @@ struct LaunchTask<3>
         //
         // Launch root task and wait.
 
-        uint32_t workerCount = microScheduler.workerCount();
-        partitioner.template initialize<TRange<TArgs...>>((uint16_t)workerCount);
-
         Task* pTask = microScheduler.allocateTask<TWavefrontTask>(
             wavefrontFunc, pUserData, range, partitioner, priority);
 
@@ -531,6 +525,8 @@ public:
     {
         GTS_ASSERT(m_microScheduler.isRunning());
 
+        partitioner.template initialize<TRange<TArgs...>>((uint16_t)m_microScheduler.workerCount());
+
         using dep_arrary_type = DependencyArray<TRange<TArgs...>, TRange<size_t>, TRange<TArgs...>::DIMENSIONALITY>;
 
         LaunchTask<TRange<TArgs...>::DIMENSIONALITY>::template launch<ParallelWavefrontTask<TFunc, TRange<TArgs...>, TPartitioner, dep_arrary_type>>(
@@ -543,26 +539,6 @@ private:
 
     MicroScheduler& m_microScheduler;
     uint32_t m_priority;
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    class TheftObserverTask : public Task
-    {
-    public:
-
-        //----------------------------------------------------------------------
-        GTS_INLINE TheftObserverTask()
-            : m_childTaskStolen(false)
-        {}
-
-        //----------------------------------------------------------------------
-        GTS_INLINE virtual Task* execute(TaskContext const&) final
-        {
-            return nullptr;
-        }
-
-        gts::Atomic<bool> m_childTaskStolen;
-    };
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -618,7 +594,7 @@ private:
         void offerRange(TaskContext const& ctx, TRange const* pReadySplits, uint8_t numReadySplits)
         {
             // Allocate the continuation.
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask<TheftObserverTask>();
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<EmptyTask>();
             pContinuation->addRef(numReadySplits, gts::memory_order::relaxed);
             setContinuationTask(pContinuation);
 
@@ -641,7 +617,7 @@ private:
             GTS_ASSERT(!range.empty() && "Bug in partitioner!");
 
             // Allocate the continuation.
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask<TheftObserverTask>();
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<EmptyTask>();
             pContinuation->addRef(2, gts::memory_order::relaxed);
             setContinuationTask(pContinuation);
 

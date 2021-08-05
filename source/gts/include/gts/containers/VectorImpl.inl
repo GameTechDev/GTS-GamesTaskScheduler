@@ -65,6 +65,22 @@ Vector<T, TAllocator>::Vector(size_type count, T const& fill, const TAllocator& 
 
 //------------------------------------------------------------------------------
 template<typename T, typename TAllocator>
+Vector<T, TAllocator>::Vector(std::initializer_list<T> initList, const TAllocator& allocator)
+    : allocator_type(allocator)
+    , m_pBegin(nullptr)
+    , m_size(0)
+    , m_capacity(0)
+{
+    reserve(initList.size());
+    value_type const* p = initList.begin();
+    while (p < initList.end())
+    {
+        push_back(*p++);
+    }
+}
+
+//------------------------------------------------------------------------------
+template<typename T, typename TAllocator>
 Vector<T, TAllocator>::Vector(Vector const& other)
     : allocator_type(other.get_allocator())
     , m_pBegin(nullptr)

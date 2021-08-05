@@ -30,8 +30,8 @@
 #include "gts/macro_scheduler/Node.h"
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
-#include "gts/macro_scheduler/schedulers/dynamic/critically_aware_task_scheduling/CriticallyAware_MacroScheduler.h"
-#include "gts/macro_scheduler/schedulers/dynamic/critically_aware_task_scheduling/CriticallyAware_Schedule.h"
+#include "gts/macro_scheduler/schedulers/heterogeneous/critical_node_task_scheduling/CriticalNode_MacroScheduler.h"
+#include "gts/macro_scheduler/schedulers/heterogeneous/critical_node_task_scheduling/CriticalNode_Schedule.h"
 
 using namespace gts;
 
@@ -44,7 +44,7 @@ void initCatsForHybridCpu()
     printf("================\n");
 
     // A MacroScheduler is a high level scheduler that maps a persistent task
-    // graph (DAG) of Nodes to set of ComputeResources. A CriticallyAware_MacroScheduler
+    // graph (DAG) of Nodes to set of ComputeResources. A CriticalNode_MacroScheduler
     // is a MacroScheduler that executes a DAG on a heterogeneous set of
     // ComputeResources. It uses a heuristic that forces the critical path of
     // a DAG to execute on the most efficient ComputeResource, which minimizes
@@ -59,8 +59,8 @@ void initCatsForHybridCpu()
 
     //
     // First, we create the MicroSchedulders and map them to
-    // DynamicMicroScheduler_ComputeResources that can be consumed by
-    // a DynamicMicroScheduler_MacroScheduler.
+    // MicroScheduler_ComputeResource that can be consumed by
+    // a CriticalNode_MacroScheduler.
     //
     // Each MicroSchedulder cover a homogeneous set of processors on the CPU.
 
@@ -155,7 +155,8 @@ void initCatsForHybridCpu()
         pMicroScheduler->initialize(workerPoolsByEfficiency[ii]);
         microSchedulersByEfficiency[ii] = pMicroScheduler;
 
-        computeResourcesByEfficiency[ii] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pMicroScheduler, 0);
+        computeResourcesByEfficiency[ii] = alignedNew<MicroScheduler_ComputeResource, GTS_NO_SHARING_CACHE_LINE_SIZE>(pMicroScheduler, 0,
+            workerPoolsByEfficiency[ii]->workerCount() / 2); // Only divide by 2 if CPU has SMT (hyperthreading)
         
         // Assumes each efficiency class is ii-times slower than computeResourcesByEfficiency[0];
         computeResourcesByEfficiency[ii]->setExecutionNormalizationFactor(ii + 1.0);
@@ -173,10 +174,10 @@ void initCatsForHybridCpu()
     }
 
     //
-    // Second, we create a CriticallyAware_MacroScheduler and map the
+    // Second, we create a CriticallyNode_MacroScheduler and map the
     // MicroScheduler_ComputeResources to it.
 
-    MacroScheduler* pMacroScheduler = new CriticallyAware_MacroScheduler;
+    MacroScheduler* pMacroScheduler = new CriticalNode_MacroScheduler;
 
     MacroSchedulerDesc generalizedDagSchedulerDesc;
     for (uint32_t ii = 0; ii < numEfficiencyClasses; ++ii)

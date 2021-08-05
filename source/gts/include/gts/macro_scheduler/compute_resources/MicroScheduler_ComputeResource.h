@@ -55,7 +55,7 @@ public:
 
     MicroScheduler_ComputeResource() = default;
 
-    MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler, uint32_t vectorWidth);
+    MicroScheduler_ComputeResource(MicroScheduler* pMicroScheduler, uint32_t vectorWidth, uint32_t physicalProcessorCount);
 
     virtual ~MicroScheduler_ComputeResource();
 
@@ -73,6 +73,8 @@ public:
 
     virtual bool canExecute(Node* pNode) const final;
 
+    virtual uint32_t processorCount() const final;
+
     virtual void notify(Schedule* pSchedule) final;
 
     virtual void registerSchedule(Schedule* pSchedulue) final;
@@ -83,11 +85,23 @@ public:
 
 protected:
 
-    static Task* onCheckForTask(void* pUserData, MicroScheduler*, OwnedId, bool& executedTask);
+    struct CheckForTasksData
+    {
+        MicroScheduler_ComputeResource* pSelf = nullptr;
+        Schedule* pSchedule = nullptr;
+    };
+
+    static Task* onCheckForTask(void* pUserData, MicroScheduler*, OwnedId, bool isCallerExternal, bool& executedTask);
+
+    bool _tryRunNextNode(Schedule* pSchedule, bool myQueuesOnly);
+
+    Task* _tryGetNextTask(CheckForTasksData* pData, bool myQueuesOnly, bool& executedTask);
 
     bool _buildTaskAndRun(Schedule* pSchedule, Node* pNode);
 
     Task* _buildTask(Schedule* pSchedule, Node* pNode);
+
+    bool _tryToStealWork();
 
     MicroScheduler* m_pMicroScheduler = nullptr;
 
@@ -95,17 +109,13 @@ private:
 
     friend class MicroScheduler_Task;
 
-    struct CheckForTasksData
-    {
-        MicroScheduler_ComputeResource* pSelf = nullptr;
-        Schedule* pSchedule                   = nullptr;
-    };
-
     MicroScheduler_Workload* _findWorkload(Node* pNode) const;
 
     Atomic<Schedule*> m_pCurrentSchedule{ nullptr };
     ParallelHashTable<Schedule*, CheckForTasksData>* m_pCheckForTasksDataBySchedule;
-    uint32_t m_vectorWidth = 0;
+    uint32_t m_vectorWidth;
+    uint32_t m_physicalProcessorCount;
+    uint32_t m_maxRank;
 };
 
 /** @} */ // end of ComputeResources

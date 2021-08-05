@@ -21,12 +21,14 @@
  ******************************************************************************/
 #include "TestSharedMalloc.h"
 
+#include <string>
 #include <cstdlib>
 #include <vector>
 #include <thread>
 
 #include "gts/malloc/GtsMallocRedirect.h"
-#include "gts/malloc/GtsMallocCppOverride.h"
+
+static std::string g_string = "floss";
 
 void doTest()
 {

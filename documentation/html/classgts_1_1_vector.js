@@ -7,6 +7,7 @@ var classgts_1_1_vector =
     [ "Vector", "classgts_1_1_vector.html#a666ac073eaf421a6473ed2717ce21758", null ],
     [ "Vector", "classgts_1_1_vector.html#aa52aae3bc7d0ae9a701fa31cc6c63fad", null ],
     [ "Vector", "classgts_1_1_vector.html#a4e0a06b045af4604aa333285f14e5487", null ],
+    [ "Vector", "classgts_1_1_vector.html#a28756b8c696fcb2b642242de945ed9fc", null ],
     [ "Vector", "classgts_1_1_vector.html#abfb6ed20b4131309df885fa794ba0fa7", null ],
     [ "Vector", "classgts_1_1_vector.html#ad4fd5639e649fd736462c8d86c46fc71", null ],
     [ "_init", "classgts_1_1_vector.html#a43a7c742bbfde27bd8604d52915cc487", null ],

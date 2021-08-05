@@ -27,146 +27,6 @@
 #include "gts/analysis/Trace.h"
 
 namespace gts {
-namespace internal {
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-// DList
-
-//------------------------------------------------------------------------------
-DList::Node* DList::popFront()
-{
-    if (!m_pHead)
-    {
-        return nullptr;
-    }
-    Node* pNode  = m_pHead;
-    remove(pNode);
-    return pNode;
-}
-
-//------------------------------------------------------------------------------
-void DList::pushFront(DList::Node* pNode)
-{
-    GTS_INTERNAL_ASSERT(!containes(pNode));
-
-    if (!m_pHead)
-    {
-        m_pHead = pNode;
-        m_pTail = pNode;
-    }
-    else
-    {
-        m_pHead->pPrev = pNode;
-        pNode->pNext   = m_pHead;
-        m_pHead        = pNode;
-    }
-
-    GTS_INTERNAL_ASSERT(size() == 0 ? m_pHead == m_pTail : true);
-}
-
-//------------------------------------------------------------------------------
-void DList::pushBack(DList::Node* pNode)
-{
-    GTS_INTERNAL_ASSERT(!containes(pNode));
-
-    if (!m_pTail)
-    {
-        m_pHead = pNode;
-        m_pTail = pNode;
-    }
-    else
-    {
-        m_pTail->pNext = pNode;
-        pNode->pPrev   = m_pTail;
-        m_pTail        = pNode;
-    }
-
-    GTS_INTERNAL_ASSERT(size() == 0 ? m_pHead == m_pTail : true);
-}
-
-//------------------------------------------------------------------------------
-void DList::remove(DList::Node* pNode)
-{
-    GTS_INTERNAL_ASSERT(containes(pNode));
-
-    if (!pNode->pPrev)
-    {
-        m_pHead = pNode->pNext;
-    }
-    else
-    {
-        pNode->pPrev->pNext = pNode->pNext;
-    }
-
-    if (!pNode->pNext)
-    {
-        m_pTail = pNode->pPrev;
-    }
-    else
-    {
-        pNode->pNext->pPrev = pNode->pPrev;
-    }
-
-    pNode->pPrev = nullptr;
-    pNode->pNext = nullptr;
-
-    GTS_INTERNAL_ASSERT(size() == 0 ? m_pHead == m_pTail : true);
-}
-
-//------------------------------------------------------------------------------
-void DList::clear()
-{
-    m_pHead = nullptr;
-    m_pTail = nullptr;
-}
-
-//------------------------------------------------------------------------------
-size_t DList::size() const
-{
-    uint32_t count = 0;
-    Node* pNode = m_pHead;
-    while (pNode)
-    {
-        count++;
-        pNode = pNode->pNext;
-    }
-
-    uint32_t rcount = 0;
-    pNode = m_pTail;
-    while (pNode)
-    {
-        rcount++;
-        pNode = pNode->pPrev;
-    }
-
-    GTS_INTERNAL_ASSERT(count == rcount);
-
-    return count;
-}
-
-//------------------------------------------------------------------------------
-bool DList::empty() const
-{
-    return m_pHead == nullptr;
-}
-
-//------------------------------------------------------------------------------
-bool DList::containes(Node* pNode) const
-{
-    Node* pCurr = m_pHead;
-    while (pNode)
-    {
-        if (pCurr == pNode)
-        {
-            return true;
-        }
-        pNode = pNode->pNext;
-    }
-    return false;
-}
-
-} // namespace internal
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -680,7 +540,7 @@ void MemoryStore::deallocateSlab(SlabHeader* pSlab, bool freeIt)
 //------------------------------------------------------------------------------
 PageHeader* MemoryStore::allocatePage(SlabHeader* pSlab, size_t blockSize)
 {
-    if (blockSize > UINT32_MAX || pSlab && blockSize > pSlab->pageSize)
+    if (blockSize > UINT32_MAX || blockSize > pSlab->pageSize)
     {
         GTS_INTERNAL_ASSERT(0);
         return nullptr;
@@ -1110,7 +970,7 @@ void BinnedAllocator::shutdown()
     for (uint32_t ii = 0; ii < MemoryStore::PAGE_FREE_LISTS_COUNT; ++ii)
     {
         m_activeSlabs[ii]         = nullptr;
-        internal::DList& slabList = m_slabLists[ii];
+        IntrusiveDList& slabList  = m_slabLists[ii];
         size_type& slabCount      = m_slabCounts[ii];
 
         GTS_INTERNAL_ASSERT(slabCount == slabList.size());
@@ -1347,7 +1207,7 @@ PageHeader* BinnedAllocator::_allocatePageFromNewSlab(size_t pageSize, size_t bl
 
         size_t index              = MemoryStore::pageSizeToIndex(pageSize);
         size_type& slabCount      = m_slabCounts[index];
-        internal::DList& slabList = m_slabLists[index];
+        IntrusiveDList& slabList = m_slabLists[index];
 
         GTS_INTERNAL_ASSERT(slabCount == slabList.size());
 
@@ -1394,7 +1254,7 @@ void BinnedAllocator::_tryFreeSlab(SlabHeader* pSlab)
 
     size_t index              = MemoryStore::pageSizeToIndex(pSlab->pageSize);
     size_type& slabCount      = m_slabCounts[index];
-    internal::DList& slabList = m_slabLists[index];
+    IntrusiveDList& slabList = m_slabLists[index];
 
     GTS_INTERNAL_ASSERT(slabCount != 0);
     GTS_INTERNAL_ASSERT(slabCount == slabList.size());

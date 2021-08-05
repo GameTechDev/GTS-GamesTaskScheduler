@@ -27,7 +27,7 @@
 
 #include "gts/analysis/Trace.h"
 #include "gts/analysis/Counter.h"
-
+#include "gts/synchronization/Lock.h"
 #include "gts/micro_scheduler/WorkerPool.h"
 
 #include "Worker.h"
@@ -40,7 +40,7 @@ namespace gts {
 ////////////////////////////////////////////////////////////////////////////////
 // MicroScheduler:
 
-Atomic<uint16_t> MicroScheduler::s_nextSchedulerId = { 0 };
+Atomic<SubIdType> MicroScheduler::s_nextSchedulerId = { 0 };
 
 // STRUCTORS:
 
@@ -56,6 +56,7 @@ MicroScheduler::MicroScheduler()
     , m_localSchedulerCount(0)
     , m_schedulerId(UINT16_MAX)
     , m_isAttached(false)
+    , m_canStealExternally(true)
     , m_isActive(true)
 {}
 
@@ -93,6 +94,7 @@ bool MicroScheduler::initialize(MicroSchedulerDesc const& desc)
     GTS_ASSERT(desc.pWorkerPool != nullptr);
     m_pWorkerPool = desc.pWorkerPool;
     m_localSchedulerCount = m_pWorkerPool->m_workerCount;
+    m_canStealExternally = desc.canStealExternalTasks;
 
     if (m_localSchedulerCount <= 0)
     {
@@ -153,7 +155,8 @@ bool MicroScheduler::initialize(MicroSchedulerDesc const& desc)
             OwnedId(m_schedulerId, ii),
             this,
             desc.priorityCount,
-            desc.priorityBoostAge);
+            desc.priorityBoostAge,
+            desc.canStealBackTasks);
     }
 
     // Attach the Schedulers to Workers.
@@ -180,8 +183,8 @@ void MicroScheduler::shutdown()
     // Unregister from the WorkerPool
     _unRegisterFromWorkerPool(m_pWorkerPool, true);
 
-    m_pExternalSchedulers->unregisterAllThieves(this);
-    m_pExternalSchedulers->unregisterAllVictims(this);
+    // WARNING! External unregisters must happen after _unRegisterFromWorkerPool
+    m_pExternalSchedulers->shutdown(this);
 
     // Must delete before the WorkerPool to cleanup internal Task resources.
     for (uint16_t ii = 0; ii < m_localSchedulerCount; ++ii)
@@ -497,7 +500,57 @@ void MicroScheduler::wakeWorker()
     _wakeWorkers(pWorker, 1, true, false);
 }
 
+//------------------------------------------------------------------------------
+bool MicroScheduler::stealAndExecuteTask()
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+
+    if (pWorker != nullptr)
+    {
+        LocalScheduler* pScheduler = m_ppLocalSchedulersByIdx[pWorker->id().localId()];
+        uint16_t localId = pScheduler->m_id.localId();
+        bool unused;
+
+        Task* pTask = pScheduler->_getNonLocalTask(pWorker, true, false, false, localId, unused);
+        if (!pTask)
+        {
+            pTask = pScheduler->_stealExternalTask(localId);
+        }
+
+        if (pTask)
+        {
+            pScheduler->_executeTaskLoop(pTask, localId, pWorker, unused);
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // ACCESSORS:
+
+//------------------------------------------------------------------------------
+bool MicroScheduler::hasDemand(bool clear) const
+{
+    uintptr_t state = Worker::getLocalState();
+    Worker* pWorker = (Worker*)state;
+
+    if (pWorker == nullptr)
+    {
+        return false;
+    }
+
+    LocalScheduler* pScheduler = m_ppLocalSchedulersByIdx[pWorker->id().localId()];
+    if (clear)
+    {
+        return pScheduler->m_hasDemand.exchange(false, memory_order::acq_rel);
+    }
+    else
+    {
+        return pScheduler->m_hasDemand.load(memory_order::acquire);
+    }
+}
 
 //------------------------------------------------------------------------------
 bool MicroScheduler::isRunning() const
@@ -596,7 +649,7 @@ Task* MicroScheduler::_getTask(Worker* pWorker, bool considerAffinity, bool call
     for (size_t ii = 0, len = m_localSchedulerCount; ii < len; ++ii)
     {
         bool checkForMyAffinityTask = considerAffinity && ii == localId;
-        pTask = m_ppLocalSchedulersByIdx[ii]->_getNonLocalTask(pWorker, checkForMyAffinityTask, callerIsExternal, localId, executedTask);
+        pTask = m_ppLocalSchedulersByIdx[ii]->_getNonLocalTask(pWorker, checkForMyAffinityTask, callerIsExternal, true, localId, executedTask);
         if (pTask)
         {
             break;
@@ -623,7 +676,7 @@ void MicroScheduler::_registerWithWorkerPool(WorkerPool* pWorkerPool)
     constexpr uint32_t startIdx = 1;
 
     {
-        Lock<MutexType> lock(pWorkerPool->m_pRegisteredSchedulers->mutex);
+        Lock<WorkerPool::MutexType> lock(pWorkerPool->m_pRegisteredSchedulers->mutex);
 
         m_isAttached.store(true, memory_order::release);
 
@@ -675,62 +728,56 @@ void MicroScheduler::_unRegisterFromWorkers(WorkerPool* pWorkerPool)
 // class ExternalSchedulers
 
 //------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::shutdown(MicroScheduler* pScheduler)
+{
+    m_mutex.lock();
+    _unregisterAllVictims(pScheduler);
+    _unregisterAllThieves(pScheduler);
+    m_mutex.unlock();
+}
+
+//------------------------------------------------------------------------------
 void MicroScheduler::ExternalSchedulers::registerVictim(MicroScheduler* pVictim, MicroScheduler* pThief)
 {
-    Lock<MutexType> lock(m_mutex);
+    {
+        Lock<MutexType> lock(m_mutex);
 
-    GTS_ASSERT(_locateVictim(pVictim) == -1 && "MicroScheduler is already a victim.");
-    m_victims.push_back(pVictim);
+        GTS_ASSERT(_locateVictim(pVictim) == -1 && "MicroScheduler is already a victim.");
+        m_victims.push_back(pVictim);
+    }
 
     // Let the scheduler know that we are a thief
     pVictim->m_pExternalSchedulers->addThief(pThief);
 }
 
 //------------------------------------------------------------------------------
-void MicroScheduler::ExternalSchedulers::unregisterVictim(MicroScheduler* pVictim, MicroScheduler* pThief)
+void MicroScheduler::ExternalSchedulers::unregisterVictim(MicroScheduler* pVictim, MicroScheduler* pThief, bool useLock)
 {
     // Let the victim know that there is no longer a thief referencing it.
     pVictim->m_pExternalSchedulers->removeThief(pThief);
 
-    removeVictim(pVictim);
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::ExternalSchedulers::unregisterAllVictims(MicroScheduler* pThief)
-{
-    for (uint32_t ii = 0; ii < m_victims.size(); ++ii)
-    {
-        unregisterVictim(m_victims[ii], pThief);
-    }
-}
-
-//------------------------------------------------------------------------------
-void MicroScheduler::ExternalSchedulers::unregisterAllThieves(MicroScheduler* pVictim)
-{
-    for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
-    {
-        // Let the victim know that there is no longer a thief referencing it.
-        m_thieves[ii]->m_pExternalSchedulers->removeVictim(pVictim);
-
-        removeThief(m_thieves[ii]);
-    }
+    removeVictim(pVictim, useLock);
 }
 
 //------------------------------------------------------------------------------
 Task* MicroScheduler::ExternalSchedulers::getTask(Worker* pWorker, SubIdType localId, bool& executedTask)
 {
     Task* pTask = nullptr;
-    for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
+    if (m_mutex.try_lock_shared())
     {
-        MicroScheduler* pVictim = m_victims[iVictim];
-        if (pVictim->isActive())
+        for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
         {
-            pTask = m_victims[iVictim]->_getTask(pWorker, false, true, localId, executedTask);
-            if (pTask)
+            MicroScheduler* pVictim = m_victims[iVictim];
+            if (pVictim->isActive())
             {
-                break;
+                pTask = m_victims[iVictim]->_getTask(pWorker, false, true, localId, executedTask);
+                if (pTask)
+                {
+                    break;
+                }
             }
         }
+        m_mutex.unlock_shared();
     }
     return pTask;
 }
@@ -738,18 +785,24 @@ Task* MicroScheduler::ExternalSchedulers::getTask(Worker* pWorker, SubIdType loc
 //------------------------------------------------------------------------------
 bool MicroScheduler::ExternalSchedulers::hasDequeTasks() const
 {
-    for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
+    bool result = false;
+    if (m_mutex.try_lock_shared())
     {
-        if (m_victims[iVictim]->_hasDequeTasks())
+        for (size_t iVictim = 0; iVictim < m_victims.size(); ++iVictim)
         {
-            return true;
+            if (m_victims[iVictim]->_hasDequeTasks())
+            {
+                result = true;
+                break;
+            }
         }
+        m_mutex.unlock_shared();
     }
-    return false;
+    return result;
 }
 
 //------------------------------------------------------------------------------
-bool MicroScheduler::ExternalSchedulers::hasVictims() const
+bool MicroScheduler::ExternalSchedulers::hasVictimsUnsafe() const
 {
     return m_victims.size() == 0;
 }
@@ -757,9 +810,13 @@ bool MicroScheduler::ExternalSchedulers::hasVictims() const
 //------------------------------------------------------------------------------
 void MicroScheduler::ExternalSchedulers::wakeThieves(Worker* pThisWorker, uint32_t count, bool reset)
 {
-    for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
+    if (m_mutex.try_lock_shared())
     {
-        m_thieves[ii]->_wakeWorkers(pThisWorker, count, reset, false);
+        for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
+        {
+            m_thieves[ii]->_wakeWorkers(pThisWorker, count, reset, false);
+        }
+        m_mutex.unlock_shared();
     }
 }
 
@@ -773,9 +830,12 @@ void MicroScheduler::ExternalSchedulers::addThief(MicroScheduler* pScheduler)
 }
 
 //------------------------------------------------------------------------------
-void MicroScheduler::ExternalSchedulers::removeThief(MicroScheduler* pScheduler)
+void MicroScheduler::ExternalSchedulers::removeThief(MicroScheduler* pScheduler, bool useLock)
 {
-    Lock<MutexType> lock(m_mutex);
+    if (useLock)
+    {
+        m_mutex.lock();
+    }
 
     int32_t slotIdx = _locateThief(pScheduler);
     GTS_ASSERT(slotIdx != -1);
@@ -791,12 +851,20 @@ void MicroScheduler::ExternalSchedulers::removeThief(MicroScheduler* pScheduler)
     {
         m_thieves.pop_back();
     }
+
+    if (useLock)
+    {
+        m_mutex.unlock();
+    }
 }
 
 //------------------------------------------------------------------------------
-void MicroScheduler::ExternalSchedulers::removeVictim(MicroScheduler* pScheduler)
+void MicroScheduler::ExternalSchedulers::removeVictim(MicroScheduler* pScheduler, bool useLock)
 {
-    Lock<MutexType> lock(m_mutex);
+    if (useLock)
+    {
+        m_mutex.lock();
+    }
 
     int32_t slotIdx = _locateVictim(pScheduler);
     GTS_ASSERT(slotIdx != -1);
@@ -819,11 +887,37 @@ void MicroScheduler::ExternalSchedulers::removeVictim(MicroScheduler* pScheduler
     {
         m_victims.pop_back();
     }
+
+    if (useLock)
+    {
+        m_mutex.unlock();
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::_unregisterAllVictims(MicroScheduler* pThief)
+{// Must be called under locked mutex
+    while (!m_victims.empty())
+    {
+        unregisterVictim(m_victims[0], pThief, false);
+    }
+}
+
+//------------------------------------------------------------------------------
+void MicroScheduler::ExternalSchedulers::_unregisterAllThieves(MicroScheduler* pVictim)
+{// Must be called under locked mutex
+    while (!m_thieves.empty())
+    {
+        // Let the victim know that there is no longer a thief referencing it.
+        m_thieves[0]->m_pExternalSchedulers->removeVictim(pVictim);
+
+        removeThief(m_thieves[0], false);
+    }
 }
 
 //------------------------------------------------------------------------------
 int32_t MicroScheduler::ExternalSchedulers::_locateVictim(MicroScheduler* pScheduler)
-{
+{// Must be called under locked mutex
     for (uint32_t ii = 0; ii < m_victims.size(); ++ii)
     {
         if (m_victims[ii] == pScheduler)
@@ -836,7 +930,7 @@ int32_t MicroScheduler::ExternalSchedulers::_locateVictim(MicroScheduler* pSched
 
 //------------------------------------------------------------------------------
 int32_t MicroScheduler::ExternalSchedulers::_locateThief(MicroScheduler* pScheduler)
-{
+{// Must be called under locked mutex
     for (uint32_t ii = 0; ii < m_thieves.size(); ++ii)
     {
         if (m_thieves[ii] == pScheduler)
@@ -857,7 +951,7 @@ void MicroScheduler::Callbacks::registerCallback(uintptr_t func, void* pData)
     Lock<rw_lock_type> lock(m_mutex);
 
     GTS_ASSERT(_locateCallback(func, pData) == -1 && "Callback is already registered.");
-    m_callbacks.push_back({ func, pData });
+    m_callbacks.push_back(Callback{ func, pData });
 }
 
 //------------------------------------------------------------------------------
@@ -868,17 +962,9 @@ void MicroScheduler::Callbacks::unregisterCallback(uintptr_t func, void* pData)
     int32_t slotIdx = _locateCallback(func, pData);
     GTS_ASSERT(slotIdx != -1);
 
-    if (slotIdx != (int32_t)m_callbacks.size() - 1)
-    {
-        // swap out
-        Callback back = m_callbacks.back();
-        m_callbacks.pop_back();
-        m_callbacks[slotIdx] = back;
-    }
-    else
-    {
-        m_callbacks.pop_back();
-    }
+    // swap out
+    std::swap(m_callbacks[slotIdx], m_callbacks.back());
+    m_callbacks.pop_back();
 }
 
 //------------------------------------------------------------------------------

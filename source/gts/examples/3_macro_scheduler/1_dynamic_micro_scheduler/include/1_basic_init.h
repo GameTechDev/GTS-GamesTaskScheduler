@@ -28,8 +28,8 @@
 
 #include "gts/macro_scheduler/Node.h"
 #include "gts/macro_scheduler/compute_resources/MicroScheduler_Workload.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_ComputeResource.h"
-#include "gts/macro_scheduler/schedulers/dynamic/micro_scheduler/DynamicMicroScheduler_MacroScheduler.h"
+#include "gts/macro_scheduler/compute_resources/MicroScheduler_ComputeResource.h"
+#include "gts/macro_scheduler/schedulers/homogeneous/central_queue/CentralQueue_MacroScheduler.h"
 
 using namespace gts;
 
@@ -52,13 +52,13 @@ void initDynamicMicroScheduler()
 
     //
     // First, we create the MicroSchedulders and map them to
-    // DynamicMicroScheduler_ComputeResources that can be consumed by
-    // a DynamicMicroScheduler_MacroScheduler.
+    // MicroScheduler_ComputeResources that can be consumed by
+    // a CentralQueue_MacroScheduler.
 
     constexpr uint32_t PRIORITY_COUNT = 2;
     WorkerPool workerPool[PRIORITY_COUNT];
     MicroScheduler microScheduler[PRIORITY_COUNT];
-    DynamicMicroScheduler_ComputeResource microSchedulerCompResource[PRIORITY_COUNT];
+    MicroScheduler_ComputeResource microSchedulerCompResource[PRIORITY_COUNT];
 
     for (uint32_t iPriority = 0; iPriority < PRIORITY_COUNT; ++iPriority)
     {
@@ -71,15 +71,15 @@ void initDynamicMicroScheduler()
             workerPoolDesc.workerDescs.push_back(workerDesc);
         }
 
-        workerPool[iPriority].initialize(1/*workerPoolDesc*/);
+        workerPool[iPriority].initialize(workerPoolDesc);
         microScheduler[iPriority].initialize(&workerPool[iPriority]);
 
         microSchedulerCompResource[iPriority].init(microScheduler + iPriority);
     }
 
     //
-    // Second, we create a DynamicMicroScheduler_MacroScheduler and map the
-    // DynamicMicroScheduler_ComputeResources to it.
+    // Second, we create a MicroScheduler_ComputeResources and map the
+    // MicroScheduler_ComputeResources to it.
 
     MacroSchedulerDesc generalizedDagSchedulerDesc;
     for (uint32_t iPriority = 0; iPriority < PRIORITY_COUNT; ++iPriority)
@@ -87,7 +87,7 @@ void initDynamicMicroScheduler()
         generalizedDagSchedulerDesc.computeResources.push_back(microSchedulerCompResource + iPriority);
     }
 
-    MacroScheduler* pMacroScheduler = new DynamicMicroScheduler_MacroScheduler;
+    MacroScheduler* pMacroScheduler = new CentralQueue_MacroScheduler;
     pMacroScheduler->init(generalizedDagSchedulerDesc);
 
     //
@@ -135,6 +135,8 @@ void initDynamicMicroScheduler()
     Schedule* pSchedule = pMacroScheduler->buildSchedule(pA, pD);
     pMacroScheduler->executeSchedule(pSchedule, microSchedulerCompResource[1].id());
 
+    pMacroScheduler->freeSchedule(pSchedule);
+    delete pMacroScheduler;
 
     printf("SUCCESS!\n\n");
 }

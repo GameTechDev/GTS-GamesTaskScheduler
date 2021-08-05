@@ -53,7 +53,7 @@ public:
      * parallel-for operations will be scheduled with the specified 'priority'.
      */
     GTS_INLINE ParallelFor(MicroScheduler& scheduler, uint32_t priority = 0)
-        : m_taskScheduler(scheduler)
+        : m_microScheduler(scheduler)
         , m_priority(priority)
     {}
 
@@ -87,21 +87,21 @@ public:
         void* pUserData, 
         bool block = true)
     {
-        GTS_ASSERT(m_taskScheduler.isRunning());
+        GTS_ASSERT(m_microScheduler.isRunning());
 
-        uint32_t workerCount = m_taskScheduler.workerCount();
+        uint32_t workerCount = m_microScheduler.workerCount();
         partitioner.template initialize<TRange>((uint16_t)workerCount);
 
-        Task* pTask = m_taskScheduler.allocateTask<ParallelForTask<TFunc, TRange, TPartitioner>>(
+        Task* pTask = m_microScheduler.allocateTask<ParallelForTask<TFunc, TRange, TPartitioner>>(
             func, pUserData, range, partitioner, m_priority);
 
         if (block)
         {
-            m_taskScheduler.spawnTaskAndWait(pTask, m_priority);
+            m_microScheduler.spawnTaskAndWait(pTask, m_priority);
         }
         else
         {
-            m_taskScheduler.spawnTask(pTask, m_priority);
+            m_microScheduler.spawnTask(pTask, m_priority);
         }
     }
 
@@ -137,30 +137,10 @@ public:
 
 private:
 
-    MicroScheduler& m_taskScheduler;
+    MicroScheduler& m_microScheduler;
     uint32_t m_priority;
 
 private:
-
-    ////////////////////////////////////////////////////////////////////////////
-    ////////////////////////////////////////////////////////////////////////////
-    class TheftObserverTask : public Task
-    {
-    public:
-
-        //----------------------------------------------------------------------
-        GTS_INLINE TheftObserverTask()
-            : m_childTaskStolen(false)
-        {}
-
-        //----------------------------------------------------------------------
-        GTS_INLINE virtual Task* execute(TaskContext const&) final
-        {
-            return nullptr;
-        }
-
-        gts::Atomic<bool> m_childTaskStolen;
-    };
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
@@ -197,8 +177,6 @@ private:
     class ParallelForTask : public Task
     {
     public:
-
-        using observer_task_type = TheftObserverTask;
 
         //----------------------------------------------------------------------
         ParallelForTask(
@@ -253,7 +231,7 @@ private:
             range.split(splits, splitter);
 
             // Allocate the continuation.
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>();
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<EmptyTask>();
             pContinuation->addRef(splits.size + 1, gts::memory_order::relaxed);
             setContinuationTask(pContinuation);
 
@@ -279,7 +257,7 @@ private:
             GTS_ASSERT(!range.empty() && "Bug in partitioner!");
 
             // Allocate the continuation.
-            Task* pContinuation = ctx.pMicroScheduler->allocateTask<observer_task_type>();
+            Task* pContinuation = ctx.pMicroScheduler->allocateTask<EmptyTask>();
             pContinuation->addRef(2, gts::memory_order::relaxed);
             setContinuationTask(pContinuation);
 
@@ -307,14 +285,14 @@ private:
         {
             GTS_TRACE_SCOPED_ZONE_P0(analysis::CaptureMask::MICRO_SCHEDULER_ALL, analysis::Color::RoyalBlue1, isStolen() ? "S" : "P");
 
-            m_partitioner.template adjustIfStolen<observer_task_type, TRange>(this);
+            m_partitioner.template adjustIfStolen<TRange>(this);
             return m_partitioner.execute(ctx, this, m_range);
         }
 
         //----------------------------------------------------------------------
         void balanceAndExecute(TaskContext const& ctx, TPartitioner& partitioner, TRange& range, typename TPartitioner::splitter_type const& splitter)
         {
-            partitioner.template balanceAndExecute<observer_task_type>(ctx, this, range, splitter);
+            partitioner.balanceAndExecute<>(ctx, this, range, splitter);
         }
 
     private:

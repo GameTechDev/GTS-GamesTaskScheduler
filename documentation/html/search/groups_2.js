@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['dynamicmicroscheduler_1117',['DynamicMicroScheduler',['../group___dynamic_micro_scheduler.html',1,'']]]
+  ['gtsmalloc_1089',['GtsMalloc',['../group___gts_malloc.html',1,'']]]
 ];

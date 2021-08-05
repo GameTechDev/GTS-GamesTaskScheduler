@@ -295,10 +295,7 @@ unsigned char * gts_win_mbsdup(unsigned char const* pStr)
     }
     size_t len = strLen(pStr);
     unsigned char * pCopy = (unsigned char *)gts_malloc(sizeof(unsigned char) * len);
-    if(pCopy)
-    {
-        memcpy(pCopy, pStr, len);
-    }
+    memcpy(pCopy, pStr, len);
     return pCopy;
 }
 

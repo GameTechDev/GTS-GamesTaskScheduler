@@ -1,32 +1,52 @@
 var hierarchy =
 [
-    [ "gts::AdaptivePartitioner", "classgts_1_1_adaptive_partitioner.html", null ],
+    [ "AdaptivePartitioner", "class_adaptive_partitioner.html", null ],
     [ "gts::AlignedAllocator< ALIGNMENT >", "classgts_1_1_aligned_allocator.html", null ],
     [ "gts::AlignedAllocator< GTS_NO_SHARING_CACHE_LINE_SIZE >", "classgts_1_1_aligned_allocator.html", [
-      [ "gts::internal::ParallelSubVector< T, TSharedMutex, TAllocator >", "classgts_1_1internal_1_1_parallel_sub_vector.html", null ],
-      [ "gts::internal::TicketQueueMPMC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html", null ],
-      [ "gts::internal::TicketQueueMPSC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_m_p_s_c.html", null ],
-      [ "gts::internal::TicketQueueSPMC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_s_p_m_c.html", null ],
+      [ "gts::ParallelHashTable< gts::Schedule *, gts::MicroScheduler_ComputeResource::CheckForTasksData >", "classgts_1_1_parallel_hash_table.html", null ],
+      [ "gts::QueueMPMC< gts::Node * >", "classgts_1_1_queue_m_p_m_c.html", null ],
+      [ "gts::QueueMPSC< gts::Node * >", "classgts_1_1_queue_m_p_s_c.html", null ],
+      [ "gts::Vector< gts::MicroScheduler * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< table_type * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< gts::ComputeResource * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< slot_type * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< gts::WorkerThreadDesc >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< gts::Node * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< ThreadInfo * >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< ReadyQueue >", "classgts_1_1_vector.html", null ],
+      [ "gts::Vector< AffinityQueue >", "classgts_1_1_vector.html", null ],
       [ "gts::ParallelHashTable< TKey, TValue, THasher, TAccessorSharedMutex, TGrowSharedMutex, TAllocator >", "classgts_1_1_parallel_hash_table.html", null ],
       [ "gts::ParallelVector< T, TSharedMutex, TAllocator >", "classgts_1_1_parallel_vector.html", null ],
       [ "gts::QueueMPMC< T, TMutex, TAllocator >", "classgts_1_1_queue_m_p_m_c.html", null ],
       [ "gts::QueueMPSC< T, TMutex, TAllocator >", "classgts_1_1_queue_m_p_s_c.html", null ],
       [ "gts::QueueSPMC< T, TMutex, TAllocator >", "classgts_1_1_queue_s_p_m_c.html", null ],
       [ "gts::QueueSPSC< T, TAllocator >", "classgts_1_1_queue_s_p_s_c.html", null ],
+      [ "gts::RingDeque< T, TAllocator >", "classgts_1_1_ring_deque.html", null ],
       [ "gts::Vector< T, TAllocator >", "classgts_1_1_vector.html", null ],
-      [ "gts::ParallelHashTable< gts::Schedule *, CheckForTasksData >", "classgts_1_1_parallel_hash_table.html", null ],
-      [ "gts::QueueMPMC< gts::Node * >", "classgts_1_1_queue_m_p_m_c.html", null ],
-      [ "gts::QueueMPSC< gts::Node * >", "classgts_1_1_queue_m_p_s_c.html", null ],
-      [ "gts::Vector< gts::ComputeResource * >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< gts::MicroScheduler * >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< gts::Node * >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< gts::WorkerThreadDesc >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< slot_type * >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< table_type * >", "classgts_1_1_vector.html", null ],
-      [ "gts::Vector< ThreadInfo * >", "classgts_1_1_vector.html", null ]
+      [ "gts::internal::ParallelSubVector< T, TSharedMutex, TAllocator >", "classgts_1_1internal_1_1_parallel_sub_vector.html", null ],
+      [ "gts::internal::TicketQueueMPMC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_m_p_m_c.html", null ],
+      [ "gts::internal::TicketQueueMPSC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_m_p_s_c.html", null ],
+      [ "gts::internal::TicketQueueSPMC< T, TMutex, TAllocator >", "classgts_1_1internal_1_1_ticket_queue_s_p_m_c.html", null ]
     ] ],
     [ "gts::AtomicCommon< T >", "structgts_1_1_atomic_common.html", [
+      [ "gts::AtomicPointer< T * >", "structgts_1_1_atomic_pointer.html", [
+        [ "gts::Atomic< T * >", "classgts_1_1_atomic_3_01_t_01_5_01_4.html", null ]
+      ] ],
       [ "gts::AtomicArithmetic< T >", "structgts_1_1_atomic_arithmetic.html", [
+        [ "gts::Atomic< table_type * >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< gts::Schedule * >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< uint32_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< int16_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< RingBuffer * >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< SubIdType >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< int32_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< uint8_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< size_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< size_type >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< uint16_t >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< OldBuffers * >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< gts::FreeListNode * >", "classgts_1_1_atomic.html", null ],
+        [ "gts::Atomic< uint64_t >", "classgts_1_1_atomic.html", null ],
         [ "gts::Atomic< T >", "classgts_1_1_atomic.html", null ]
       ] ],
       [ "gts::AtomicPointer< T >", "structgts_1_1_atomic_pointer.html", null ]
@@ -34,90 +54,14 @@ var hierarchy =
     [ "gts::AtomicCommon< bool >", "structgts_1_1_atomic_common.html", [
       [ "gts::Atomic< bool >", "classgts_1_1_atomic_3_01bool_01_4.html", null ]
     ] ],
-    [ "gts::AtomicCommon< gts::FreeListNode * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< gts::FreeListNode * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< gts::FreeListNode * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< gts::Node * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< gts::Node * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< gts::Node * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< gts::Schedule * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< gts::Schedule * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< gts::Schedule * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< int16_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< int16_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< int16_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< int32_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< int32_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< int32_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< OldBuffers * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< OldBuffers * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< OldBuffers * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< RingBuffer * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< RingBuffer * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< RingBuffer * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< size_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< size_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< size_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< size_type >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< size_type >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< size_type >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< T * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicPointer< T * >", "structgts_1_1_atomic_pointer.html", [
-        [ "gts::Atomic< T * >", "classgts_1_1_atomic_3_01_t_01_5_01_4.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< table_type * >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< table_type * >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< table_type * >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< uint16_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< uint16_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< uint16_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< uint32_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< uint32_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< uint32_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< uint64_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< uint64_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< uint64_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
-    [ "gts::AtomicCommon< uint8_t >", "structgts_1_1_atomic_common.html", [
-      [ "gts::AtomicArithmetic< uint8_t >", "structgts_1_1_atomic_arithmetic.html", [
-        [ "gts::Atomic< uint8_t >", "classgts_1_1_atomic.html", null ]
-      ] ]
-    ] ],
     [ "gts::Backoff< GROWTH_RATE, YIELD >", "classgts_1_1_backoff.html", null ],
     [ "gts_examples::BadParallelFor", "classgts__examples_1_1_bad_parallel_for.html", null ],
     [ "gts::BinarySemaphore", "classgts_1_1_binary_semaphore.html", null ],
     [ "gts::BinnedAllocator", "classgts_1_1_binned_allocator.html", null ],
     [ "gts::internal::BlockAllocator", "classgts_1_1internal_1_1_block_allocator.html", null ],
+    [ "gts::MicroScheduler_ComputeResource::CheckForTasksData", "structgts_1_1_micro_scheduler___compute_resource_1_1_check_for_tasks_data.html", null ],
     [ "gts::ComputeResource", "classgts_1_1_compute_resource.html", [
-      [ "gts::MicroScheduler_ComputeResource", "classgts_1_1_micro_scheduler___compute_resource.html", [
-        [ "gts::DynamicMicroScheduler_ComputeResource", "classgts_1_1_dynamic_micro_scheduler___compute_resource.html", null ]
-      ] ]
+      [ "gts::MicroScheduler_ComputeResource", "classgts_1_1_micro_scheduler___compute_resource.html", null ]
     ] ],
     [ "gts::ComputeResourceType", "structgts_1_1_compute_resource_type.html", null ],
     [ "gts::analysis::ConcurrentLogger", "classgts_1_1analysis_1_1_concurrent_logger.html", null ],
@@ -129,7 +73,6 @@ var hierarchy =
     [ "gts::DagUtils", "structgts_1_1_dag_utils.html", null ],
     [ "gts::DependencyArray< TValRange, TDepRange, DIMENSIONALITY >", "classgts_1_1_dependency_array.html", null ],
     [ "gts::DependencyArray< TValRange, TDepRange, 2 >", "classgts_1_1_dependency_array_3_01_t_val_range_00_01_t_dep_range_00_012_01_4.html", null ],
-    [ "gts::internal::DList", "classgts_1_1internal_1_1_d_list.html", null ],
     [ "gts::EvenSplitter", "structgts_1_1_even_splitter.html", null ],
     [ "gts::FairSpinMutex< TBackoff >", "classgts_1_1_fair_spin_mutex.html", null ],
     [ "gts::FreeListNode", "structgts_1_1_free_list_node.html", null ],
@@ -140,6 +83,8 @@ var hierarchy =
       [ "gts::WriteGuard< T, TAccessorSharedMutex, TGrowSharedMutex >", "classgts_1_1_write_guard.html", null ]
     ] ],
     [ "gts::internal::ParallelSubVector< T, TSharedMutex, TAllocator >::index_buffer_type", "structgts_1_1internal_1_1_parallel_sub_vector_1_1index__buffer__type.html", null ],
+    [ "gts::InstructionSet", "classgts_1_1_instruction_set.html", null ],
+    [ "gts::IntrusiveDList", "classgts_1_1_intrusive_d_list.html", null ],
     [ "gts::IsPow2< T, val >", "structgts_1_1_is_pow2.html", null ],
     [ "gts::ParallelHashTable< TKey, TValue, THasher, TAccessorSharedMutex, TGrowSharedMutex, TAllocator >::iterator", "classgts_1_1_parallel_hash_table_1_1iterator.html", null ],
     [ "gts::ParallelVector< T, TSharedMutex, TAllocator >::iterator", "classgts_1_1_parallel_vector_1_1iterator.html", null ],
@@ -154,8 +99,8 @@ var hierarchy =
     [ "gts::Lock< TMutex >", "structgts_1_1_lock.html", null ],
     [ "gts::LockShared< TMutex >", "structgts_1_1_lock_shared.html", null ],
     [ "gts::MacroScheduler", "classgts_1_1_macro_scheduler.html", [
-      [ "gts::CriticallyAware_MacroScheduler", "classgts_1_1_critically_aware___macro_scheduler.html", null ],
-      [ "gts::DynamicMicroScheduler_MacroScheduler", "classgts_1_1_dynamic_micro_scheduler___macro_scheduler.html", null ]
+      [ "gts::CentralQueue_MacroScheduler", "classgts_1_1_central_queue___macro_scheduler.html", null ],
+      [ "gts::CriticalNode_MacroScheduler", "classgts_1_1_critical_node___macro_scheduler.html", null ]
     ] ],
     [ "gts::MacroSchedulerDesc", "structgts_1_1_macro_scheduler_desc.html", null ],
     [ "gts::MemoryStore", "structgts_1_1_memory_store.html", null ],
@@ -168,17 +113,16 @@ var hierarchy =
     [ "gts::MurmurHash< float >", "structgts_1_1_murmur_hash_3_01float_01_4.html", null ],
     [ "gts::MurmurHash< gts::Schedule * >", "structgts_1_1_murmur_hash.html", null ],
     [ "gts::MurmurHash< TKey * >", "structgts_1_1_murmur_hash_3_01_t_key_01_5_01_4.html", null ],
+    [ "gts::IntrusiveDList::Node", "structgts_1_1_intrusive_d_list_1_1_node.html", null ],
     [ "gts::Node", "classgts_1_1_node.html", null ],
-    [ "gts::internal::DList::Node", "structgts_1_1internal_1_1_d_list_1_1_node.html", null ],
-    [ "gts::NullMutex", "classgts_1_1_null_mutex.html", null ],
-    [ "gts::NullSharedMutex", "classgts_1_1_null_shared_mutex.html", null ],
     [ "gts::NumaNodeInfo", "structgts_1_1_numa_node_info.html", null ],
     [ "gts::numericLimits< T >", "structgts_1_1numeric_limits.html", null ],
+    [ "gts::numericLimits< int32_t >", "structgts_1_1numeric_limits_3_01int32__t_01_4.html", null ],
+    [ "gts::numericLimits< int64_t >", "structgts_1_1numeric_limits_3_01int64__t_01_4.html", null ],
     [ "gts::numericLimits< uint32_t >", "structgts_1_1numeric_limits_3_01uint32__t_01_4.html", null ],
     [ "gts::numericLimits< uint64_t >", "structgts_1_1numeric_limits_3_01uint64__t_01_4.html", null ],
     [ "gts::OctRange< TIterType >", "classgts_1_1_oct_range.html", null ],
-    [ "gts::OsHeapAllocator< ALIGNMENT >", "classgts_1_1_os_heap_allocator.html", null ],
-    [ "gts::OsHeapAllocator< GTS_NO_SHARING_CACHE_LINE_SIZE >", "classgts_1_1_os_heap_allocator.html", [
+    [ "gts::OsHeapAllocator< ALIGNMENT >", "classgts_1_1_os_heap_allocator.html", [
       [ "gts::QueueMPMC< SlabHeader *, UnfairSpinMutex<>, OsHeapAllocator< GTS_NO_SHARING_CACHE_LINE_SIZE > >", "classgts_1_1_queue_m_p_m_c.html", null ],
       [ "gts::Vector< internal::BlockAllocator, OsHeapAllocator< GTS_NO_SHARING_CACHE_LINE_SIZE > >", "classgts_1_1_vector.html", null ]
     ] ],
@@ -189,13 +133,12 @@ var hierarchy =
     [ "gts::ParallelVector< T, TSharedMutex, TAllocator >::pop_back_result", "structgts_1_1_parallel_vector_1_1pop__back__result.html", null ],
     [ "gts::ProcessorGroupInfo", "structgts_1_1_processor_group_info.html", null ],
     [ "gts::ProportionalSplitter", "structgts_1_1_proportional_splitter.html", null ],
-    [ "gts::ProtectedSchedule", "classgts_1_1_protected_schedule.html", null ],
     [ "gts::QuadRange< TIterType >", "classgts_1_1_quad_range.html", null ],
     [ "gts::Range1d< Iter >", "classgts_1_1_range1d.html", null ],
     [ "gts::Range1d< iter_type >", "classgts_1_1_range1d.html", null ],
     [ "gts::Schedule", "classgts_1_1_schedule.html", [
-      [ "gts::CriticallyAware_Schedule", "classgts_1_1_critically_aware___schedule.html", null ],
-      [ "gts::DynamicMicroScheduler_Schedule", "classgts_1_1_dynamic_micro_scheduler___schedule.html", null ]
+      [ "gts::CentralQueue_Schedule", "classgts_1_1_central_queue___schedule.html", null ],
+      [ "gts::CriticalNode_Schedule", "classgts_1_1_critical_node___schedule.html", null ]
     ] ],
     [ "gts::SimplePartitioner", "classgts_1_1_simple_partitioner.html", null ],
     [ "gts::internal::ParallelSubVector< T, TSharedMutex, TAllocator >::slot_type", "structgts_1_1internal_1_1_parallel_sub_vector_1_1slot__type.html", null ],
@@ -231,7 +174,6 @@ var hierarchy =
     [ "gts::UnfairSpinMutex< TBackoff >", "classgts_1_1_unfair_spin_mutex.html", null ],
     [ "gts::UnfairSpinMutex< Backoff< BackoffGrowth::Geometric, true > >", "classgts_1_1_unfair_spin_mutex.html", null ],
     [ "gts::UnfairSpinMutex< backoff_type >", "classgts_1_1_unfair_spin_mutex.html", null ],
-    [ "gts::UnfairSpinMutex<>", "classgts_1_1_unfair_spin_mutex.html", null ],
     [ "gts::WorkerPool", "classgts_1_1_worker_pool.html", null ],
     [ "gts::analysis::WorkerPoolCounters", "structgts_1_1analysis_1_1_worker_pool_counters.html", null ],
     [ "gts::WorkerPoolDesc", "structgts_1_1_worker_pool_desc.html", null ],

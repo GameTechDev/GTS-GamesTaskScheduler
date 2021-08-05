@@ -291,6 +291,11 @@ public:
     {
         GTS_TRACE_SCOPED_ZONE_P1(analysis::CaptureMask::THREAD_PROFILE, analysis::Color::DarkRed, "TRY LOCK SHARED", this);
 
+        if (m_writerMutex.isLocked())
+        {
+            return false;
+        }
+
         // Mark our intent to read.
         m_readersBarrier.fetch_add(1, memory_order::acquire);
 

@@ -606,7 +606,7 @@ int main(int argc, char *argv[])
     GTS_UNREFERENCED_PARAM(argv);
 
     //spawnTaskOverhead(output);
-    //schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000000, 1000000);
+    schedulerOverheadParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 1000000);
     //mandelbrot(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 2048, 50);
     //poorSystemDistribution(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 0, 100);
 
@@ -616,7 +616,7 @@ int main(int argc, char *argv[])
 
     //mpmcQueue(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 100000, 100);
 
-    sparseWork(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
+    //sparseWork(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);
 
     //irregularRandParFor(output, 16, 16, 10000, 500);
     //irregularUpfrontParFor(output, gts::Thread::getHardwareThreadCount(), gts::Thread::getHardwareThreadCount(), 10000, 100);

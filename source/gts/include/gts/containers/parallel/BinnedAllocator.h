@@ -29,7 +29,7 @@
 #include "gts/synchronization/SpinMutex.h"
 #include "gts/containers/OsHeapAllocator.h"
 #include "gts/containers/parallel/QueueMPMC.h"
-#include "gts/containers/parallel/ParallelHashTable.h"
+#include "gts/containers/IntrusiveDList.h"
 
 #ifdef GTS_MSVC
 #pragma warning( push )
@@ -62,48 +62,6 @@ constexpr uint32_t GTS_MALLOC_ALIGNEMNT = 16;
 namespace internal {
 
 class BlockAllocator;
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/**
- * @brief
- *  An doubly-linked list that cannot contain duplicates
- */
-class DList
-{
-public:
-
-    //! An intrusive Node.
-    struct Node
-    {
-        //! The previous node in the list.
-        Node* pPrev = nullptr;
-
-        //! The next node in the list.
-        Node* pNext = nullptr;
-    };
-
-    Node* popFront();
-
-    void pushFront(Node* pNode);
-
-    void pushBack(Node* pNode);
-
-    void remove(Node* pNode);
-
-    void clear();
-
-    size_t size() const;
-
-    bool empty() const;
-
-    bool containes(Node* pNode) const;
-
-private:
-
-    Node* m_pHead = nullptr;
-    Node* m_pTail = nullptr;
-};
 
 } // namespace internal
 
@@ -142,7 +100,7 @@ enum class MemoryState : uint8_t
  *  The header for each Slab.
  */
 struct GTS_ALIGN(GTS_MALLOC_ALIGNEMNT) SlabHeader
-    : public internal::DList::Node
+    : public IntrusiveDList::Node
 {
     //! The free list used by the thread that owns this Slab.
     FreeListNode* pLocalPageFreeList = nullptr;
@@ -698,7 +656,7 @@ private:
     MemoryStore* m_pMemoryStore = nullptr;
 
     //! A list of non empty slabs.
-    internal::DList m_slabLists[MemoryStore::PAGE_FREE_LISTS_COUNT];
+    IntrusiveDList m_slabLists[MemoryStore::PAGE_FREE_LISTS_COUNT];
 
     //! The current slab pages are being alloted from.
     SlabHeader* m_activeSlabs[MemoryStore::PAGE_FREE_LISTS_COUNT] = { 0 };
